@@ -12,11 +12,10 @@ local prosody = prosody;
 local helpers = require "util/helpers";
 local st = require "util.stanza";
 local datamanager = require "util.datamanager";
-local privacy_lists = nil
 local bare_sessions = bare_sessions;
 
 
-function findNamedList (name)
+function findNamedList (privacy_lists, name)
 	local ret = nil
 	if privacy_lists.lists == nil then return nil; end
 
@@ -29,17 +28,17 @@ function findNamedList (name)
 	return ret;
 end
 
-function declineList (origin, stanza, which)
+function declineList (privacy_lists, origin, stanza, which)
 	module:log("info", "User requests to decline the use of privacy list: %s", which);
 	privacy_lists[which] = nil;
 	origin.send(st.reply(stanza));
 	return true;
 end
 
-function activateList (origin, stanza, which, name)
+function activateList (privacy_lists, origin, stanza, which, name)
 	module:log("info", "User requests to change the privacy list: %s, to be list named %s", which, name);
 	local ret = false;
-	local idx = findNamedList(name);
+	local idx = findNamedList(privacy_lists, name);
 
 	if privacy_lists[which] == nil then
 		privacy_lists[which] = "";
@@ -53,10 +52,10 @@ function activateList (origin, stanza, which, name)
 	return ret;
 end
 
-function deleteList (origin, stanza, name)
+function deleteList (privacy_lists, origin, stanza, name)
 	module:log("info", "User requests to delete privacy list: %s", name);
 	local ret = false;
-	local idx = findNamedList(name);
+	local idx = findNamedList(privacy_lists, name);
 
 	if idx ~= nil then
 		table.remove(privacy_lists.lists, idx);
@@ -66,10 +65,17 @@ function deleteList (origin, stanza, name)
 	return ret;
 end
 
-function createOrReplaceList (origin, stanza, name, entries)
+local function sortByOrder(a, b)
+	if a.order < b.order then
+		return true;
+	end
+	return false;
+end
+
+function createOrReplaceList (privacy_lists, origin, stanza, name, entries)
 	module:log("info", "User requests to create / replace list named %s, item count: %d", name, #entries);
 	local ret = true;
-	local idx = findNamedList(name);
+	local idx = findNamedList(privacy_lists, name);
 	local bare_jid = origin.username.."@"..origin.host;
 	
 	if privacy_lists.lists == nil then
@@ -102,6 +108,8 @@ function createOrReplaceList (origin, stanza, name, entries)
 		end
 		list.items[#list.items + 1] = tmp;
 	end
+	
+	table.sort(list, sortByOrder);
 
 	privacy_lists.lists[idx] = list;
 	origin.send(st.reply(stanza));
@@ -118,35 +126,42 @@ function createOrReplaceList (origin, stanza, name, entries)
 	return true;
 end
 
-function getList(origin, stanza, name)
+function getList(privacy_lists, origin, stanza, name)
 	module:log("info", "User requests list named: %s", name or "nil");
-	local ret = true;
-	local idx = findNamedList(name);
+	local ret = false;
 	local reply = st.reply(stanza);
-	reply = reply:tag("query", {xmlns="jabber:iq:privacy"});
+	reply:tag("query", {xmlns="jabber:iq:privacy"});
 
-	if idx == nil then
+	if name == nil then
 		reply:tag("active", {name=privacy_lists.active or ""}):up();
 		reply:tag("default", {name=privacy_lists.default or ""}):up();
 		if privacy_lists.lists then
 			for _,list in ipairs(privacy_lists.lists) do
 				reply:tag("list", {name=list.name}):up();
-			end		
+			end
+			ret = true;	
 		end
 	else
-		list = privacy_lists.lists[idx];
-		reply = reply:tag("list", {name=list.name});
-		for _,item in ipairs(list.items) do
-			reply:tag("item", {type=item.type, value=item.value, action=item.action, order=item.order});
-			if item["message"] then reply:tag("message"):up(); end
-			if item["iq"] then reply:tag("iq"):up(); end
-			if item["presence-in"] then reply:tag("presence-in"):up(); end
-			if item["presence-out"] then reply:tag("presence-out"):up(); end
-			reply:up();
+		local idx = findNamedList(privacy_lists, name);
+		log("debug", "list idx: %d", idx or -1);
+		if idx ~= nil then
+			list = privacy_lists.lists[idx];
+			reply = reply:tag("list", {name=list.name});
+			for _,item in ipairs(list.items) do
+				reply:tag("item", {type=item.type, value=item.value, action=item.action, order=item.order});
+				if item["message"] then reply:tag("message"):up(); end
+				if item["iq"] then reply:tag("iq"):up(); end
+				if item["presence-in"] then reply:tag("presence-in"):up(); end
+				if item["presence-out"] then reply:tag("presence-out"):up(); end
+				reply:up();
+			end
+			ret = true;
 		end
 	end
-	
-	origin.send(reply);
+
+	if ret then
+		origin.send(reply);
+	end
 	return ret;
 end
 
@@ -155,43 +170,52 @@ module:hook("iq/bare/jabber:iq:privacy:query", function(data)
 	local origin, stanza = data.origin, data.stanza;
 	
 	if stanza.attr.to == nil then -- only service requests to own bare JID
+		local err_reply = nil;
 		local query = stanza.tags[1]; -- the query element
 		local valid = false;
-		privacy_lists = datamanager.load(origin.username, origin.host, "privacy") or {};
+		local privacy_lists = datamanager.load(origin.username, origin.host, "privacy") or {};
 
 		if stanza.attr.type == "set" then
 			if #query.tags >= 1 then
 				for _,tag in ipairs(query.tags) do
 					if tag.name == "active" or tag.name == "default" then
 						if tag.attr.name == nil then -- Client declines the use of active / default list
-							valid = declineList(origin, stanza, tag.name);
+							valid = declineList(privacy_lists, origin, stanza, tag.name);
 						else -- Client requests change of active / default list
-							valid = activateList(origin, stanza, tag.name, tag.attr.name);
+							valid = activateList(privacy_lists, origin, stanza, tag.name, tag.attr.name);
+							err_reply = st.error_reply(stanza, "cancel", "item-not-found");
 						end
 					elseif tag.name == "list" and tag.attr.name then -- Client adds / edits a privacy list
 						if #tag.tags == 0 then -- Client removes a privacy list
-							valid = deleteList(origin, stanza, tag.attr.name);
+							valid = deleteList(privacy_lists, origin, stanza, tag.attr.name);
 						else -- Client edits a privacy list
-							valid = createOrReplaceList(origin, stanza, tag.attr.name, tag.tags)
+							valid = createOrReplaceList(privacy_lists, origin, stanza, tag.attr.name, tag.tags)
 						end
 					end
 				end
 			end
 		elseif stanza.attr.type == "get" then
 			local name = nil;
+			local listsToRetrieve = 0;
 			if #query.tags >= 1 then
 				for _,tag in ipairs(query.tags) do
 					if tag.name == "list" then -- Client requests a privacy list from server
 						name = tag.attr.name;
-						break;
+						listsToRetrieve = listsToRetrieve + 1;
 					end
 				end
 			end
-			valid = getList(origin, stanza, name);
+			if listsToRetrieve == 0 or listsToRetrieve == 1 then
+				valid = getList(privacy_lists, origin, stanza, name);
+				err_reply = st.error_reply(stanza, "cancel", "item-not-found");
+			end
 		end
 
 		if valid == false then
-			origin.send(st.error_reply(stanza, "modify", "bad-request"));
+			if err_reply == nil then
+				err_reply = st.error_reply(stanza, "modify", "bad-request");
+			end
+			origin.send(err_reply);
 		else
 			datamanager.store(origin.username, origin.host, "privacy", privacy_lists);
 		end
@@ -201,6 +225,10 @@ module:hook("iq/bare/jabber:iq:privacy:query", function(data)
 end, 500);
 
 function checkIfNeedToBeBlocked(e)
+	local origin, stanza = e.origin, e.stanza;
+	local privacy_lists = datamanager.load(origin.username, origin.host, "privacy") or {};
+	if privacy_lists.lists ~= nil then
+	end
 	return false;
 end
 
