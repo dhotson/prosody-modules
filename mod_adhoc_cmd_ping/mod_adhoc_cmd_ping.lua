@@ -7,10 +7,18 @@
 local st = require "util.stanza";
 
 function ping_command_handler (item, origin, stanza)
-	local now = os.date("%Y-%m-%dT%X")
+	local now = os.date("%Y-%m-%dT%X");
 	origin.send(st.reply(stanza):tag("command", {xmlns="http://jabber.org/protocol/commands", status="completed", node=item.node, sessionid=now})
-		:tag("note", {type="info"}):text(item.name));
+		:tag("note", {type="info"}):text("Pong\n" .. now));
 	return true;
 end
 
-module:add_item ("adhoc", { name="Ping", node="ping", handler=ping_command_handler });
+local descriptor = { name="Ping", node="ping", handler=ping_command_handler };
+
+function module.unload()
+	module:log("debug", "Removing ping command");
+	module:remove_item("adhoc", descriptor);
+end
+
+module:add_item ("adhoc", descriptor);
+

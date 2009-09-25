@@ -39,3 +39,14 @@ end, 500);
 module:hook("item-added/adhoc", function (event)
 	commands[ # commands + 1] = event.item;
 end, 500);
+
+local _G = _G;
+local t_remove = _G.table.remove;
+module:hook("item-removed/adhoc", function (event)
+	module:log("debug", "Remove function called");
+	for i = 1, #commands do
+		if commands[i].node == event.item.node then
+			t_remove(commands, i);
+		end
+	end
+end, 500);
