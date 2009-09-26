@@ -2,8 +2,9 @@
 local st = require "util.stanza";
 local httpserver = require "net.httpserver";
 local uuid_new = require "util.uuid".generate;
-
 local os_time = os.time;
+
+local length_threshold = config.get("*", "core", "pastebin_threshold") or 500;
 
 local base_url;
 
@@ -46,7 +47,7 @@ function check_message(data)
 	
 	module:log("debug", "Body(%s) length: %d", type(body), #(body or ""));
 	
-	if body and #body > 500 then
+	if body and #body > length_threshold then
 		local url = pastebin_message(body);
 		module:log("debug", "Pasted message as %s", url);		
 		--module:log("debug", " stanza[bodyindex] = %q", tostring( stanza[bodyindex]));

@@ -96,7 +96,7 @@ function createOrReplaceList (privacy_lists, origin, stanza, name, entries)
 	list.items = {};
 
 	for _,item in ipairs(entries) do
-		tmp = {};
+		local tmp = {};
 		tmp["type"] = item.attr.type;
 		tmp["value"] = item.attr.value;
 		tmp["action"] = item.attr.action;
