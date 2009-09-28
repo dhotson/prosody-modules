@@ -15,6 +15,8 @@ local bare_sessions = bare_sessions;
 local util_Jid = require "util.jid";
 local jid_bare = util_Jid.bare;
 local jid_split = util_Jid.split;
+local load_roster = require "core.rostermanager".load_roster;
+local to_number = _G.tonumber;
 
 function findNamedList (privacy_lists, name)
 	local ret = nil
@@ -77,7 +79,7 @@ local function sortByOrder(a, b)
 	return false;
 end
 
-function createOrReplaceList (privacy_lists, origin, stanza, name, entries)
+function createOrReplaceList (privacy_lists, origin, stanza, name, entries, roster)
 	module:log("info", "User requests to create / replace list named %s, item count: %d", name, #entries);
 	local ret = true;
 	local idx = findNamedList(privacy_lists, name);
@@ -91,16 +93,22 @@ function createOrReplaceList (privacy_lists, origin, stanza, name, entries)
 		idx = #privacy_lists.lists + 1;
 	end
 
+	local orderCheck = {};
 	local list = {};
 	list.name = name;
 	list.items = {};
 
 	for _,item in ipairs(entries) do
+		if to_number(item.attr.order) == nil or to_number(item.attr.order) < 0 or orderCheck[item.attr.order] ~= nil then
+			return "bad-request";
+		end
 		local tmp = {};
+		orderCheck[item.attr.order] = true;
+		
 		tmp["type"] = item.attr.type;
 		tmp["value"] = item.attr.value;
 		tmp["action"] = item.attr.action;
-		tmp["order"] = item.attr.order;
+		tmp["order"] = to_number(item.attr.order);
 		tmp["presence-in"] = false;
 		tmp["presence-out"] = false;
 		tmp["message"] = false;
@@ -111,6 +119,35 @@ function createOrReplaceList (privacy_lists, origin, stanza, name, entries)
 				tmp[tag.name] = true;
 			end
 		end
+		
+		if tmp.type == "group" then
+			local found = false;
+			local roster = load_roster(origin.username, origin.host);
+			local groups = roster.groups;
+			if groups == nil then
+				return "item-not-found";
+			end
+			for _,group in ipairs(groups) do
+				if group == tmp.value then
+					found = true;
+				end
+			end
+			if found == false then
+				return "item-not-found";
+			end
+		elseif tmp.type == "subscription" then
+			if	tmp.value ~= "both" and
+				tmp.value ~= "to" and
+				tmp.value ~= "from" and
+				tmp.value ~= "none" then
+				return "bad-request";
+			end
+		end
+		
+		if tmp.action ~= "deny" and tmp.action ~= "allow" then
+			return "bad-request";
+		end
+		
 		list.items[#list.items + 1] = tmp;
 	end
 	
@@ -195,6 +232,10 @@ module:hook("iq/bare/jabber:iq:privacy:query", function(data)
 							valid = deleteList(privacy_lists, origin, stanza, tag.attr.name);
 						else -- Client edits a privacy list
 							valid = createOrReplaceList(privacy_lists, origin, stanza, tag.attr.name, tag.tags)
+							if valid ~= true then
+								err_reply = st.error_reply(stanza, "cancel", valid);
+								valid = false;
+							end
 						end
 					end
 				end
@@ -289,7 +330,8 @@ function checkIfNeedToBeBlocked(e, node_, host_)
 					apply = true;
 					block = (item.action == "deny");
 				elseif item.type == "group" then
-					local groups = origin.roster[jid_bare(stanza.from)].groups;
+					local roster = load_roster(node_, host_);
+					local groups = roster.groups;
 					for _,group in ipairs(groups) do
 						if group == item.value then
 							module:log("debug", "group matched.");
