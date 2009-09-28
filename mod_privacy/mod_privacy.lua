@@ -389,16 +389,22 @@ function preCheckIncoming(e)
 		if resource == nil then
 			local prio = 0;
 			local session_;
-			for _,session_ in ipairs(bare_sessions[node.."@"..host].sessions) do
-				if session_.priority > prio then
-					session = session_;
-					prio = session_.priority;
+			if bare_sessions[node.."@"..host] ~= nil then
+				for resource, session_ in pairs(bare_sessions[node.."@"..host].sessions) do
+					if session_.priority > prio then
+						session = session_;
+						prio = session_.priority;
+					end
 				end
 			end
 		else
 			session = full_sessions[node.."@"..host.."/"..resource];
 		end
-		return checkIfNeedToBeBlocked(e, session);
+		if session ~= nil then
+			return checkIfNeedToBeBlocked(e, session);
+		else
+			module:log("debug", "preCheckIncoming: Couldn't get session for jid: %s@%s/%s", node or "nil", host or "nil", resource or "nil")
+		end
 	end
 	return;
 end
@@ -413,16 +419,22 @@ function preCheckOutgoing(e)
 		if resource == nil then
 			local prio = 0;
 			local session_;
-			for _,session_ in ipairs(bare_sessions[node.."@"..host].sessions) do
-				if session_.priority > prio then
-					session = session_;
-					prio = session_.priority;
+			if bare_sessions[node.."@"..host] ~= nil then
+				for resource, session_ in pairs(bare_sessions[node.."@"..host].sessions) do
+					if session_.priority > prio then
+						session = session_;
+						prio = session_.priority;
+					end
 				end
 			end
 		else
 			session = full_sessions[node.."@"..host.."/"..resource];
 		end
-		return checkIfNeedToBeBlocked(e, session);
+		if session ~= nil then
+			return checkIfNeedToBeBlocked(e, session);
+		else
+			module:log("debug", "preCheckOutgoing: Couldn't get session for jid: %s@%s/%s", node or "nil", host or "nil", resource or "nil")
+		end
 	end
 	return;
 end
