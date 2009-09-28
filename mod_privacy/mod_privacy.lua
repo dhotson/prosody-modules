@@ -37,7 +37,11 @@ end
 
 function declineList (privacy_lists, origin, stanza, which)
 	module:log("info", "User requests to decline the use of privacy list: %s", which);
-	privacy_lists[which] = nil;
+	if which == "default" then
+		privacy_lists.default = nil; -- TODO check if used!
+	elseif which == "active" then
+		origin.activePrivacyList = nil;
+	end
 	origin.send(st.reply(stanza));
 	return true;
 end
@@ -51,10 +55,15 @@ function activateList (privacy_lists, origin, stanza, which, name)
 		privacy_lists[which] = "";
 	end
 	
-	if privacy_lists[which] ~= name and idx ~= nil then
-		privacy_lists[which] = name;
-		origin.send(st.reply(stanza));
+	if which == "default" and privacy_lists.default ~= name and idx ~= nil then
+		privacy_lists.default = name; -- TODO check if used!
 		ret = true;
+	elseif which == "active" and origin.activePrivacyList ~= name and idx ~= nil then
+		origin.activePrivacyList = name;
+		ret = true;
+	end
+	if ret == true then
+		origin.send(st.reply(stanza));
 	end
 	return ret;
 end
@@ -65,7 +74,7 @@ function deleteList (privacy_lists, origin, stanza, name)
 	local idx = findNamedList(privacy_lists, name);
 
 	if idx ~= nil then
-		table.remove(privacy_lists.lists, idx);
+		table.remove(privacy_lists.lists, idx);  -- TODO check if used!
 		origin.send(st.reply(stanza));
 		ret = true;
 	end
@@ -175,7 +184,7 @@ function getList(privacy_lists, origin, stanza, name)
 	reply:tag("query", {xmlns="jabber:iq:privacy"});
 
 	if name == nil then
-		reply:tag("active", {name=privacy_lists.active or ""}):up();
+		reply:tag("active", {name=origin.activePrivacyList or ""}):up();
 		reply:tag("default", {name=privacy_lists.default or ""}):up();
 		if privacy_lists.lists then
 			for _,list in ipairs(privacy_lists.lists) do
@@ -207,7 +216,6 @@ function getList(privacy_lists, origin, stanza, name)
 	return ret;
 end
 
---          "[tagname]/[target-type]/[payload-namespace]:[payload-tagname]"
 module:hook("iq/bare/jabber:iq:privacy:query", function(data)
 	local origin, stanza = data.origin, data.stanza;
 	
@@ -218,21 +226,24 @@ module:hook("iq/bare/jabber:iq:privacy:query", function(data)
 		local privacy_lists = datamanager.load(origin.username, origin.host, "privacy") or {};
 
 		if stanza.attr.type == "set" then
-			if #query.tags >= 1 then
+			if #query.tags == 1 then --  the <query/> element MUST NOT include more than one child element 
 				for _,tag in ipairs(query.tags) do
 					if tag.name == "active" or tag.name == "default" then
 						if tag.attr.name == nil then -- Client declines the use of active / default list
 							valid = declineList(privacy_lists, origin, stanza, tag.name);
 						else -- Client requests change of active / default list
 							valid = activateList(privacy_lists, origin, stanza, tag.name, tag.attr.name);
-							err_reply = st.error_reply(stanza, "cancel", "item-not-found");
+							if valid ~= true and valid ~= false then
+								err_reply = st.error_reply(stanza, "cancel", valid);
+								valid = false;
+							end
 						end
 					elseif tag.name == "list" and tag.attr.name then -- Client adds / edits a privacy list
 						if #tag.tags == 0 then -- Client removes a privacy list
 							valid = deleteList(privacy_lists, origin, stanza, tag.attr.name);
 						else -- Client edits a privacy list
-							valid = createOrReplaceList(privacy_lists, origin, stanza, tag.attr.name, tag.tags)
-							if valid ~= true then
+							valid = createOrReplaceList(privacy_lists, origin, stanza, tag.attr.name, tag.tags);  -- TODO check if used!
+							if valid ~= true and valid ~= false then
 								err_reply = st.error_reply(stanza, "cancel", valid);
 								valid = false;
 							end
@@ -270,25 +281,23 @@ module:hook("iq/bare/jabber:iq:privacy:query", function(data)
 	return false;
 end, 500);
 
-function checkIfNeedToBeBlocked(e, node_, host_)
+function checkIfNeedToBeBlocked(e, session)
 	local origin, stanza = e.origin, e.stanza;
-	local privacy_lists = datamanager.load(node_, host_, "privacy") or {};
-	local bare_jid = node_.."@"..host_;
+	local privacy_lists = datamanager.load(session.username, session.host, "privacy") or {};
+	local bare_jid = session.username.."@"..session.host;
 	
-	module:log("debug", "checkIfNeedToBeBlocked: username: %s, host: %s", node_, host_);
+	module:log("debug", "checkIfNeedToBeBlocked: username: %s, host: %s", session.username, session.host);
 	module:log("debug", "stanza: %s, to: %s, form: %s", stanza.name, stanza.attr.to or "nil", stanza.attr.from or "nil");
 	
 	if privacy_lists.lists ~= nil and stanza.attr.to ~= nil and stanza.attr.from ~= nil then
-		if privacy_lists.active == nil and privacy_lists.default == nil then 
+		if session.activePrivacyList == nil and privacy_lists.default == nil then 
 			return; -- Nothing to block, default is Allow all
 		end
 	
 		local idx;
 		local list;
 		local item;
-		local block = false;
-		local apply = false;
-		local listname = privacy_lists.active;
+		local listname = session.activePrivacyList;
 		if listname == nil then
 			listname = privacy_lists.default; -- no active list selected, use default list
 		end
@@ -304,14 +313,14 @@ function checkIfNeedToBeBlocked(e, node_, host_)
 		end
 		for _,item in ipairs(list.items) do
 			local apply = false;
-			block = false;
+			local block = false;
 			if	(stanza.name == "message" and item.message) or
 				(stanza.name == "iq" and item.iq) or
 				(stanza.name == "presence" and jid_bare(stanza.attr.to) == bare_jid and item["presence-in"]) or
 				(stanza.name == "presence" and jid_bare(stanza.attr.from) == bare_jid and item["presence-out"]) or
 				(item.message == false and item.iq == false and item["presence-in"] == false and item["presence-in"] == false) then
 				module:log("debug", "stanza type matched.");
-					apply = true;
+				apply = true;
 			end
 			if apply then
 				local evilJid = {};
@@ -330,7 +339,7 @@ function checkIfNeedToBeBlocked(e, node_, host_)
 					apply = true;
 					block = (item.action == "deny");
 				elseif item.type == "group" then
-					local roster = load_roster(node_, host_);
+					local roster = load_roster(session.username, session.host);
 					local groups = roster.groups;
 					for _,group in ipairs(groups) do
 						if group == item.value then
@@ -371,23 +380,49 @@ function checkIfNeedToBeBlocked(e, node_, host_)
 end
 
 function preCheckIncoming(e)
+	local session;
 	if e.stanza.attr.to ~= nil then
 		local node, host, resource = jid_split(e.stanza.attr.to);
 		if node == nil or host == nil then
 			return;
 		end
-		return checkIfNeedToBeBlocked(e, node, host);
+		if resource == nil then
+			local prio = 0;
+			local session_;
+			for _,session_ in ipairs(bare_sessions[node.."@"..host].sessions) do
+				if session_.priority > prio then
+					session = session_;
+					prio = session_.priority;
+				end
+			end
+		else
+			session = full_sessions[node.."@"..host.."/"..resource];
+		end
+		return checkIfNeedToBeBlocked(e, session);
 	end
 	return;
 end
 
 function preCheckOutgoing(e)
+	local session;
 	if e.stanza.attr.from ~= nil then
 		local node, host, resource = jid_split(e.stanza.attr.from);
 		if node == nil or host == nil then
 			return;
 		end
-		return checkIfNeedToBeBlocked(e, node, host);
+		if resource == nil then
+			local prio = 0;
+			local session_;
+			for _,session_ in ipairs(bare_sessions[node.."@"..host].sessions) do
+				if session_.priority > prio then
+					session = session_;
+					prio = session_.priority;
+				end
+			end
+		else
+			session = full_sessions[node.."@"..host.."/"..resource];
+		end
+		return checkIfNeedToBeBlocked(e, session);
 	end
 	return;
 end
