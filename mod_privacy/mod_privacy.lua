@@ -8,7 +8,6 @@
 --
 
 local prosody = prosody;
-local helpers = require "util/helpers";
 local st = require "util.stanza";
 local datamanager = require "util.datamanager";
 local bare_sessions = bare_sessions;
@@ -190,8 +189,8 @@ function getList(privacy_lists, origin, stanza, name)
 			for _,list in ipairs(privacy_lists.lists) do
 				reply:tag("list", {name=list.name}):up();
 			end
-			ret = true;	
 		end
+		ret = true;	
 	else
 		local idx = findNamedList(privacy_lists, name);
 		module:log("debug", "list idx: %d", idx or -1);
@@ -459,8 +458,5 @@ module:hook("iq/host", preCheckIncoming, 500);
 module:hook("presence/full", preCheckIncoming, 500);
 module:hook("presence/bare", preCheckIncoming, 500);
 module:hook("presence/host", preCheckIncoming, 500);
-
--- helpers.log_events(hosts["albastru.de"].events, "albastru.de");
--- helpers.log_events(prosody.events, "*");
 
 module:log("info", "mod_privacy loaded ...");
