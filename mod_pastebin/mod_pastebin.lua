@@ -6,7 +6,7 @@ local os_time = os.time;
 
 local length_threshold = config.get("*", "core", "pastebin_threshold") or 500;
 
-local base_url;
+local base_url = config.get(module.host, "core", "pastebin_url");
 
 local pastes = {};
 
