@@ -54,7 +54,7 @@ function check_message(data)
 	if not body then return; end
 	body = body:get_text();
 	
-	module:log("debug", "Body(%s) length: %d", type(body), #(body or ""));
+	--module:log("debug", "Body(%s) length: %d", type(body), #(body or ""));
 	
 	if body and #body > length_threshold then
 		local url = pastebin_message(body);
