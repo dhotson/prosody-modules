@@ -3,10 +3,15 @@ local st = require "util.stanza";
 local httpserver = require "net.httpserver";
 local uuid_new = require "util.uuid".generate;
 local os_time = os.time;
+local t_insert, t_remove = table.insert, table.remove;
+local add_task = require "util.timer".add_task;
 
 local length_threshold = config.get(module.host, "core", "pastebin_threshold") or 500;
 
 local base_url = config.get(module.host, "core", "pastebin_url");
+
+-- Seconds a paste should live for in seconds (config is in hours), default 24 hours
+local expire_after = math.floor((config.get(module.host, "core", "pastebin_expire_after") or 24) * 3600);
 
 local pastes = {};
 
@@ -16,6 +21,10 @@ local xmlns_xhtml = "http://www.w3.org/1999/xhtml";
 local function pastebin_message(text)
 	local uuid = uuid_new();
 	pastes[uuid] = { text = text, time = os_time() };
+	pastes[#pastes+1] = uuid;
+	if not pastes[2] then -- No other pastes, give the timer a kick
+		add_task(expire_after, expire_pastes);
+	end
 	return base_url..uuid;
 end
 
@@ -60,6 +69,18 @@ function check_message(data)
 end
 
 module:hook("message/bare", check_message);
+
+function expire_pastes(time)
+	time = time or os_time(); -- COMPAT with 0.5
+	if pastes[1] then
+		pastes[pastes[1]] = nil;
+		t_remove(pastes, 1);
+		if pastes[1] then
+			return (expire_after - (time - pastes[pastes[1]].time)) + 1;
+		end
+	end
+end
+
 
 local ports = config.get(module.host, "core", "pastebin_ports") or { 5280 };
 for _, options in ipairs(ports) do
