@@ -4,7 +4,7 @@ local httpserver = require "net.httpserver";
 local uuid_new = require "util.uuid".generate;
 local os_time = os.time;
 
-local length_threshold = config.get("*", "core", "pastebin_threshold") or 500;
+local length_threshold = config.get(module.host, "core", "pastebin_threshold") or 500;
 
 local base_url = config.get(module.host, "core", "pastebin_url");
 
