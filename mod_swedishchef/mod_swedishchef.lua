@@ -6,6 +6,9 @@
 --
 local st = require "util.stanza";
 
+local trigger_string = config.get(module.host, "core", "swedishchef_trigger");
+trigger_string = (trigger_string and trigger_string .. " ") or "";
+
 local chef = {  
   { th = "t" }, 
 
@@ -61,8 +64,9 @@ function check_message(data)
 	if not body then return; end
 	body = body:get_text();
 	
-	if body then
-		stanza[bodyindex][1] = swedish(body);
+	if body and (body:find(trigger_string, 1, true) == 1) then
+		module:log("debug", body:find(trigger_string, 1, true));
+		stanza[bodyindex][1] = swedish(body:gsub("^" .. trigger_string, "", 1));
 	end
 end
 
