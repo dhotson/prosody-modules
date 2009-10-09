@@ -16,7 +16,6 @@ end
 local descriptor = { name="Ping", node="ping", handler=ping_command_handler };
 
 function module.unload()
-	module:log("debug", "Removing ping command");
 	module:remove_item("adhoc", descriptor);
 end
 

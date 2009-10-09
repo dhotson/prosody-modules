@@ -16,7 +16,7 @@ module:hook("iq/host/http://jabber.org/protocol/disco#items:query", function (ev
 		reply:tag("query", {xmlns="http://jabber.org/protocol/disco#items", node="http://jabber.org/protocol/commands"})
 		for i = 1, #commands do
 			-- module:log("info", "adding command %s", commands[i].name);
-        	reply:tag("item", {name=commands[i].name, node=commands[i].node, jid=module:get_host()});
+			reply:tag("item", {name=commands[i].name, node=commands[i].node, jid=module:get_host()});
 			reply:up();
 		end
         origin.send(reply);
@@ -43,10 +43,10 @@ end, 500);
 local _G = _G;
 local t_remove = _G.table.remove;
 module:hook("item-removed/adhoc", function (event)
-	module:log("debug", "Remove function called");
 	for i = 1, #commands do
 		if commands[i].node == event.item.node then
 			t_remove(commands, i);
+			break;
 		end
 	end
 end, 500);
