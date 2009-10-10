@@ -14,7 +14,7 @@ local admins = set.new(config.get(module:get_host(), "core", "admins"));
 
 local sessions = {};
 
-local add_user_layout = {
+local add_user_layout = dataforms_new{
 	title= "Adding a User";
 	instructions = "Fill out this form to add a user.";
 
@@ -23,7 +23,6 @@ local add_user_layout = {
 	{ name = "password", type = "text-private", label = "The password for this account" };
 	{ name = "password-verify", type = "text-private", label = "Retype password" };
 };
-dataforms_new(add_user_layout)
 
 function add_user_command_handler(item, origin, stanza)
 	if not is_admin(stanza.attr.from) then
@@ -42,12 +41,7 @@ function add_user_command_handler(item, origin, stanza)
 			sessions[stanza.tags[1].attr.sessionid] = nil;
 			return true;
 		end
-		for _, tag in ipairs(stanza.tags[1].tags) do
-			if tag.name == "x" and tag.attr.xmlns == "jabber:x:data" then
-				form = tag;
-				break;
-			end
-		end
+		form = stanza.tags[1]:find_child_with_ns("jabber:x:data");
 		local fields = add_user_layout:data(form);
 		local username, host, resource = jid.split(fields.accountjid);
 		if (fields.password == fields["password-verify"]) and username and host and host == stanza.attr.to then
@@ -80,10 +74,10 @@ function add_user_command_handler(item, origin, stanza)
 		else
 			module:log("debug", fields.accountjid .. " " .. fields.password .. " " .. fields["password-verify"]);
 			origin.send(st.error_reply(stanza, "cancel", "conflict",
-				"Invalid data.\nPasswords missmatch, or empy username"):up()
+				"Invalid data.\nPassword mismatch, or empty username"):up()
 				:tag("command", {xmlns="http://jabber.org/protocol/commands",
 					node="http://jabber.org/protocol/admin#add-user", status="canceled"})
-				:tag("note", {type="error"}):text("Invalid data.\nPasswords missmatch, or empy username"));
+				:tag("note", {type="error"}):text("Invalid data.\nPassword mismatch, or empty username"));
 			sessions[stanza.tags[1].attr.sessionid] = nil;
 			return true;
 		end
