@@ -83,24 +83,21 @@ function add_user_command_handler(item, origin, stanza)
 			return true;
 		end
 	else
-		sessionid=uuid.generate();
+		local sessionid=uuid.generate();
 		sessions[sessionid] = "executing";
+		local form = {
+			title= "Adding a User";
+			instructions = "Fill out this form to add a user.";
+
+			{ name = "FORM_TYPE", type = "hidden", value = "http://jabber.org/protocol/admin" };
+			{ name = "accountjid", type = "jid-single", required = true, label = "The Jabber ID for the account to be added" };
+			{ name = "password", type = "text-private", label = "The password for this account" };
+			{ name = "password-verify", type = "text-private", label = "Retype password" };
+		};
+		dataforms_new(form);
 		origin.send(st.reply(stanza):tag("command", {xmlns="http://jabber.org/protocol/commands",
 			node="http://jabber.org/protocol/admin#add-user", sessionid=sessionid,
-			status="executing"})
-			:tag("x", { xmlns = "jabber:x:data", type = "form" })
-				:tag("title"):text("Adding a User"):up()
-				:tag("instructions"):text("Fill out this form to add a user."):up()
-				:tag("field", { type = "hidden", var = "FORM_TYPE" })
-					:tag("value"):text("http://jabber.org/protocol/admin"):up():up()
-				:tag("field", { label = "The Jabber ID for the account to be added",
-					type = "jid-single", var = "accountjid" })
-					:tag("required"):up():up()
-				:tag("field", { label = "The password for this account",
-					type = "text-private", var = "password" }):up()
-				:tag("field", { label = "Retype password", type = "text-private",
-					var = "password-verify" }):up():up()
-		);
+			status="executing"}):add_child(form:form()));
 	end
 	return true;
 end
