@@ -5,15 +5,15 @@
 --
 
 local st = require "util.stanza";
+local adhoc_new = module:require "adhoc".new;
 
 function ping_command_handler (item, origin, stanza)
 	local now = os.date("%Y-%m-%dT%X");
-	origin.send(st.reply(stanza):tag("command", {xmlns="http://jabber.org/protocol/commands", status="completed", node=item.node, sessionid=now})
-		:tag("note", {type="info"}):text("Pong\n" .. now));
+	origin.send(st.reply(stanza):add_child(item:cmdtag("completed", now):tag("note", {type="info"}):text("Pong\n" .. now)));
 	return true;
 end
 
-local descriptor = { name="Ping", node="ping", handler=ping_command_handler };
+local descriptor = adhoc_new("Ping", "ping", ping_command_handler);
 
 function module.unload()
 	module:remove_item("adhoc", descriptor);
