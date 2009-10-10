@@ -14,6 +14,17 @@ local admins = set.new(config.get(module:get_host(), "core", "admins"));
 
 local sessions = {};
 
+local add_user_layout = {
+	title= "Adding a User";
+	instructions = "Fill out this form to add a user.";
+
+	{ name = "FORM_TYPE", type = "hidden", value = "http://jabber.org/protocol/admin" };
+	{ name = "accountjid", type = "jid-single", required = true, label = "The Jabber ID for the account to be added" };
+	{ name = "password", type = "text-private", label = "The password for this account" };
+	{ name = "password-verify", type = "text-private", label = "Retype password" };
+};
+dataforms_new(add_user_layout)
+
 function add_user_command_handler(item, origin, stanza)
 	if not is_admin(stanza.attr.from) then
 		module:log("warn", "Non-admin %s tried to add a user", tostring(jid.bare(stanza.attr.from)));
@@ -37,13 +48,7 @@ function add_user_command_handler(item, origin, stanza)
 				break;
 			end
 		end
-		local layout = {
-			{ name = "accountjid", type = "jid-single" };
-			{ name = "password", type = "text-private" };
-			{ name = "password-verify", type = "text-private" };
-		};
-		dataforms_new(layout);
-		local fields = layout:data(form);
+		local fields = add_user_layout:data(form);
 		local username, host, resource = jid.split(fields.accountjid);
 		if (fields.password == fields["password-verify"]) and username and host and host == stanza.attr.to then
 			if usermanager_user_exists(username, host) then
@@ -85,19 +90,9 @@ function add_user_command_handler(item, origin, stanza)
 	else
 		local sessionid=uuid.generate();
 		sessions[sessionid] = "executing";
-		local form = {
-			title= "Adding a User";
-			instructions = "Fill out this form to add a user.";
-
-			{ name = "FORM_TYPE", type = "hidden", value = "http://jabber.org/protocol/admin" };
-			{ name = "accountjid", type = "jid-single", required = true, label = "The Jabber ID for the account to be added" };
-			{ name = "password", type = "text-private", label = "The password for this account" };
-			{ name = "password-verify", type = "text-private", label = "Retype password" };
-		};
-		dataforms_new(form);
 		origin.send(st.reply(stanza):tag("command", {xmlns="http://jabber.org/protocol/commands",
 			node="http://jabber.org/protocol/admin#add-user", sessionid=sessionid,
-			status="executing"}):add_child(form:form()));
+			status="executing"}):add_child(add_user_layout:form()));
 	end
 	return true;
 end
