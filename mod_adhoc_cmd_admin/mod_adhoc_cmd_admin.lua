@@ -5,6 +5,7 @@
 --
 
 local st, jid, uuid = require "util.stanza", require "util.jid", require "util.uuid";
+local dataforms_new = require "util.dataforms".new;
 local usermanager_user_exists = require "core.usermanager".user_exists;
 local usermanager_create_user = require "core.usermanager".create_user;
 
@@ -36,16 +37,13 @@ function add_user_command_handler(item, origin, stanza)
 				break;
 			end
 		end
-		local fields = {};
-		for _, field in ipairs(form.tags) do
-			if field.name == "field" and field.attr.var then
-				for i, tag in ipairs(field.tags) do
-					if tag.name == "value" and #tag.tags == 0 then
-						fields[field.attr.var] = tag[1] or "";
-					end
-				end
-			end
-		end
+		local layout = {
+			{ name = "accountjid", type = "jid-single" };
+			{ name = "password", type = "text-private" };
+			{ name = "password-verify", type = "text-private" };
+		};
+		dataforms_new(layout);
+		local fields = layout:data(form);
 		local username, host, resource = jid.split(fields.accountjid);
 		if (fields.password == fields["password-verify"]) and username and host and host == stanza.attr.to then
 			if usermanager_user_exists(username, host) then
