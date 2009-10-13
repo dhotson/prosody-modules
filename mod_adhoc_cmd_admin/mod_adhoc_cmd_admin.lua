@@ -4,6 +4,11 @@
 -- COPYING file in the source package for more information.
 --
 
+local _G = _G;
+
+local prosody = _G.prosody;
+local hosts = prosody.hosts;
+
 local usermanager_user_exists = require "core.usermanager".user_exists;
 local usermanager_create_user = require "core.usermanager".create_user;
 local is_admin = require "core.usermanager".is_admin;
@@ -81,10 +86,33 @@ function add_user_command_handler(item, origin, stanza)
 	return true;
 end
 
-local descriptor = adhoc_new("Add User", "http://jabber.org/protocol/admin#add-user", add_user_command_handler)
+function get_online_users_command_handler(item, origin, stanza)
+	if not is_admin(stanza.attr.from) then
+		origin.send(st.error_reply(stanza, "auth", "forbidden", "You don't have permission to request a list of online users"):up()
+			:add_child(item:cmdtag("canceled")
+				:tag("note", {type="error"}):text("You don't have permission to request a list of online users")));
+		return true;
+	end
+	local field = st.stanza("field", {label="The list of all online users", var="onlineuserjids", type="text-multi"});
+	for username, user in pairs(hosts[stanza.attr.to].sessions or {}) do
+		field:tag("value"):text(username.."@"..stanza.attr.to):up();
+	end
+	origin.send(st.reply(stanza):add_child(item:cmdtag("completed", uuid:generate())
+		:tag("x", {xmlns="jabber:x:data", type="result"})
+			:tag("field", {type="hidden", var="FORM_TYPE"})
+				:tag("value"):text("http://jabber.org/protocol/admin"):up():up()
+			:add_child(field)));
 
-function module.unload()
-	module:remove_item("adhoc", descriptor);
+	return true;
 end
 
-module:add_item ("adhoc", descriptor);
+local add_user_desc = adhoc_new("Add User", "http://jabber.org/protocol/admin#add-user", add_user_command_handler);
+local get_online_users_desc = adhoc_new("Get List of Online Users", "http://jabber.org/protocol/admin#get-online-users", get_online_users_command_handler); 
+
+function module.unload()
+	module:remove_item("adhoc", add_user_desc);
+	module:remove_item("adhoc", get_online_users_desc);
+end
+
+module:add_item("adhoc", add_user_desc);
+module:add_item("adhoc", get_online_users_desc);
