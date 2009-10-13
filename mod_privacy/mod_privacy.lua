@@ -331,12 +331,10 @@ module:hook("iq/bare/jabber:iq:privacy:query", function(data)
 end, 500);
 
 function checkIfNeedToBeBlocked(e, session)
-
 	local origin, stanza = e.origin, e.stanza;
 	local privacy_lists = datamanager.load(session.username, session.host, "privacy") or {};
 	local bare_jid = session.username.."@"..session.host;
-	
-	-- module:log("debug", "Where are we from: %s", debug.traceback())
+
 	module:log("debug", "checkIfNeedToBeBlocked: username: %s, host: %s", session.username, session.host);
 	module:log("debug", "stanza: %s, to: %s, form: %s", stanza.name, stanza.attr.to or "nil", stanza.attr.from or "nil");
 	
@@ -351,7 +349,11 @@ function checkIfNeedToBeBlocked(e, session)
 			module:log("debug", "neither active nor default list set (both are nil) or privacy_lists totally nil. So nothing to do => default is Allow All.");
 			return; -- Nothing to block, default is Allow all
 		end
-	
+	    if jid_bare(stanza.attr.from) == bare_jid and jid_bare(stanza.attr.to) == bare_jid then
+            module:log("debug", "Never block communications from one of a user's resources to another.");
+            return; -- from one of a user's resource to another => HANDS OFF!
+        end 
+    
 		local idx;
 		local list;
 		local item;
@@ -482,33 +484,14 @@ function preCheckIncoming(e)
 end
 
 function preCheckOutgoing(e)
-	local session;
-	if e.stanza.attr.from ~= nil then
-		local node, host, resource = jid_split(e.stanza.attr.from);
-		if node == nil or host == nil then
-			return;
-		end
-		if resource == nil then
-			local prio = 0;
-			local session_;
-			if bare_sessions[node.."@"..host] ~= nil then
-				for resource, session_ in pairs(bare_sessions[node.."@"..host].sessions) do
-					if session_.priority > prio then
-						session = session_;
-						prio = session_.priority;
-					end
-				end
-			end
-		else
-			session = full_sessions[node.."@"..host.."/"..resource];
-		end
-		if session ~= nil then
-			return checkIfNeedToBeBlocked(e, session);
-		else
-			module:log("debug", "preCheckOutgoing: Couldn't get session for jid: %s@%s/%s", node or "nil", host or "nil", resource or "nil")
+	local session = e.origin;
+	if e.stanza.attr.from == nil then
+		e.stanza.attr.form = session.username .. "@" .. session.host;
+		if session.resource ~= nil then
+		 	e.stanza.attr.from = e.stanza.attr.form .. "/" .. session.resource;
 		end
 	end
-	return;
+	return checkIfNeedToBeBlocked(e, session);
 end
 
 
