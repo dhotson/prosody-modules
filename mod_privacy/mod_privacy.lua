@@ -353,7 +353,7 @@ function checkIfNeedToBeBlocked(e, session)
             module:log("debug", "Never block communications from one of a user's resources to another.");
             return; -- from one of a user's resource to another => HANDS OFF!
         end 
-    
+
 		local idx;
 		local list;
 		local item;
@@ -465,7 +465,7 @@ function preCheckIncoming(e)
 			local session_;
 			if bare_sessions[node.."@"..host] ~= nil then
 				for resource, session_ in pairs(bare_sessions[node.."@"..host].sessions) do
-					if session_.priority > prio then
+					if session_.priority ~= nil and session_.priority > prio then
 						session = session_;
 						prio = session_.priority;
 					end
