@@ -20,11 +20,9 @@ local to_number = _G.tonumber;
 function findNamedList (privacy_lists, name)
 	local ret = nil
 	if privacy_lists.lists == nil then
-		module:log("debug", "privacy_lists.list is nil. no lists loaded.")
 		return nil;
 	end
 
-	module:log("debug", "searching for list: %s", name);
 	for i=1, #privacy_lists.lists do
 		if privacy_lists.lists[i].name == name then
 			ret = i;
@@ -39,16 +37,13 @@ function isListUsed(origin, name, privacy_lists)
 		for resource, session in pairs(bare_sessions[origin.username.."@"..origin.host].sessions) do
 			if resource ~= origin.resource then
 				if session.activePrivacyList == name then
-					module:log("debug", "List {0} is in use.", name);
 					return true;
 				elseif session.activePrivacyList == nil and privacy_lists.default == name then
-					module:log("debug", "List {0} is in use.", name);
 					return true;
 				end
 			end
 		end
 	end
-	module:log("debug", "List {0} is in NOT use.", name);
 	return false;
 end
 
@@ -57,7 +52,6 @@ function isAnotherSessionUsingDefaultList(origin)
 	if bare_sessions[origin.username.."@"..origin.host].sessions ~= nil then
 		for resource, session in pairs(bare_sessions[origin.username.."@"..origin.host].sessions) do
 			if resource ~= origin.resource and session.activePrivacyList == nil then
-				module:log("debug", "Default list is used by another resource.");
 				ret = true;
 				break;
 			end
@@ -67,7 +61,6 @@ function isAnotherSessionUsingDefaultList(origin)
 end
 
 function declineList (privacy_lists, origin, stanza, which)
-	module:log("info", "User requests to decline the use of privacy list: %s", which);
 	if which == "default" then
 		if isAnotherSessionUsingDefaultList(origin) then
 			return { "cancel", "conflict", "Another session is online and using the default list."};
@@ -84,7 +77,6 @@ function declineList (privacy_lists, origin, stanza, which)
 end
 
 function activateList (privacy_lists, origin, stanza, which, name)
-	module:log("info", "User requests to change the privacy list: %s, to be list named %s", which, name);
 	local idx = findNamedList(privacy_lists, name);
 
 	if privacy_lists.default == nil then
@@ -110,7 +102,6 @@ function activateList (privacy_lists, origin, stanza, which, name)
 end
 
 function deleteList (privacy_lists, origin, stanza, name)
-	module:log("info", "User requests to delete privacy list: %s", name);
 	local idx = findNamedList(privacy_lists, name);
 
 	if idx ~= nil then
@@ -138,7 +129,6 @@ local function sortByOrder(a, b)
 end
 
 function createOrReplaceList (privacy_lists, origin, stanza, name, entries, roster)
-	module:log("info", "User requests to create / replace list named %s, item count: %d", name, #entries);
 	local idx = findNamedList(privacy_lists, name);
 	local bare_jid = origin.username.."@"..origin.host;
 	
@@ -237,7 +227,6 @@ function createOrReplaceList (privacy_lists, origin, stanza, name, entries, rost
 end
 
 function getList(privacy_lists, origin, stanza, name)
-	module:log("info", "User requests list named: %s", name or "nil");
 	local reply = st.reply(stanza);
 	reply:tag("query", {xmlns="jabber:iq:privacy"});
 
@@ -251,7 +240,6 @@ function getList(privacy_lists, origin, stanza, name)
 		end
 	else
 		local idx = findNamedList(privacy_lists, name);
-		module:log("debug", "list idx: %d", idx or -1);
 		if idx ~= nil then
 			list = privacy_lists.lists[idx];
 			reply = reply:tag("list", {name=list.name});
@@ -293,7 +281,7 @@ module:hook("iq/bare/jabber:iq:privacy:query", function(data)
 						if #tag.tags == 0 then -- Client removes a privacy list
 							valid = deleteList(privacy_lists, origin, stanza, tag.attr.name);
 						else -- Client edits a privacy list
-							valid = createOrReplaceList(privacy_lists, origin, stanza, tag.attr.name, tag.tags);  -- TODO check if used!
+							valid = createOrReplaceList(privacy_lists, origin, stanza, tag.attr.name, tag.tags);
 						end
 					end
 				end
@@ -335,18 +323,13 @@ function checkIfNeedToBeBlocked(e, session)
 	local privacy_lists = datamanager.load(session.username, session.host, "privacy") or {};
 	local bare_jid = session.username.."@"..session.host;
 
-	module:log("debug", "checkIfNeedToBeBlocked: username: %s, host: %s", session.username, session.host);
 	module:log("debug", "stanza: %s, to: %s, form: %s", stanza.name, stanza.attr.to or "nil", stanza.attr.from or "nil");
 	
 	if stanza.attr.to ~= nil and stanza.attr.from ~= nil then
-		module:log("debug", "privacy_lists.lists: %s", tostring(privacy_lists.lists));
-		module:log("debug", "session.activePrivacyList: %s", tostring(session.activePrivacyList));
-		module:log("debug", "privacy_lists.default: %s", tostring(privacy_lists.default));
 		if privacy_lists.lists == nil or
 		   (session.activePrivacyList == nil or session.activePrivacyList == "") and
 		   (privacy_lists.default == nil     or privacy_lists.default == "")
 		then 
-			module:log("debug", "neither active nor default list set (both are nil) or privacy_lists totally nil. So nothing to do => default is Allow All.");
 			return; -- Nothing to block, default is Allow all
 		end
 	    if jid_bare(stanza.attr.from) == bare_jid and jid_bare(stanza.attr.to) == bare_jid then
@@ -374,20 +357,13 @@ function checkIfNeedToBeBlocked(e, session)
 		for _,item in ipairs(list.items) do
 			local apply = false;
 			local block = false;
-			if	(stanza.name == "message" and item.message) then
-				module:log("debug", "message stanza match.");
-				apply = true;
-			elseif (stanza.name == "iq" and item.iq) then
-				module:log("debug", "iq stanza match!");
-				apply = true;
-			elseif (stanza.name == "presence" and jid_bare(stanza.attr.to) == bare_jid and item["presence-in"]) then
-				module:log("debug", "presence-in stanza match.");
-				apply = true;
-			elseif (stanza.name == "presence" and jid_bare(stanza.attr.from) == bare_jid and item["presence-out"]) then
-				module:log("debug", "presence-out stanza match");
-				apply = true;
-			elseif (item.message == false and item.iq == false and item["presence-in"] == false and item["presence-in"] == false) then
-				module:log("debug", "all is false, so apply.");
+			if (
+				(stanza.name == "message" and item.message) or
+				(stanza.name == "iq" and item.iq) or
+				(stanza.name == "presence" and jid_bare(stanza.attr.to) == bare_jid and item["presence-in"]) or
+				(stanza.name == "presence" and jid_bare(stanza.attr.from) == bare_jid and item["presence-out"]) or
+				(item.message == false and item.iq == false and item["presence-in"] == false and item["presence-in"] == false)
+			) then
 				apply = true;
 			end
 			if apply then
@@ -400,14 +376,11 @@ function checkIfNeedToBeBlocked(e, session)
 					module:log("debug", "evil jid is (to): %s", stanza.attr.to);
 					evilJid.node, evilJid.host, evilJid.resource = jid_split(stanza.attr.to);
 				end
-				module:log("debug", "Item Type: %s", tostring(item.type));
-				module:log("debug", "Item Action: %s", item.action);
 				if	item.type == "jid" and 
 					(evilJid.node and evilJid.host and evilJid.resource and item.value == evilJid.node.."@"..evilJid.host.."/"..evilJid.resource) or
 					(evilJid.node and evilJid.host and item.value == evilJid.node.."@"..evilJid.host) or
 					(evilJid.host and evilJid.resource and item.value == evilJid.host.."/"..evilJid.resource) or
 					(evilJid.host and item.value == evilJid.host) then
-					module:log("debug", "jid matched.");
 					apply = true;
 					block = (item.action == "deny");
 				elseif item.type == "group" then
@@ -415,7 +388,6 @@ function checkIfNeedToBeBlocked(e, session)
 					local groups = roster[evilJid.node .. "@" .. evilJid.host].groups;
 					for group in pairs(groups) do
 						if group == item.value then
-							module:log("debug", "group matched.");
 							apply = true;
 							block = (item.action == "deny");
 							break;
@@ -424,12 +396,10 @@ function checkIfNeedToBeBlocked(e, session)
 				elseif item.type == "subscription" and evilJid.node ~= nil and evilJid.host ~= nil then -- we need a valid bare evil jid
 					local roster = load_roster(session.username, session.host);
 					if roster[evilJid.node .. "@" .. evilJid.host].subscription == item.value then
-						module:log("debug", "subscription matched.");
 						apply = true;
 						block = (item.action == "deny");
 					end
 				elseif item.type == nil then
-					module:log("debug", "no item.type, so matched.");
 					apply = true;
 					block = (item.action == "deny");
 				end
