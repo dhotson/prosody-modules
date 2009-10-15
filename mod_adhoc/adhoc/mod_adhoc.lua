@@ -5,19 +5,23 @@
 --
 
 local st = require "util.stanza";
+local is_admin = require "core.usermanager".is_admin;
 local commands = {};
 
 module:add_feature("http://jabber.org/protocol/commands");
 
 module:hook("iq/host/http://jabber.org/protocol/disco#items:query", function (event)
     local origin, stanza = event.origin, event.stanza;
+    local privileged = is_admin(event.stanza.attr.from);
     if stanza.attr.type == "get" and stanza.tags[1].attr.node and stanza.tags[1].attr.node == "http://jabber.org/protocol/commands" then
 		reply = st.reply(stanza);
 		reply:tag("query", {xmlns="http://jabber.org/protocol/disco#items", node="http://jabber.org/protocol/commands"})
 		for i = 1, #commands do
 			-- module:log("info", "adding command %s", commands[i].name);
-			reply:tag("item", {name=commands[i].name, node=commands[i].node, jid=module:get_host()});
-			reply:up();
+			if (commands[i].permission == "admin" and privileged) or (commands[i].permission == "user") then
+				reply:tag("item", {name=commands[i].name, node=commands[i].node, jid=module:get_host()});
+				reply:up();
+			end
 		end
         origin.send(reply);
         return true;

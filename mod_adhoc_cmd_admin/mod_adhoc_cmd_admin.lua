@@ -20,7 +20,7 @@ local adhoc_new = module:require "adhoc".new;
 local sessions = {};
 
 local add_user_layout = dataforms_new{
-	title= "Adding a User";
+	title = "Adding a User";
 	instructions = "Fill out this form to add a user.";
 
 	{ name = "FORM_TYPE", type = "hidden", value = "http://jabber.org/protocol/admin" };
@@ -106,8 +106,8 @@ function get_online_users_command_handler(item, origin, stanza)
 	return true;
 end
 
-local add_user_desc = adhoc_new("Add User", "http://jabber.org/protocol/admin#add-user", add_user_command_handler);
-local get_online_users_desc = adhoc_new("Get List of Online Users", "http://jabber.org/protocol/admin#get-online-users", get_online_users_command_handler); 
+local add_user_desc = adhoc_new("Add User", "http://jabber.org/protocol/admin#add-user", add_user_command_handler, "admin");
+local get_online_users_desc = adhoc_new("Get List of Online Users", "http://jabber.org/protocol/admin#get-online-users", get_online_users_command_handler, "admin"); 
 
 function module.unload()
 	module:remove_item("adhoc", add_user_desc);

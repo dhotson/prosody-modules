@@ -12,8 +12,8 @@ function _cmdtag(desc, status, sessionid, action)
 	return cmd;
 end
 
-function _M.new(name, node, handler)
-	return { name = name, node = node, handler = handler, cmdtag = _cmdtag };
+function _M.new(name, node, handler, permission)
+	return { name = name, node = node, handler = handler, cmdtag = _cmdtag, permission = (permission or "user") };
 end
 
 return _M;
