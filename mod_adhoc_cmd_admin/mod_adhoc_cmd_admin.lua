@@ -29,6 +29,15 @@ local add_user_layout = dataforms_new{
 	{ name = "password-verify", type = "text-private", label = "Retype password" };
 };
 
+local get_online_users_layout = dataforms_new{
+	title = "Getting List of Online Users";
+	instructions = "How many users should be returned at most?";
+
+	{ name = "FORM_TYPE", type = "hidden", value = "http://jabber.org/protocol/admin" };
+	{ name = "max_items", type = "list-single", label = "Maximum number of users",
+		value = { "25", "50", "75", "100", "150", "200", "all" } };
+};
+
 function add_user_command_handler(item, origin, stanza)
 	if not is_admin(stanza.attr.from) then
 		module:log("warn", "Non-admin %s tried to add a user", tostring(jid.bare(stanza.attr.from)));
@@ -93,15 +102,39 @@ function get_online_users_command_handler(item, origin, stanza)
 				:tag("note", {type="error"}):text("You don't have permission to request a list of online users")));
 		return true;
 	end
-	local field = st.stanza("field", {label="The list of all online users", var="onlineuserjids", type="text-multi"});
-	for username, user in pairs(hosts[stanza.attr.to].sessions or {}) do
-		field:tag("value"):text(username.."@"..stanza.attr.to):up();
+	if stanza.tags[1].attr.sessionid and sessions[stanza.tags[1].attr.sessionid] then
+		if stanza.tags[1].attr.action == "cancel" then
+			origin.send(st.reply(stanza):add_child(item:cmdtag("canceled", stanza.tags[1].attr.sessionid)));
+			sessions[stanza.tags[1].attr.sessionid] = nil;
+			return true;
+		end
+
+		form = stanza.tags[1]:child_with_ns("jabber:x:data");
+		local fields = add_user_layout:data(form);
+		
+		local max_items = nil
+		if fields.max_items ~= "all" then
+			max_items = tonumber(fields.max_items);
+		end
+		local count = 0;
+		local field = st.stanza("field", {label="The list of all online users", var="onlineuserjids", type="text-multi"});
+		for username, user in pairs(hosts[stanza.attr.to].sessions or {}) do
+			if (max_items ~= nil) and (count >= max_items) then
+				break;
+			end
+			field:tag("value"):text(username.."@"..stanza.attr.to):up();
+			count = count + 1;
+		end
+		origin.send(st.reply(stanza):add_child(item:cmdtag("completed", stanza.tags[1].attr.sessionid)
+			:tag("x", {xmlns="jabber:x:data", type="result"})
+				:tag("field", {type="hidden", var="FORM_TYPE"})
+					:tag("value"):text("http://jabber.org/protocol/admin"):up():up()
+				:add_child(field)));
+	else
+		local sessionid=uuid.generate();
+		sessions[sessionid] = "executing";
+		origin.send(st.reply(stanza):add_child(item:cmdtag("executing", sessionid):add_child(get_online_users_layout:form())));
 	end
-	origin.send(st.reply(stanza):add_child(item:cmdtag("completed", uuid:generate())
-		:tag("x", {xmlns="jabber:x:data", type="result"})
-			:tag("field", {type="hidden", var="FORM_TYPE"})
-				:tag("value"):text("http://jabber.org/protocol/admin"):up():up()
-			:add_child(field)));
 
 	return true;
 end
