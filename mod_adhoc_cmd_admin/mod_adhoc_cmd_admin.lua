@@ -39,13 +39,6 @@ local get_online_users_layout = dataforms_new{
 };
 
 function add_user_command_handler(item, origin, stanza)
-	if not is_admin(stanza.attr.from) then
-		module:log("warn", "Non-admin %s tried to add a user", tostring(jid.bare(stanza.attr.from)));
-		origin.send(st.error_reply(stanza, "auth", "forbidden", "You don't have permission to add a user"):up()
-			:add_child(item:cmdtag("canceled")
-				:tag("note", {type="error"}):text("You don't have permission to add a user")));
-		return true;
-	end
 	if stanza.tags[1].attr.sessionid and sessions[stanza.tags[1].attr.sessionid] then
 		if stanza.tags[1].attr.action == "cancel" then
 			origin.send(st.reply(stanza):add_child(item:cmdtag("canceled", stanza.tags[1].attr.sessionid)));
@@ -96,12 +89,6 @@ function add_user_command_handler(item, origin, stanza)
 end
 
 function get_online_users_command_handler(item, origin, stanza)
-	if not is_admin(stanza.attr.from) then
-		origin.send(st.error_reply(stanza, "auth", "forbidden", "You don't have permission to request a list of online users"):up()
-			:add_child(item:cmdtag("canceled")
-				:tag("note", {type="error"}):text("You don't have permission to request a list of online users")));
-		return true;
-	end
 	if stanza.tags[1].attr.sessionid and sessions[stanza.tags[1].attr.sessionid] then
 		if stanza.tags[1].attr.action == "cancel" then
 			origin.send(st.reply(stanza):add_child(item:cmdtag("canceled", stanza.tags[1].attr.sessionid)));

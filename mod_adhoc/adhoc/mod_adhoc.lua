@@ -34,6 +34,14 @@ module:hook("iq/host", function (event)
         local node = stanza.tags[1].attr.node
 		for i = 1, #commands do
 			if commands[i].node == node then
+				-- check whether user has permission to execute this command first
+				if commands[i].permission == "admin" and not is_admin(stanza.attr.from) then
+					origin.send(st.error_reply(stanza, "auth", "forbidden", "You don't have permission to execute this command"):up()
+						:add_child(commands[i]:cmdtag("canceled")
+							:tag("note", {type="error"}):text("You don't have permission to execute this command")));
+					return true
+				end
+				-- User has permission now execute the command
 				return commands[i].handler(commands[i], origin, stanza);
 			end
 		end
