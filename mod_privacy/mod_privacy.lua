@@ -323,7 +323,7 @@ function checkIfNeedToBeBlocked(e, session)
 	local privacy_lists = datamanager.load(session.username, session.host, "privacy") or {};
 	local bare_jid = session.username.."@"..session.host;
 
-	module:log("debug", "stanza: %s, to: %s, form: %s", stanza.name, stanza.attr.to or "nil", stanza.attr.from or "nil");
+	module:log("debug", "stanza: %s, to: %s, from: %s", stanza.name, stanza.attr.to or "nil", stanza.attr.from or "nil");
 	
 	if stanza.attr.to ~= nil and stanza.attr.from ~= nil then
 		if privacy_lists.lists == nil or
@@ -456,9 +456,9 @@ end
 function preCheckOutgoing(e)
 	local session = e.origin;
 	if e.stanza.attr.from == nil then
-		e.stanza.attr.form = session.username .. "@" .. session.host;
+		e.stanza.attr.from = session.username .. "@" .. session.host;
 		if session.resource ~= nil then
-		 	e.stanza.attr.from = e.stanza.attr.form .. "/" .. session.resource;
+		 	e.stanza.attr.from = e.stanza.attr.from .. "/" .. session.resource;
 		end
 	end
 	return checkIfNeedToBeBlocked(e, session);
