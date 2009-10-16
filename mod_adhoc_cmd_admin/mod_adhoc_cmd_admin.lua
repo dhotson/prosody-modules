@@ -130,6 +130,8 @@ function get_online_users_command_handler(item, origin, stanza)
 				:tag("field", {type="hidden", var="FORM_TYPE"})
 					:tag("value"):text("http://jabber.org/protocol/admin"):up():up()
 				:add_child(field)));
+		sessions[stanza.tags[1].attr.sessionid] = nil;
+		return true;
 	else
 		local sessionid=uuid.generate();
 		sessions[sessionid] = "executing";
