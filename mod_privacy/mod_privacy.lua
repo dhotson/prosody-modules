@@ -323,7 +323,7 @@ function checkIfNeedToBeBlocked(e, session)
 	local privacy_lists = datamanager.load(session.username, session.host, "privacy") or {};
 	local bare_jid = session.username.."@"..session.host;
 
-	module:log("debug", "stanza: %s, to: %s, from: %s", stanza.name, stanza.attr.to or "nil", stanza.attr.from or "nil");
+	module:log("debug", "stanza: %s, to: %s, from: %s", tostring(stanza.name), tostring(stanza.attr.to), tostring(stanza.attr.from));
 	
 	if stanza.attr.to ~= nil and stanza.attr.from ~= nil then
 		if privacy_lists.lists == nil or
@@ -406,7 +406,7 @@ function checkIfNeedToBeBlocked(e, session)
 			end
 			if apply then
 				if block then
-					module:log("info", "stanza blocked: %s, to: %s, from: %s", stanza.name, stanza.attr.to or "nil", stanza.attr.from or "nil");
+					module:log("info", "stanza blocked: %s, to: %s, from: %s", tostring(stanza.name), tostring(stanza.attr.to), tostring(stanza.attr.from));
 					if stanza.name == "message" then
 						origin.send(st.error_reply(stanza, "cancel", "service-unavailable"));
 					elseif stanza.name == "iq" and (stanza.attr.type == "get" or stanza.attr.type == "set") then
@@ -447,7 +447,7 @@ function preCheckIncoming(e)
 		if session ~= nil then
 			return checkIfNeedToBeBlocked(e, session);
 		else
-			module:log("debug", "preCheckIncoming: Couldn't get session for jid: %s@%s/%s", node or "nil", host or "nil", resource or "nil")
+			module:log("debug", "preCheckIncoming: Couldn't get session for jid: %s@%s/%s", tostring(node), tostring(host), tostring(resource))
 		end
 	end
 	return;
