@@ -303,12 +303,10 @@ function handle_request(method, body, request)
 end
 
 function module.load()
-	config = config_get("*", "core", "muc_log");
-	-- module:log("debug", "muc_log config: \n%s", dump(config));
+	config = config_get("*", "core", "muclogging");
+	-- module:log("debug", "muclogging config: \n%s", dump(config));
 	
-	if config.http_port ~= nil then
-		httpserver.new_from_config({ config.http_port }, "muc_log", handle_request);
-	end
+	httpserver.new_from_config({ config.http_port or true }, handle_request, { base = "muc_log" });
 	return validateLogFolder();
 end
 
