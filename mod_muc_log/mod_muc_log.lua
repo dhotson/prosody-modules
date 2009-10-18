@@ -22,17 +22,17 @@ local lom = require "lxp.lom";
 function validateLogFolder()
 	module:log("debug", "validateLogFolder; Folder: %s", tostring(config.folder));
 	if config.folder == nil then
-		module:log("warn", "muclogging folder isn't configured. configure it please!");
+		module:log("warn", "muc_log folder isn't configured. configure it please!");
 		return false;
 	end
 
 	-- check existance
 	local attributes = lfs.attributes(config.folder);
 	if attributes == nil then
-		module:log("warn", "muclogging folder doesn't exist. create it please!");
+		module:log("warn", "muc_log folder doesn't exist. create it please!");
 		return false;
 	elseif attributes.mode ~= "directory" then
-		module:log("warn", "muclogging folder isn't a folder, it's a %s. change this please!", attributes.mode);
+		module:log("warn", "muc_log folder isn't a folder, it's a %s. change this please!", attributes.mode);
 		return false;
 	end --TODO: check for write rights!
 
@@ -93,7 +93,7 @@ end
 function createDoc(body)
 	return [[<html>
 	<head>
-		<title>muclogging</title>
+		<title>muc_log</title>
 	</head>
 	<style type="text/css">
 	<!--
@@ -126,7 +126,7 @@ function splitQuery(query)
 end
 
 function grepRoomJid(url)
-	local tmp = url:sub(string.len("/muclogging/") + 1);
+	local tmp = url:sub(string.len("/muc_log/") + 1);
 	local node = nil;
 	local host = nil;
 	local at = nil;
@@ -152,7 +152,7 @@ local function generateRoomListSiteContent()
 			local logging = config_get(host, "core", "logging");
 			if logging then
 				for jid, room in pairs(prosody.hosts[host].muc.rooms) do
-					ret = ret .. "<a href=\"/muclogging/" .. jid .. "/\">" .. jid .."</a><br />\n";
+					ret = ret .. "<a href=\"/muc_log/" .. jid .. "/\">" .. jid .."</a><br />\n";
 				end
 			else
 				module:log("debug", "logging not enabled for muc component: %s", tostring(host));
@@ -171,7 +171,7 @@ local function generateDayListSiteContentByRoom(bareRoomJid)
 		if	year ~= nil and month ~= nil and day ~= nil and
 			year ~= ""  and month ~= ""  and day ~= ""
 		then
-			ret = "<a href=\"/muclogging/" .. bareRoomJid .. "/?year=" .. year .. "&month=" .. month .. "&day=" .. day .. "\">20" .. year .. "/" .. month .. "/" .. day .. "</a><br />\n" .. ret;
+			ret = "<a href=\"/muc_log/" .. bareRoomJid .. "/?year=" .. year .. "&month=" .. month .. "&day=" .. day .. "\">20" .. year .. "/" .. month .. "/" .. day .. "</a><br />\n" .. ret;
 		end
 	end
 	if ret ~= "" then
@@ -270,11 +270,11 @@ function handle_request(method, body, request)
 	
 	if validateLogFolder() == false then
 		return createDoc([[
-		Muclogging is not configured correctly. Add a section to Host * "muclogging" and configure the value for the logging "folder".<br />
+		Muclogging is not configured correctly. Add a section to Host * "muc_log" and configure the value for the logging "folder".<br />
 		Like:<br />
 		Host "*"<br />
 		....<br />
-		&nbsp;&nbsp;&nbsp;&nbsp;muclogging = {<br />
+		&nbsp;&nbsp;&nbsp;&nbsp;muc_log = {<br />
 		&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;folder = "/opt/local/var/log/prosody/rooms";<br />
 		&nbsp;&nbsp;&nbsp;&nbsp;}<br />
 		]]);
@@ -303,11 +303,11 @@ function handle_request(method, body, request)
 end
 
 function module.load()
-	config = config_get("*", "core", "muclogging");
-	-- module:log("debug", "muclogging config: \n%s", dump(config));
+	config = config_get("*", "core", "muc_log");
+	-- module:log("debug", "muc_log config: \n%s", dump(config));
 	
 	if config.http_port ~= nil then
-		httpserver.new_from_config({ config.http_port }, "muclogging", handle_request);
+		httpserver.new_from_config({ config.http_port }, "muc_log", handle_request);
 	end
 	return validateLogFolder();
 end
