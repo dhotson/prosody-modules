@@ -270,7 +270,7 @@ function handle_request(method, body, request)
 	
 	if validateLogFolder() == false then
 		return createDoc([[
-		Muclogging is not configured correctly. Add a section to Host * "muc_log" and configure the value for the logging "folder".<br />
+		MUC logging is not configured correctly. Add a section to Host * "muc_log" and configure the value for the logging "folder".<br />
 		Like:<br />
 		Host "*"<br />
 		....<br />
@@ -303,8 +303,8 @@ function handle_request(method, body, request)
 end
 
 function module.load()
-	config = config_get("*", "core", "muclogging");
-	-- module:log("debug", "muclogging config: \n%s", dump(config));
+	config = config_get("*", "core", "muc_log");
+	-- module:log("debug", "muc_log config: \n%s", dump(config));
 	
 	httpserver.new_from_config({ config.http_port or true }, handle_request, { base = "muc_log" });
 	return validateLogFolder();
