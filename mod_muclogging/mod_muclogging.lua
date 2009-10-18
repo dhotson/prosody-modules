@@ -8,7 +8,7 @@ local splitJid = require "util.jid".split;
 local bareJid = require "util.jid".bare;
 local config_get = require "core.configmanager".get;
 local httpserver = require "net.httpserver";
-local dump = require "util.logger".dump;
+-- local dump = require "util.logger".dump;
 local config = {};
 
 --[[ LuaFileSystem 
@@ -209,7 +209,7 @@ local function parseDay(bareRoomJid, query)
 			local parsed = lom.parse("<xml>" .. content .. "</xml>");
 			if parsed ~= nil then
 				for _,stanza in ipairs(parsed) do
-					module:log("debug", "dump of stanza: \n%s", dump(stanza))
+					-- module:log("debug", "dump of stanza: \n%s", dump(stanza))
 					if stanza.attr ~= nil and stanza.attr.time ~= nil then
 						ret = ret .. "<a name=\"" .. stanza.attr.time .. "\" href=\"#" .. stanza.attr.time .. "\" class=\"timestuff\">[" .. stanza.attr.time .. "]</a> ";
 						if stanza[1] ~= nil then
@@ -304,7 +304,7 @@ end
 
 function module.load()
 	config = config_get("*", "core", "muclogging");
-	module:log("debug", "muclogging config: \n%s", dump(config));
+	-- module:log("debug", "muclogging config: \n%s", dump(config));
 	
 	if config.http_port ~= nil then
 		httpserver.new_from_config({ config.http_port }, "muclogging", handle_request);
