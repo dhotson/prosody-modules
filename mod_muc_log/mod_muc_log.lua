@@ -26,6 +26,7 @@ local lom = require "lxp.lom";
 ]]--
 local html = {};
 html.doc = [[<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" >
 <head>
 	<title>muc_log</title>
 </head>
@@ -157,8 +158,11 @@ function createDoc(body)
 end
 
 local function htmlEscape(t)
+	t = t:gsub("<", "&lt;");
+	t = t:gsub(">", "&gt;");
+	t = t:gsub("(http://[%a%d@%.:/&%?=%-_#]+)", [[<a href="%1">%1</a>]]);
 	t = t:gsub("\n", "<br />");
-	-- TODO link text into klickable link and such stuff
+	-- TODO do any html escaping stuff ... 
 	return t;
 end
 
