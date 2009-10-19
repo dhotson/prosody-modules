@@ -8,8 +8,9 @@ local splitJid = require "util.jid".split;
 local bareJid = require "util.jid".bare;
 local config_get = require "core.configmanager".get;
 local httpserver = require "net.httpserver";
--- local dump = require "util.logger".dump;
+local serialize = require "util.serialization".serialize;
 local config = {};
+
 
 --[[ LuaFileSystem 
 * URL: http://www.keplerproject.org/luafilesystem/index.html
@@ -18,6 +19,72 @@ local config = {};
 local lfs = require "lfs";
 
 local lom = require "lxp.lom";
+
+
+--[[
+* Default templates for the html output.
+]]--
+local html = {};
+html.doc = [[<html>
+<head>
+	<title>muc_log</title>
+</head>
+<style type="text/css">
+<!--
+.timestuff {color: #AAAAAA; text-decoration: none;}
+.muc_join {color: #009900; font-style: italic;}
+.muc_leave {color: #009900; font-style: italic;}
+.muc_statusChange {color: #009900; font-style: italic;}
+.muc_title {color: #009900;}
+.muc_titlenick {color: #009900; font-style: italic;}
+.muc_kick {color: #009900; font-style: italic;}
+.muc_bann {color: #009900; font-style: italic;}
+.muc_name {color: #0000AA;}
+//-->
+</style>
+<body>
+###BODY_STUFF###
+</body>
+</html>]];
+
+html.hosts = {};
+html.hosts.bit = [[<a href="/muc_log/###JID###">###JID###</a><br />]]
+html.hosts.body = [[<h2>Rooms hosted on this server:</h2><hr /><p>
+###HOSTS_STUFF###
+</p><hr />]];
+
+html.days = {};
+html.days.bit = [[<a href="/muc_log/###JID###/?year=###YEAR###&month=###MONTH###&day=###DAY###">20###YEAR###/###MONTH###/###DAY###</a><br />]];
+html.days.body = [[<h2>available logged days of room: ###JID###</h2><hr /><p>
+###DAYS_STUFF###
+</p><hr />]];
+
+html.day = {};
+html.day.time = [[<a name="###TIME###" href="####TIME###" class="timestuff">[###TIME###]</a> ]]; -- the one ####TIME### need to stay! it will evaluate to e.g. #09:10:56 which is an anker then
+html.day.presence = {};
+html.day.presence.join = [[###TIME_STUFF###<font class="muc_join"> *** ###NICK### joins the room</font><br />]];
+html.day.presence.leave = [[###TIME_STUFF###<font class="muc_leave"> *** ###NICK### leaves the room</font><br />]];
+html.day.presence.statusChange = [[###TIME_STUFF###<font class="muc_statusChange"> *** ###NICK### changed his/her status to: ###STATUS###</font><br />]];
+html.day.message = [[###TIME_STUFF###<font class="muc_name">&lt;###NICK###&gt;</font> ###MSG###<br />]];
+html.day.titleChange = [[###TIME_STUFF###<font class="muc_titlenick"> *** ###NICK### change title to:</font> <font class="muc_title">###MSG###</font><br />]];
+html.day.kick = [[###TIME_STUFF###<font class="muc_titlenick"> *** ###NICK### kicked ###VICTIM###</font><br />]];
+html.day.bann = [[###TIME_STUFF###<font class="muc_titlenick"> *** ###NICK### banned ###VICTIM###</font><br />]];
+html.day.body = [[<h2>room ###JID### logging of 20###YEAR###/###MONTH###/###DAY###</h2><hr /><p>
+###DAY_STUFF###
+</p><hr />]];
+
+html.help = [[
+MUC logging is not configured correctly.<br />
+Here is a example config:<br />
+Component "rooms.example.com" "muc"<br />
+&nbsp;&nbsp;modules_enabled = {<br />
+&nbsp;&nbsp;&nbsp;&nbsp;"muc_log";<br />
+&nbsp;&nbsp;}<br />
+&nbsp;&nbsp;muc_log = {<br />
+&nbsp;&nbsp;&nbsp;&nbsp;folder = "/opt/local/var/log/prosody/rooms";<br />
+&nbsp;&nbsp;&nbsp;&nbsp;http_port = "/opt/local/var/log/prosody/rooms";<br />
+&nbsp;&nbsp;}<br />
+]];
 
 function validateLogFolder()
 	if config.folder == nil then
@@ -86,24 +153,13 @@ function logIfNeeded(e)
 end
 
 function createDoc(body)
-	return [[<html>
-	<head>
-		<title>muc_log</title>
-	</head>
-	<style type="text/css">
-	<!--
-	.timestuff {color: #AAAAAA; text-decoration: none;}
-	.muc_join {color: #009900; font-style: italic;}
-	.muc_leave {color: #009900; font-style: italic;}
-	.muc_kick {color: #009900; font-style: italic;}
-	.muc_bann {color: #009900; font-style: italic;}
-	.muc_name {color: #0000AA;}
-	//-->
-	</style>
-	<body>
-	]] .. tostring(body) .. [[
-	</body>
-	</html>]];
+	return html.doc:gsub("###BODY_STUFF###", body);
+end
+
+local function htmlEscape(t)
+	t = t:gsub("\n", "<br />");
+	-- TODO link text into klickable link and such stuff
+	return t;
 end
 
 function splitQuery(query)
@@ -141,30 +197,38 @@ function grepRoomJid(url)
 end
 
 local function generateRoomListSiteContent()
-	local ret = "<h2>Rooms hosted on this server:</h2><hr /><p>";
+	local rooms = "";
 	for host, config in pairs(prosody.hosts) do
 		if prosody.hosts[host].muc ~= nil then
 			for jid, room in pairs(prosody.hosts[host].muc.rooms) do
-				ret = ret .. "<a href=\"/muc_log/" .. jid .. "/\">" .. jid .."</a><br />\n";
+				rooms = rooms .. html.hosts.bit:gsub("###JID###", jid);
 			end
 		end
 	end
-	return ret .. "</p><hr />";
+	
+	return html.hosts.body:gsub("###HOSTS_STUFF###", rooms);
 end
 
 local function generateDayListSiteContentByRoom(bareRoomJid)
-	local ret = "";
+	local days = "";
+	local tmp;
 
 	for file in lfs.dir(config.folder) do
 		local year, month, day = file:match("^(%d%d)(%d%d)(%d%d)_" .. bareRoomJid .. ".log");
 		if	year ~= nil and month ~= nil and day ~= nil and
 			year ~= ""  and month ~= ""  and day ~= ""
 		then
-			ret = "<a href=\"/muc_log/" .. bareRoomJid .. "/?year=" .. year .. "&month=" .. month .. "&day=" .. day .. "\">20" .. year .. "/" .. month .. "/" .. day .. "</a><br />\n" .. ret;
+			tmp = html.days.bit;
+			tmp = tmp:gsub("###JID###", bareRoomJid);
+			tmp = tmp:gsub("###YEAR###", year);
+			tmp = tmp:gsub("###MONTH###", month);
+			tmp = tmp:gsub("###DAY###", day);
+			days = tmp .. days;
 		end
 	end
-	if ret ~= "" then
-		return "<h2>available logged days of room: " .. bareRoomJid .. "</h2><hr /><p>" .. ret .. "</p><hr />";
+	if days ~= "" then
+		tmp = html.days.body:gsub("###DAYS_STUFF###", days);
+		return tmp:gsub("###JID###", bareRoomJid);
 	else
 		return generateRoomListSiteContent(); -- fallback
 	end
@@ -175,6 +239,7 @@ local function parseDay(bareRoomJid, query)
 	local year;
 	local month;
 	local day;
+	local tmp;
 	
 	for _,str in ipairs(query) do 
 		local name, value;
@@ -199,25 +264,33 @@ local function parseDay(bareRoomJid, query)
 			if parsed ~= nil then
 				for _,stanza in ipairs(parsed) do
 					if stanza.attr ~= nil and stanza.attr.time ~= nil then
-						local tmp = "<a name=\"" .. stanza.attr.time .. "\" href=\"#" .. stanza.attr.time .. "\" class=\"timestuff\">[" .. stanza.attr.time .. "]</a> ";
+						local timeStuff = html.day.time:gsub("###TIME###", stanza.attr.time);
 						if stanza[1] ~= nil then
 							local nick;
+							
+							-- grep nick from "from" resource
 							if stanza[1].attr.from ~= nil then
 								nick = stanza[1].attr.from:match("/(.+)$");
-							end						
+							end
+							
 							if stanza[1].tag == "presence" and nick ~= nil then
+								
 								if stanza[1].attr.type == nil then
-									ret = ret .. tmp .. "<font class=\"muc_join\"> *** " .. nick .. " joins the room</font><br />\n";
+									tmp = html.day.presence.join:gsub("###TIME_STUFF###", timeStuff);
+									ret = ret .. tmp:gsub("###NICK###", nick);
 								elseif stanza[1].attr.type ~= nil and stanza[1].attr.type == "unavailable" then
-									ret = ret .. tmp .. "<font class=\"muc_leave\"> *** " .. nick .. " leaves the room</font><br />\n";
+									tmp = html.day.presence.leave:gsub("###TIME_STUFF###", timeStuff);
+									ret = ret .. tmp:gsub("###NICK###", nick);
 								else
-									ret = ret .. tmp .. "<font class=\"muc_leave\"> *** " .. nick .. " changed his/her status to: " .. stanza[1].attr.type .. "</font><br />\n";
+									tmp = html.day.presence.leave:gsub("###TIME_STUFF###", timeStuff);
+									tmp = tmp:gsub("###STATUS###", stanza[1].attr.type);
+									ret = ret .. tmp:gsub("###NICK###", nick);
 								end
 							elseif stanza[1].tag == "message" then
 								local body;
 								for _,tag in ipairs(stanza[1]) do
 									if tag.tag == "body" then
-										body = tag[1]:gsub("\n", "<br />\n");
+										body = htmlEscape(tag[1]);
 										if nick ~= nil then
 											break;
 										end
@@ -229,7 +302,9 @@ local function parseDay(bareRoomJid, query)
 									end
 								end
 								if nick ~= nil and body ~= nil then
-									ret = ret .. tmp .. "<font class=\"muc_name\">&lt;" .. nick .. "&gt;</font> " .. body .. "<br />\n";
+									tmp = html.day.message:gsub("###TIME_STUFF###", timeStuff);
+									tmp = tmp:gsub("###NICK###", nick);
+									ret = ret .. tmp:gsub("###MSG###", body);
 								end
 							else
 								module:log("info", "unknown stanza subtag in log found. room: %s; day: %s", bareRoomJid, year .. "/" .. month .. "/" .. day);
@@ -244,26 +319,24 @@ local function parseDay(bareRoomJid, query)
 		else
 			ret = err;
 		end
-		return "<h2>room " .. bareRoomJid .. " logging of 20" .. year .. "/" .. month .. "/" .. day .. "</h2><hr /><p>" .. ret .. "</p><hr />";
+		tmp = html.day.body:gsub("###DAY_STUFF###", ret);
+		tmp = tmp:gsub("###JID###", bareRoomJid);
+		tmp = tmp:gsub("###YEAR###", year);
+		tmp = tmp:gsub("###MONTH###", month);
+		tmp = tmp:gsub("###DAY###", day);
+		return tmp;
 	else
 		return generateDayListSiteContentByRoom(bareRoomJid); -- fallback
 	end
 end
 
 function handle_request(method, body, request)
+	module:log("debug", "got a request ...")
 	local query = splitQuery(request.url.query);
 	local node, host = grepRoomJid(request.url.path);
 	
 	if validateLogFolder() == false then
-		return createDoc([[
-		MUC logging is not configured correctly. Add a section to Host * "muc_log" and configure the value for the logging "folder".<br />
-		Like:<br />
-		Host "*"<br />
-		....<br />
-		&nbsp;&nbsp;&nbsp;&nbsp;muc_log = {<br />
-		&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;folder = "/opt/local/var/log/prosody/rooms";<br />
-		&nbsp;&nbsp;&nbsp;&nbsp;}<br />
-		]]);
+		return createDoc(html.help);
 	end
 	if node ~= nil  and host ~= nil then
 		local bare = node .. "@" .. host;
@@ -284,6 +357,7 @@ function handle_request(method, body, request)
 end
 
 config = config_get(module:get_host(), "core", "muc_log");
+module:log("debug", serialize(config));
 
 httpserver.new_from_config({ config.http_port or true }, handle_request, { base = "muc_log" });
 
