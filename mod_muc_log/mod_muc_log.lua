@@ -20,7 +20,6 @@ local lfs = require "lfs";
 local lom = require "lxp.lom";
 
 function validateLogFolder()
-	module:log("debug", "validateLogFolder; Folder: %s", tostring(config.folder));
 	if config.folder == nil then
 		module:log("warn", "muc_log folder isn't configured. configure it please!");
 		return false;
@@ -36,7 +35,6 @@ function validateLogFolder()
 		return false;
 	end --TODO: check for write rights!
 
-	module:log("debug", "Folder is validated and correct.")
 	return true;
 end
 
@@ -46,43 +44,40 @@ function logIfNeeded(e)
 		return;
 	end
 	
-	if (stanza.name == "presence") or 
-	   (stanza.name == "message" and tostring(stanza.attr.type) == "groupchat")
+	if	(stanza.name == "presence") or 
+	   	(stanza.name == "message" and tostring(stanza.attr.type) == "groupchat")
 	then
 		local node, host, resource = splitJid(stanza.attr.to);
 		if node ~= nil and host ~= nil then
 			local bare = node .. "@" .. host;
 			if prosody.hosts[host] ~= nil and prosody.hosts[host].muc ~= nil and prosody.hosts[host].muc.rooms[bare] ~= nil then
 				local room = prosody.hosts[host].muc.rooms[bare]
-				local logging = config_get(host, "core", "logging");
-				if logging == true then
-					local today = os.date("%y%m%d");
-					local now = os.date("%X")
-					local fn = config.folder .. "/" .. today .. "_" .. bare .. ".log";
-					local mucFrom = nil;
-			
-					if stanza.name == "presence" and stanza.attr.type == nil then
-						mucFrom = stanza.attr.to;
-					else
-						for jid, nick in pairs(room._jid_nick) do
-							if jid == stanza.attr.from then
-								mucFrom = nick;
-							end
+				local today = os.date("%y%m%d");
+				local now = os.date("%X")
+				local fn = config.folder .. "/" .. today .. "_" .. bare .. ".log";
+				local mucFrom = nil;
+		
+				if stanza.name == "presence" and stanza.attr.type == nil then
+					mucFrom = stanza.attr.to;
+				else
+					for jid, nick in pairs(room._jid_nick) do
+						if jid == stanza.attr.from then
+							mucFrom = nick;
 						end
 					end
+				end
 
-					if mucFrom ~= nil then
-						module:log("debug", "try to open room log: %s", fn);
-						local f = assert(io.open(fn, "a"));
-						local realFrom = stanza.attr.from;
-						local realTo = stanza.attr.to;
-						stanza.attr.from = mucFrom;
-						stanza.attr.to = nil;
-						f:write("<stanza time=\"".. now .. "\">" .. tostring(stanza) .. "</stanza>\n");
-						stanza.attr.from = realFrom;
-						stanza.attr.to = realTo;
-						f:close()
-					end
+				if mucFrom ~= nil then
+					module:log("debug", "try to open room log: %s", fn);
+					local f = assert(io.open(fn, "a"));
+					local realFrom = stanza.attr.from;
+					local realTo = stanza.attr.to;
+					stanza.attr.from = mucFrom;
+					stanza.attr.to = nil;
+					f:write("<stanza time=\"".. now .. "\">" .. tostring(stanza) .. "</stanza>\n");
+					stanza.attr.from = realFrom;
+					stanza.attr.to = realTo;
+					f:close()
 				end
 			end
 		end
@@ -149,13 +144,8 @@ local function generateRoomListSiteContent()
 	local ret = "<h2>Rooms hosted on this server:</h2><hr /><p>";
 	for host, config in pairs(prosody.hosts) do
 		if prosody.hosts[host].muc ~= nil then
-			local logging = config_get(host, "core", "logging");
-			if logging then
-				for jid, room in pairs(prosody.hosts[host].muc.rooms) do
-					ret = ret .. "<a href=\"/muc_log/" .. jid .. "/\">" .. jid .."</a><br />\n";
-				end
-			else
-				module:log("debug", "logging not enabled for muc component: %s", tostring(host));
+			for jid, room in pairs(prosody.hosts[host].muc.rooms) do
+				ret = ret .. "<a href=\"/muc_log/" .. jid .. "/\">" .. jid .."</a><br />\n";
 			end
 		end
 	end
@@ -167,7 +157,6 @@ local function generateDayListSiteContentByRoom(bareRoomJid)
 
 	for file in lfs.dir(config.folder) do
 		local year, month, day = file:match("^(%d%d)(%d%d)(%d%d)_" .. bareRoomJid .. ".log");
-		module:log("debug", "year: %s, month: %s, day: %s", year, month, day);
 		if	year ~= nil and month ~= nil and day ~= nil and
 			year ~= ""  and month ~= ""  and day ~= ""
 		then
@@ -209,9 +198,8 @@ local function parseDay(bareRoomJid, query)
 			local parsed = lom.parse("<xml>" .. content .. "</xml>");
 			if parsed ~= nil then
 				for _,stanza in ipairs(parsed) do
-					-- module:log("debug", "dump of stanza: \n%s", dump(stanza))
 					if stanza.attr ~= nil and stanza.attr.time ~= nil then
-						ret = ret .. "<a name=\"" .. stanza.attr.time .. "\" href=\"#" .. stanza.attr.time .. "\" class=\"timestuff\">[" .. stanza.attr.time .. "]</a> ";
+						local tmp = "<a name=\"" .. stanza.attr.time .. "\" href=\"#" .. stanza.attr.time .. "\" class=\"timestuff\">[" .. stanza.attr.time .. "]</a> ";
 						if stanza[1] ~= nil then
 							local nick;
 							if stanza[1].attr.from ~= nil then
@@ -219,11 +207,11 @@ local function parseDay(bareRoomJid, query)
 							end						
 							if stanza[1].tag == "presence" and nick ~= nil then
 								if stanza[1].attr.type == nil then
-									ret = ret .. "<font class=\"muc_join\"> *** " .. nick .. " joins the room</font><br />\n";
+									ret = ret .. tmp .. "<font class=\"muc_join\"> *** " .. nick .. " joins the room</font><br />\n";
 								elseif stanza[1].attr.type ~= nil and stanza[1].attr.type == "unavailable" then
-									ret = ret .. "<font class=\"muc_leave\"> *** " .. nick .. " leaves the room</font><br />\n";
+									ret = ret .. tmp .. "<font class=\"muc_leave\"> *** " .. nick .. " leaves the room</font><br />\n";
 								else
-									ret = ret .. "<font class=\"muc_leave\"> *** " .. nick .. " changed his/her status to: " .. stanza[1].attr.type .. "</font><br />\n";
+									ret = ret .. tmp .. "<font class=\"muc_leave\"> *** " .. nick .. " changed his/her status to: " .. stanza[1].attr.type .. "</font><br />\n";
 								end
 							elseif stanza[1].tag == "message" then
 								local body;
@@ -241,7 +229,7 @@ local function parseDay(bareRoomJid, query)
 									end
 								end
 								if nick ~= nil and body ~= nil then
-									ret = ret .. "<font class=\"muc_name\">&lt;" .. nick .. "&gt;</font> " .. body .. "<br />\n";
+									ret = ret .. tmp .. "<font class=\"muc_name\">&lt;" .. nick .. "&gt;</font> " .. body .. "<br />\n";
 								end
 							else
 								module:log("info", "unknown stanza subtag in log found. room: %s; day: %s", bareRoomJid, year .. "/" .. month .. "/" .. day);
@@ -263,8 +251,6 @@ local function parseDay(bareRoomJid, query)
 end
 
 function handle_request(method, body, request)
-	module:log("debug", "method: %s, body: %s, request: %s", tostring(method), tostring(body), tostring(request));
-	-- module:log("debug", "dump of request:\n%s\n", dump(request));
 	local query = splitQuery(request.url.query);
 	local node, host = grepRoomJid(request.url.path);
 	
@@ -283,18 +269,13 @@ function handle_request(method, body, request)
 		local bare = node .. "@" .. host;
 		if prosody.hosts[host] ~= nil and prosody.hosts[host].muc ~= nil and prosody.hosts[host].muc.rooms[bare] ~= nil then
 			local room = prosody.hosts[host].muc.rooms[bare];
-			local logging = config_get(host, "core", "logging");
-			if logging == true then
-				if request.url.query == nil then
-					return createDoc(generateDayListSiteContentByRoom(bare));
-				else
-					return createDoc(parseDay(bare, query));
-				end
+			if request.url.query == nil then
+				return createDoc(generateDayListSiteContentByRoom(bare));
 			else
-				module:log("debug", "logging not enabled for this room: %s", bare);
+				return createDoc(parseDay(bare, query));
 			end
 		else
-			module:log("debug", "room instance not found. bare room jid: %s", tostring(bare));
+			module:log("warn", "room instance not found. bare room jid: %s", tostring(bare));
 		end
 	else
 		return createDoc(generateRoomListSiteContent());
@@ -302,13 +283,11 @@ function handle_request(method, body, request)
 	return;
 end
 
-function module.load()
-	config = config_get("*", "core", "muc_log");
-	-- module:log("debug", "muc_log config: \n%s", dump(config));
-	
-	httpserver.new_from_config({ config.http_port or true }, handle_request, { base = "muc_log" });
-	return validateLogFolder();
-end
+config = config_get(module:get_host(), "core", "muc_log");
 
+httpserver.new_from_config({ config.http_port or true }, handle_request, { base = "muc_log" });
+
+module:hook("message/bare", logIfNeeded, 500);
 module:hook("pre-message/bare", logIfNeeded, 500);
+module:hook("presence/full", logIfNeeded, 500);
 module:hook("pre-presence/full", logIfNeeded, 500);
