@@ -65,9 +65,10 @@ html.day.time = [[<a name="###TIME###" href="####TIME###" class="timestuff">[###
 html.day.presence = {};
 html.day.presence.join = [[###TIME_STUFF###<font class="muc_join"> *** ###NICK### joins the room</font><br />]];
 html.day.presence.leave = [[###TIME_STUFF###<font class="muc_leave"> *** ###NICK### leaves the room</font><br />]];
-html.day.presence.statusChange = [[###TIME_STUFF###<font class="muc_statusChange"> *** ###NICK### changed his/her status to: ###STATUS###</font><br />]];
+html.day.presence.statusText = [[ and his status message is "###STATUS###"]];
+html.day.presence.statusChange = [[###TIME_STUFF###<font class="muc_statusChange"> *** ###NICK### shows now as "###SHOW###"###STATUS_STUFF###</font><br />]];
 html.day.message = [[###TIME_STUFF###<font class="muc_name">&lt;###NICK###&gt;</font> ###MSG###<br />]];
-html.day.titleChange = [[###TIME_STUFF###<font class="muc_titlenick"> *** ###NICK### change title to:</font> <font class="muc_title">###MSG###</font><br />]];
+html.day.titleChange = [[###TIME_STUFF###<font class="muc_titlenick"> *** ###NICK### changed the title to</font> <font class="muc_title">"###TITLE###"</font><br />]];
 html.day.kick = [[###TIME_STUFF###<font class="muc_titlenick"> *** ###NICK### kicked ###VICTIM###</font><br />]];
 html.day.bann = [[###TIME_STUFF###<font class="muc_titlenick"> *** ###NICK### banned ###VICTIM###</font><br />]];
 html.day.body = [[<h2>room ###JID### logging of 20###YEAR###/###MONTH###/###DAY###</h2><hr /><p>
@@ -168,15 +169,18 @@ end
 
 function splitQuery(query)
 	local ret = {};
+	local name, value = nil, nil;
 	if query == nil then return ret; end
 	local last = 1;
 	local idx = query:find("&", last);
 	while idx ~= nil do
-		ret[#ret + 1] = query:sub(last, idx - 1);
+		name, value = query:sub(last, idx - 1):match("^(%a+)=(%d+)$");
+		ret[name] = value;
 		last = idx + 1;
 		idx = query:find("&", last);
 	end
-	ret[#ret + 1] = query:sub(last);
+	name, value = query:sub(last):match("^(%a+)=(%d+)$");
+	ret[name] = value;
 	return ret;
 end
 
@@ -224,9 +228,7 @@ local function generateDayListSiteContentByRoom(bareRoomJid)
 		then
 			tmp = html.days.bit;
 			tmp = tmp:gsub("###JID###", bareRoomJid);
-			tmp = tmp:gsub("###YEAR###", year);
-			tmp = tmp:gsub("###MONTH###", month);
-			tmp = tmp:gsub("###DAY###", day);
+			tmp = tmp:gsub("###YEAR###", year):gsub("###MONTH###", month):gsub("###DAY###", day);
 			days = tmp .. days;
 		end
 	end
@@ -238,6 +240,65 @@ local function generateDayListSiteContentByRoom(bareRoomJid)
 	end
 end
 
+local function parsePresenceStanza(stanza, timeStuff, nick)
+	local ret = "";
+	-- module:log("debug", serialize(stanza));
+	if stanza[1].attr.type == nil then
+		local show, status = nil, "";
+		for _, tag in ipairs(stanza[1]) do
+			module:log("debug", serialize(tag));
+			if tag.tag == "show" then
+				show = tag[1];
+			elseif tag.tag == "status" then
+				status = tag[1];
+			end
+		end
+		if show ~= nil then
+			ret = html.day.presence.statusChange:gsub("###TIME_STUFF###", timeStuff);
+			if status ~= "" then
+				status = html.day.presence.statusText:gsub("###STATUS###", status);
+			end
+			ret = ret:gsub("###SHOW###", show):gsub("###NICK###", nick):gsub("###STATUS_STUFF###", status);
+		else
+			ret = html.day.presence.join:gsub("###TIME_STUFF###", timeStuff):gsub("###NICK###", nick);
+		end
+	elseif stanza[1].attr.type ~= nil and stanza[1].attr.type == "unavailable" then
+		ret = html.day.presence.leave:gsub("###TIME_STUFF###", timeStuff):gsub("###NICK###", nick);
+	end
+	return ret;
+end
+
+local function parseMessageStanza(stanza, timeStuff, nick)
+	local body, title, ret = nil, nil, "";
+	
+	for _,tag in ipairs(stanza[1]) do
+		if tag.tag == "body" then
+			body = tag[1];
+			if nick ~= nil then
+				break;
+			end
+		elseif tag.tag == "nick" and nick == nil then
+			nick = tag[1];
+			if body ~= nil or title ~= nil then
+				break;
+			end
+		elseif tag.tag == "subject" then
+			title = tag[1];
+			if nick ~= nil then
+				break;
+			end
+		end
+	end
+	if nick ~= nil and body ~= nil then
+		body = htmlEscape(body);
+		ret = html.day.message:gsub("###TIME_STUFF###", timeStuff):gsub("###NICK###", nick):gsub("###MSG###", body);
+	elseif nick ~= nil and title ~= nil then
+		title = htmlEscape(title);
+		ret = html.day.titleChange:gsub("###TIME_STUFF###", timeStuff):gsub("###NICK###", nick):gsub("###TITLE###", title);	
+	end
+	return ret;
+end
+
 local function parseDay(bareRoomJid, query)
 	local ret = "";
 	local year;
@@ -245,26 +306,13 @@ local function parseDay(bareRoomJid, query)
 	local day;
 	local tmp;
 	
-	for _,str in ipairs(query) do 
-		local name, value;
-		name, value = str:match("^(%a+)=(%d+)$");
-		if name == "year" then
-			year = value;
-		elseif name == "month" then
-			month = value;
-		elseif name == "day" then
-			day = value;
-		else
-			log("warn", "unknown query value");
-		end
-	end
-	
-	if year ~= nil and month ~= nil and day ~= nil then
-		local file = config.folder .. "/" .. year .. month .. day .. "_" .. bareRoomJid .. ".log";
+	if query.year ~= nil and query.month ~= nil and query.day ~= nil then
+		local file = config.folder .. "/" .. query.year .. query.month .. query.day .. "_" .. bareRoomJid .. ".log";
 		local f, err = io.open(file, "r");
 		if f ~= nil then
 			local content = f:read("*a");
 			local parsed = lom.parse("<xml>" .. content .. "</xml>");
+			f:close();
 			if parsed ~= nil then
 				for _,stanza in ipairs(parsed) do
 					if stanza.attr ~= nil and stanza.attr.time ~= nil then
@@ -278,56 +326,23 @@ local function parseDay(bareRoomJid, query)
 							end
 							
 							if stanza[1].tag == "presence" and nick ~= nil then
-								
-								if stanza[1].attr.type == nil then
-									tmp = html.day.presence.join:gsub("###TIME_STUFF###", timeStuff);
-									ret = ret .. tmp:gsub("###NICK###", nick);
-								elseif stanza[1].attr.type ~= nil and stanza[1].attr.type == "unavailable" then
-									tmp = html.day.presence.leave:gsub("###TIME_STUFF###", timeStuff);
-									ret = ret .. tmp:gsub("###NICK###", nick);
-								else
-									tmp = html.day.presence.leave:gsub("###TIME_STUFF###", timeStuff);
-									tmp = tmp:gsub("###STATUS###", stanza[1].attr.type);
-									ret = ret .. tmp:gsub("###NICK###", nick);
-								end
+								ret = ret .. parsePresenceStanza(stanza, timeStuff, nick);
 							elseif stanza[1].tag == "message" then
-								local body;
-								for _,tag in ipairs(stanza[1]) do
-									if tag.tag == "body" then
-										body = htmlEscape(tag[1]);
-										if nick ~= nil then
-											break;
-										end
-									elseif tag.tag == "nick" and nick == nil then
-										nick = tag[1];
-										if body ~= nil then
-											break;
-										end
-									end
-								end
-								if nick ~= nil and body ~= nil then
-									tmp = html.day.message:gsub("###TIME_STUFF###", timeStuff);
-									tmp = tmp:gsub("###NICK###", nick);
-									ret = ret .. tmp:gsub("###MSG###", body);
-								end
+								ret = ret .. parseMessageStanza(stanza, timeStuff, nick);
 							else
-								module:log("info", "unknown stanza subtag in log found. room: %s; day: %s", bareRoomJid, year .. "/" .. month .. "/" .. day);
+								module:log("info", "unknown stanza subtag in log found. room: %s; day: %s", bareRoomJid, query.year .. "/" .. query.month .. "/" .. query.day);
 							end
 						end
 					end
 				end
 			else
-					module:log("warn", "could not parse room log. room: %s; day: %s", bareRoomJid, year .. "/" .. month .. "/" .. day);
+					module:log("warn", "could not parse room log. room: %s; day: %s", bareRoomJid, query.year .. "/" .. query.month .. "/" .. query.day);
 			end
-			f:close();
 		else
 			ret = err;
 		end
-		tmp = html.day.body:gsub("###DAY_STUFF###", ret);
-		tmp = tmp:gsub("###JID###", bareRoomJid);
-		tmp = tmp:gsub("###YEAR###", year);
-		tmp = tmp:gsub("###MONTH###", month);
-		tmp = tmp:gsub("###DAY###", day);
+		tmp = html.day.body:gsub("###DAY_STUFF###", ret):gsub("###JID###", bareRoomJid);
+		tmp = tmp:gsub("###YEAR###", query.year):gsub("###MONTH###", query.month):gsub("###DAY###", query.day);
 		return tmp;
 	else
 		return generateDayListSiteContentByRoom(bareRoomJid); -- fallback
