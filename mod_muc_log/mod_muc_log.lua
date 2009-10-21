@@ -256,7 +256,7 @@ local function parsePresenceStanza(stanza, timeStuff, nick)
 		if show ~= nil then
 			ret = html.day.presence.statusChange:gsub("###TIME_STUFF###", timeStuff);
 			if status ~= "" then
-				status = html.day.presence.statusText:gsub("###STATUS###", status);
+				status = html.day.presence.statusText:gsub("###STATUS###", htmlEscape(status));
 			end
 			ret = ret:gsub("###SHOW###", show):gsub("###NICK###", nick):gsub("###STATUS_STUFF###", status);
 		else
@@ -278,7 +278,7 @@ local function parseMessageStanza(stanza, timeStuff, nick)
 				break;
 			end
 		elseif tag.tag == "nick" and nick == nil then
-			nick = tag[1];
+			nick = htmlEscape(tag[1]);
 			if body ~= nil or title ~= nil then
 				break;
 			end
@@ -322,7 +322,7 @@ local function parseDay(bareRoomJid, query)
 							
 							-- grep nick from "from" resource
 							if stanza[1].attr.from ~= nil then
-								nick = stanza[1].attr.from:match("/(.+)$");
+								nick = htmlEscape(stanza[1].attr.from:match("/(.+)$"));
 							end
 							
 							if stanza[1].tag == "presence" and nick ~= nil then
