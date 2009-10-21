@@ -36,11 +36,11 @@ html.doc = [[<html>
 .muc_join {color: #009900; font-style: italic;}
 .muc_leave {color: #009900; font-style: italic;}
 .muc_statusChange {color: #009900; font-style: italic;}
-.muc_title {color: #009900;}
-.muc_titlenick {color: #009900; font-style: italic;}
+.muc_title {color: #BBBBBB; font-size: 32px;}
+.muc_titleChange {color: #009900; font-style: italic;}
 .muc_kick {color: #009900; font-style: italic;}
 .muc_bann {color: #009900; font-style: italic;}
-.muc_name {color: #0000AA;}
+.muc_msg_nick {color: #0000AA;}
 //-->
 </style>
 <body>
@@ -61,17 +61,21 @@ html.days.body = [[<h2>available logged days of room: ###JID###</h2><hr /><p>
 </p><hr />]];
 
 html.day = {};
+html.day.title = [[Subject: <font class="muc_title">###TITLE###</font>]];
 html.day.time = [[<a name="###TIME###" href="####TIME###" class="timestuff">[###TIME###]</a> ]]; -- the one ####TIME### need to stay! it will evaluate to e.g. #09:10:56 which is an anker then
 html.day.presence = {};
 html.day.presence.join = [[###TIME_STUFF###<font class="muc_join"> *** ###NICK### joins the room</font><br />]];
 html.day.presence.leave = [[###TIME_STUFF###<font class="muc_leave"> *** ###NICK### leaves the room</font><br />]];
 html.day.presence.statusText = [[ and his status message is "###STATUS###"]];
 html.day.presence.statusChange = [[###TIME_STUFF###<font class="muc_statusChange"> *** ###NICK### shows now as "###SHOW###"###STATUS_STUFF###</font><br />]];
-html.day.message = [[###TIME_STUFF###<font class="muc_name">&lt;###NICK###&gt;</font> ###MSG###<br />]];
-html.day.titleChange = [[###TIME_STUFF###<font class="muc_titlenick"> *** ###NICK### changed the title to</font> <font class="muc_title">"###TITLE###"</font><br />]];
-html.day.kick = [[###TIME_STUFF###<font class="muc_titlenick"> *** ###NICK### kicked ###VICTIM###</font><br />]];
-html.day.bann = [[###TIME_STUFF###<font class="muc_titlenick"> *** ###NICK### banned ###VICTIM###</font><br />]];
-html.day.body = [[<h2>room ###JID### logging of 20###YEAR###/###MONTH###/###DAY###</h2><hr /><p>
+html.day.message = [[###TIME_STUFF###<font class="muc_msg_nick">&lt;###NICK###&gt;</font> ###MSG###<br />]];
+html.day.titleChange = [[###TIME_STUFF###<font class="muc_titleChange"> *** ###NICK### changed the title to "###TITLE###"</font><br />]];
+html.day.reason = [[, the reason was "###REASON###"]]
+html.day.kick = [[###TIME_STUFF###<font class="muc_kick"> *** ###VICTIM### got kicked###REASON_STUFF###</font><br />]];
+html.day.bann = [[###TIME_STUFF###<font class="muc_bann"> *** ###VICTIM### got banned###REASON_STUFF###</font><br />]];
+html.day.body = [[<h2>room ###JID### logging of 20###YEAR###/###MONTH###/###DAY###</h2>
+<p>###TITLE_STUFF###</p>
+<hr /><p>
 ###DAY_STUFF###
 </p><hr />]];
 
@@ -113,7 +117,8 @@ function logIfNeeded(e)
 		return;
 	end
 	
-	if	(stanza.name == "presence") or 
+	if	(stanza.name == "presence") or
+		(stanza.name == "iq") or
 	   	(stanza.name == "message" and tostring(stanza.attr.type) == "groupchat")
 	then
 		local node, host, resource = splitJid(stanza.attr.to);
@@ -124,32 +129,67 @@ function logIfNeeded(e)
 				local today = os.date("%y%m%d");
 				local now = os.date("%X")
 				local fn = config.folder .. "/" .. today .. "_" .. bare .. ".log";
+				local mucTo = nil
 				local mucFrom = nil;
+				local alreadyJoined = false;
 		
 				if stanza.name == "presence" and stanza.attr.type == nil then
 					mucFrom = stanza.attr.to;
+					if room._occupants ~= nil and room._occupants[stanza.attr.to] ~= nil then -- if true, the user has already joined the room
+						alreadyJoined = true;
+						stanza:tag("alreadyJoined"):text("true"); -- we need to log the information that the user has already joined, so add this and remove after logging
+					end
+				elseif stanza.name == "iq" and stanza.attr.type == "set" then -- kick, to is the room, from is the admin, nick who is kicked is attr of iq->query->item
+					if stanza.tags[1] ~= nil and stanza.tags[1].name == "query" then
+						local tmp = stanza.tags[1];
+						if tmp.tags[1] ~= nil and tmp.tags[1].name == "item" and tmp.tags[1].attr.nick ~= nil then
+							tmp = tmp.tags[1];
+							for jid, nick in pairs(room._jid_nick) do
+								module:log("debug", "%s == %s", nick, stanza.attr.to .. "/" .. tmp.attr.nick)
+								if nick == stanza.attr.to .. "/" .. tmp.attr.nick then
+									mucTo = nick;
+									break;
+								end
+							end
+						end
+					end
 				else
 					for jid, nick in pairs(room._jid_nick) do
 						if jid == stanza.attr.from then
 							mucFrom = nick;
+							break;
 						end
 					end
 				end
 
-				if mucFrom ~= nil then
+				if mucFrom ~= nil or mucTo ~= nil then
 					module:log("debug", "try to open room log: %s", fn);
 					local f = assert(io.open(fn, "a"));
 					local realFrom = stanza.attr.from;
 					local realTo = stanza.attr.to;
 					stanza.attr.from = mucFrom;
-					stanza.attr.to = nil;
+					stanza.attr.to = mucTo;
 					f:write("<stanza time=\"".. now .. "\">" .. tostring(stanza) .. "</stanza>\n");
 					stanza.attr.from = realFrom;
 					stanza.attr.to = realTo;
+					if alreadyJoined == true then
+						if stanza[#stanza].name == "alreadyJoined" then  -- normaly the faked element should be the last, remove it when it is the last
+							stanza[#stanza] = nil;
+						else
+							for i = 1, #stanza, 1 do
+								if stanza[i].name == "alreadyJoined" then  -- remove the faked element
+									stanza[i] = nil;
+									break;
+								end
+							end
+						end
+					end
 					f:close()
 				end
 			end
 		end
+	else
+		module:log("debug", serialize(stanza));
 	end
 	return;
 end
@@ -240,20 +280,52 @@ local function generateDayListSiteContentByRoom(bareRoomJid)
 	end
 end
 
+local function parseIqStanza(stanza, timeStuff, nick)
+	local text = nil;
+	-- module:log("debug", serialize(stanza));
+	for _,tag in ipairs(stanza) do
+		if tag.tag == "query" then
+			for _,item in ipairs(tag) do
+				if item.tag == "item" then
+					for _,reason in ipairs(item) do
+						if reason.tag == "reason" then
+							text = reason[1];
+							break;
+						end
+					end
+					break;
+				end 
+			end
+			break;
+		end
+	end
+	
+	if text ~= nil then	
+		text = html.day.reason:gsub("###REASON###", htmlEscape(text));
+	else
+		text = "";
+	end	
+	return html.day.kick:gsub("###TIME_STUFF###", timeStuff):gsub("###VICTIM###", nick):gsub("###REASON_STUFF###", text);
+end
+
 local function parsePresenceStanza(stanza, timeStuff, nick)
 	local ret = "";
-	-- module:log("debug", serialize(stanza));
-	if stanza[1].attr.type == nil then
+	if stanza.attr.type == nil then
 		local show, status = nil, "";
-		for _, tag in ipairs(stanza[1]) do
-			module:log("debug", serialize(tag));
-			if tag.tag == "show" then
+		local alreadyJoined = false;
+		for _, tag in ipairs(stanza) do
+			if tag.tag == "alreadyJoined" then
+				alreadyJoined = true;
+			elseif tag.tag == "show" then
 				show = tag[1];
 			elseif tag.tag == "status" then
 				status = tag[1];
 			end
 		end
-		if show ~= nil then
+		if alreadyJoined == true then
+			if show == nil then
+				show = "online";
+			end
 			ret = html.day.presence.statusChange:gsub("###TIME_STUFF###", timeStuff);
 			if status ~= "" then
 				status = html.day.presence.statusText:gsub("###STATUS###", htmlEscape(status));
@@ -262,7 +334,7 @@ local function parsePresenceStanza(stanza, timeStuff, nick)
 		else
 			ret = html.day.presence.join:gsub("###TIME_STUFF###", timeStuff):gsub("###NICK###", nick);
 		end
-	elseif stanza[1].attr.type ~= nil and stanza[1].attr.type == "unavailable" then
+	elseif stanza.attr.type ~= nil and stanza.attr.type == "unavailable" then
 		ret = html.day.presence.leave:gsub("###TIME_STUFF###", timeStuff):gsub("###NICK###", nick);
 	end
 	return ret;
@@ -271,7 +343,7 @@ end
 local function parseMessageStanza(stanza, timeStuff, nick)
 	local body, title, ret = nil, nil, "";
 	
-	for _,tag in ipairs(stanza[1]) do
+	for _,tag in ipairs(stanza) do
 		if tag.tag == "body" then
 			body = tag[1];
 			if nick ~= nil then
@@ -299,7 +371,7 @@ local function parseMessageStanza(stanza, timeStuff, nick)
 	return ret;
 end
 
-local function parseDay(bareRoomJid, query)
+local function parseDay(bareRoomJid, roomSubject, query)
 	local ret = "";
 	local year;
 	local month;
@@ -321,14 +393,18 @@ local function parseDay(bareRoomJid, query)
 							local nick;
 							
 							-- grep nick from "from" resource
-							if stanza[1].attr.from ~= nil then
+							if stanza[1].attr.from ~= nil then -- presence and messages
 								nick = htmlEscape(stanza[1].attr.from:match("/(.+)$"));
+							elseif stanza[1].attr.to ~= nil then -- iq
+								nick = htmlEscape(stanza[1].attr.to:match("/(.+)$"));
 							end
 							
 							if stanza[1].tag == "presence" and nick ~= nil then
-								ret = ret .. parsePresenceStanza(stanza, timeStuff, nick);
+								ret = ret .. parsePresenceStanza(stanza[1], timeStuff, nick);
 							elseif stanza[1].tag == "message" then
-								ret = ret .. parseMessageStanza(stanza, timeStuff, nick);
+								ret = ret .. parseMessageStanza(stanza[1], timeStuff, nick);
+							elseif stanza[1].tag == "iq" then
+								ret = ret .. parseIqStanza(stanza[1], timeStuff, nick);
 							else
 								module:log("info", "unknown stanza subtag in log found. room: %s; day: %s", bareRoomJid, query.year .. "/" .. query.month .. "/" .. query.day);
 							end
@@ -339,10 +415,11 @@ local function parseDay(bareRoomJid, query)
 					module:log("warn", "could not parse room log. room: %s; day: %s", bareRoomJid, query.year .. "/" .. query.month .. "/" .. query.day);
 			end
 		else
-			ret = err;
+			return generateDayListSiteContentByRoom(bareRoomJid); -- fallback
 		end
 		tmp = html.day.body:gsub("###DAY_STUFF###", ret):gsub("###JID###", bareRoomJid);
 		tmp = tmp:gsub("###YEAR###", query.year):gsub("###MONTH###", query.month):gsub("###DAY###", query.day);
+		tmp = tmp:gsub("###TITLE_STUFF###", html.day.title:gsub("###TITLE###", roomSubject));
 		return tmp;
 	else
 		return generateDayListSiteContentByRoom(bareRoomJid); -- fallback
@@ -350,7 +427,6 @@ local function parseDay(bareRoomJid, query)
 end
 
 function handle_request(method, body, request)
-	module:log("debug", "got a request ...")
 	local query = splitQuery(request.url.query);
 	local node, host = grepRoomJid(request.url.path);
 	
@@ -364,10 +440,14 @@ function handle_request(method, body, request)
 			if request.url.query == nil then
 				return createDoc(generateDayListSiteContentByRoom(bare));
 			else
-				return createDoc(parseDay(bare, query));
+				local subject = ""
+				if room._data ~= nil and room._data.subject ~= nil then
+					subject = room._data.subject;
+				end
+				return createDoc(parseDay(bare, subject, query));
 			end
 		else
-			module:log("warn", "room instance not found. bare room jid: %s", tostring(bare));
+			return createDoc(generateRoomListSiteContent());
 		end
 	else
 		return createDoc(generateRoomListSiteContent());
@@ -376,11 +456,12 @@ function handle_request(method, body, request)
 end
 
 config = config_get(module:get_host(), "core", "muc_log");
-module:log("debug", serialize(config));
 
 httpserver.new_from_config({ config.http_port or true }, handle_request, { base = "muc_log" });
 
 module:hook("message/bare", logIfNeeded, 500);
 module:hook("pre-message/bare", logIfNeeded, 500);
+module:hook("iq/bare", logIfNeeded, 500);
+module:hook("pre-iq/bare", logIfNeeded, 500);
 module:hook("presence/full", logIfNeeded, 500);
 module:hook("pre-presence/full", logIfNeeded, 500);
