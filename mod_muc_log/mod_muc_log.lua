@@ -9,6 +9,9 @@ local bareJid = require "util.jid".bare;
 local config_get = require "core.configmanager".get;
 local httpserver = require "net.httpserver";
 local serialize = require "util.serialization".serialize;
+local datamanager = require "util.datamanager";
+local data_load, data_store, data_getpath = datamanager.load, datamanager.store, datamanager.getpath;
+local datastore = "muc_log";
 local config = {};
 
 
@@ -92,30 +95,28 @@ Component "rooms.example.com" "muc"<br />
 &nbsp;&nbsp;}<br />
 ]];
 
-function validateLogFolder()
-	if config.folder == nil then
-		module:log("warn", "muc_log folder isn't configured. configure it please!");
-		return false;
-	end
+local function ensureDatastorePathExists(node, host, today)
+	local path = data_getpath(node, host, datastore, "dat", true);
+	path = path:gsub("/[^/]*$", "");
 
 	-- check existance
-	local attributes = lfs.attributes(config.folder);
+	local attributes = lfs.attributes(path);
+	if attributes.mode ~= "directory" then
+		module:log("warn", "muc_log folder isn't a folder: %s", path);
+		return false;
+	end
+	
+	attributes = lfs.attributes(path .. "/" .. today);
 	if attributes == nil then
-		module:log("warn", "muc_log folder doesn't exist. create it please!");
-		return false;
-	elseif attributes.mode ~= "directory" then
-		module:log("warn", "muc_log folder isn't a folder, it's a %s. change this please!", attributes.mode);
-		return false;
-	end --TODO: check for write rights!
-
-	return true;
+		return lfs.mkdir(path .. "/" .. today);
+	elseif attributes.mode == "directory" then
+		return true;
+	end
+	return false;
 end
 
 function logIfNeeded(e)
 	local stanza, origin = e.stanza, e.origin;
-	if validateLogFolder() == false then
-		return;
-	end
 	
 	if	(stanza.name == "presence") or
 		(stanza.name == "iq") or
@@ -128,7 +129,6 @@ function logIfNeeded(e)
 				local room = prosody.hosts[host].muc.rooms[bare]
 				local today = os.date("%y%m%d");
 				local now = os.date("%X")
-				local fn = config.folder .. "/" .. today .. "_" .. bare .. ".log";
 				local mucTo = nil
 				local mucFrom = nil;
 				local alreadyJoined = false;
@@ -145,7 +145,6 @@ function logIfNeeded(e)
 						if tmp.tags[1] ~= nil and tmp.tags[1].name == "item" and tmp.tags[1].attr.nick ~= nil then
 							tmp = tmp.tags[1];
 							for jid, nick in pairs(room._jid_nick) do
-								module:log("debug", "%s == %s", nick, stanza.attr.to .. "/" .. tmp.attr.nick)
 								if nick == stanza.attr.to .. "/" .. tmp.attr.nick then
 									mucTo = nick;
 									break;
@@ -162,14 +161,18 @@ function logIfNeeded(e)
 					end
 				end
 
-				if mucFrom ~= nil or mucTo ~= nil then
-					module:log("debug", "try to open room log: %s", fn);
-					local f = assert(io.open(fn, "a"));
+				if (mucFrom ~= nil or mucTo ~= nil) and ensureDatastorePathExists(node, host, today) then
+					local data = data_load(node, host, datastore .. "/" .. today);
 					local realFrom = stanza.attr.from;
 					local realTo = stanza.attr.to;
+					
+					if data == nil then
+						data = {};
+					end
+					
 					stanza.attr.from = mucFrom;
 					stanza.attr.to = mucTo;
-					f:write("<stanza time=\"".. now .. "\">" .. tostring(stanza) .. "</stanza>\n");
+					data[#data + 1] = "<stanza time=\"".. now .. "\">" .. tostring(stanza) .. "</stanza>\n";
 					stanza.attr.from = realFrom;
 					stanza.attr.to = realTo;
 					if alreadyJoined == true then
@@ -184,12 +187,10 @@ function logIfNeeded(e)
 							end
 						end
 					end
-					f:close()
+					data_store(node, host, datastore .. "/" .. today, data);
 				end
 			end
 		end
-	else
-		module:log("debug", serialize(stanza));
 	end
 	return;
 end
@@ -260,9 +261,11 @@ end
 local function generateDayListSiteContentByRoom(bareRoomJid)
 	local days = "";
 	local tmp;
-
-	for file in lfs.dir(config.folder) do
-		local year, month, day = file:match("^(%d%d)(%d%d)(%d%d)_" .. bareRoomJid .. ".log");
+	local node, host, resource = splitJid(bareRoomJid);
+	local path = data_getpath(node, host, datastore);
+	path = path:gsub("/[^/]*$", "");
+	for file in lfs.dir(path) do
+		local year, month, day = file:match("^(%d%d)(%d%d)(%d%d)");
 		if	year ~= nil and month ~= nil and day ~= nil and
 			year ~= ""  and month ~= ""  and day ~= ""
 		then
@@ -282,7 +285,6 @@ end
 
 local function parseIqStanza(stanza, timeStuff, nick)
 	local text = nil;
-	-- module:log("debug", serialize(stanza));
 	for _,tag in ipairs(stanza) do
 		if tag.tag == "query" then
 			for _,item in ipairs(tag) do
@@ -377,42 +379,36 @@ local function parseDay(bareRoomJid, roomSubject, query)
 	local month;
 	local day;
 	local tmp;
+	local node, host, resource = splitJid(bareRoomJid);
 	
 	if query.year ~= nil and query.month ~= nil and query.day ~= nil then
-		local file = config.folder .. "/" .. query.year .. query.month .. query.day .. "_" .. bareRoomJid .. ".log";
-		local f, err = io.open(file, "r");
-		if f ~= nil then
-			local content = f:read("*a");
-			local parsed = lom.parse("<xml>" .. content .. "</xml>");
-			f:close();
-			if parsed ~= nil then
-				for _,stanza in ipairs(parsed) do
-					if stanza.attr ~= nil and stanza.attr.time ~= nil then
-						local timeStuff = html.day.time:gsub("###TIME###", stanza.attr.time);
-						if stanza[1] ~= nil then
-							local nick;
-							
-							-- grep nick from "from" resource
-							if stanza[1].attr.from ~= nil then -- presence and messages
-								nick = htmlEscape(stanza[1].attr.from:match("/(.+)$"));
-							elseif stanza[1].attr.to ~= nil then -- iq
-								nick = htmlEscape(stanza[1].attr.to:match("/(.+)$"));
-							end
-							
-							if stanza[1].tag == "presence" and nick ~= nil then
-								ret = ret .. parsePresenceStanza(stanza[1], timeStuff, nick);
-							elseif stanza[1].tag == "message" then
-								ret = ret .. parseMessageStanza(stanza[1], timeStuff, nick);
-							elseif stanza[1].tag == "iq" then
-								ret = ret .. parseIqStanza(stanza[1], timeStuff, nick);
-							else
-								module:log("info", "unknown stanza subtag in log found. room: %s; day: %s", bareRoomJid, query.year .. "/" .. query.month .. "/" .. query.day);
-							end
+		local data = data_load(node, host, datastore .. "/" .. query.year .. query.month .. query.day);
+		if data ~= nil then
+			for i=1, #data, 1 do
+				local stanza = lom.parse(data[i]);
+				if stanza ~= nil and stanza.attr ~= nil and stanza.attr.time ~= nil then
+					local timeStuff = html.day.time:gsub("###TIME###", stanza.attr.time);
+					if stanza[1] ~= nil then
+						local nick;
+						
+						-- grep nick from "from" resource
+						if stanza[1].attr.from ~= nil then -- presence and messages
+							nick = htmlEscape(stanza[1].attr.from:match("/(.+)$"));
+						elseif stanza[1].attr.to ~= nil then -- iq
+							nick = htmlEscape(stanza[1].attr.to:match("/(.+)$"));
+						end
+						
+						if stanza[1].tag == "presence" and nick ~= nil then
+							ret = ret .. parsePresenceStanza(stanza[1], timeStuff, nick);
+						elseif stanza[1].tag == "message" then
+							ret = ret .. parseMessageStanza(stanza[1], timeStuff, nick);
+						elseif stanza[1].tag == "iq" then
+							ret = ret .. parseIqStanza(stanza[1], timeStuff, nick);
+						else
+							module:log("info", "unknown stanza subtag in log found. room: %s; day: %s", bareRoomJid, query.year .. "/" .. query.month .. "/" .. query.day);
 						end
 					end
 				end
-			else
-					module:log("warn", "could not parse room log. room: %s; day: %s", bareRoomJid, query.year .. "/" .. query.month .. "/" .. query.day);
 			end
 		else
 			return generateDayListSiteContentByRoom(bareRoomJid); -- fallback
@@ -430,9 +426,6 @@ function handle_request(method, body, request)
 	local query = splitQuery(request.url.query);
 	local node, host = grepRoomJid(request.url.path);
 	
-	if validateLogFolder() == false then
-		return createDoc(html.help);
-	end
 	if node ~= nil  and host ~= nil then
 		local bare = node .. "@" .. host;
 		if prosody.hosts[host] ~= nil and prosody.hosts[host].muc ~= nil and prosody.hosts[host].muc.rooms[bare] ~= nil then
