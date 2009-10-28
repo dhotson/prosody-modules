@@ -57,16 +57,14 @@ function new_session(conn)
 end
 
 function connlistener.listener(conn, data)
-	module:log("debug", "listener called....")
 	local session = sessions[conn];
-
-	if data ~= nil then module:log("debug", bin2hex(data)); end
-	if not session and data ~= nil and data:byte() == string.char(5):byte() and data:len() > 2 then
+	
+	if session == nil and data ~= nil and data:sub(1):byte() == 0x05 and data:len() > 2 then
 		local nmethods = data:sub(2):byte();
 		local methods = data:sub(3);
 		local supported = false;
 		for i=1, nmethods, 1 do
-			if(methods:sub(i):byte() == string.char(0):byte()) then
+			if(methods:sub(i):byte() == 0x00) then -- 0x00 == method: NO AUTH
 				supported = true;
 				break;
 			end
@@ -77,24 +75,39 @@ function connlistener.listener(conn, data)
 			sessions[conn] = session;
 			session.send(string.char(5, 0));
 		end
-	elseif data ~= nil and data:len() > 6 and 
-		data:sub(1):byte() == string.char(5):byte() and -- SOCKS5 has 5 in first byte
-		data:sub(2):byte() == string.char(1):byte() and -- CMD must be 1
-		data:sub(3):byte() == string.char(0):byte() and -- RSV must be 0
-		data:sub(4):byte() == string.char(3):byte() and -- ATYP must be 3		
-		data:sub(-2):byte() == string.char(0):byte() and data:sub(-1):byte() == string.char(0):byte() -- PORT must be 0, size 2 byte		
-	then
-		local sha = data:sub(6, data:len() - 2);
-		module:log("debug", "gotten sha: >%s<", sha);
-		if transfers[sha] == nil then
-			transfers[sha] = {};
-			transfers[sha].target = conn;
-			module:log("debug", "target connected ... ");
-		elseif transfers[sha].target ~= nil then
-			transfers[sha].initiator = conn;
-			module:log("debug", "initiator connected ... ");
+		return;
+	end
+	if session ~= nil then
+		if session.sha ~= nil and transfers[session.sha] ~= nil then
+			local sha = session.sha;
+			if transfers[sha].activated == true and transfers[sha].initiator == conn and transfers[sha].target ~= nil then
+				transfers[sha].target.write(data);
+				return;
+			end
 		end
-		session.send(string.char(5, 0, 0, 3, 40) .. sha .. string.char(0, 0)); -- VER, REP, RSV, ATYP, BND.ADDR (sha), BND.PORT (2 Byte)
+		if data ~= nil and data:len() == 0x2F and  -- 40 == length of SHA1 HASH, and 7 other bytes => 47 => 0x2F
+			data:sub(1):byte() == 0x05 and -- SOCKS5 has 5 in first byte
+			data:sub(2):byte() == 0x01 and -- CMD must be 1
+			data:sub(3):byte() == 0x00 and -- RSV must be 0
+			data:sub(4):byte() == 0x03 and -- ATYP must be 3
+			data:sub(5):byte() == 40 and -- SHA1 HASH length must be 64 (0x40)
+			data:sub(-2):byte() == 0x00 and -- PORT must be 0, size 2 byte
+			data:sub(-1):byte() == 0x00 		
+		then
+			local sha = data:sub(6, 45); -- second param is not count! it's the ending index (included!)
+			if transfers[sha] == nil then
+				transfers[sha] = {};
+				transfers[sha].activated = false;
+				transfers[sha].target = conn;
+				session.sha = sha;
+				module:log("debug", "target connected ... ");
+			elseif transfers[sha].target ~= nil then
+				transfers[sha].initiator = conn;
+				session.sha = sha;
+				module:log("debug", "initiator connected ... ");
+			end
+			session.send(string.char(5, 0, 0, 3, sha:len()) .. sha .. string.char(0, 0)); -- VER, REP, RSV, ATYP, BND.ADDR (sha), BND.PORT (2 Byte)
+		end
 	end
 end
 
@@ -186,7 +199,6 @@ local function register()
 		error("Proxy65: Could not establish a connection listener. Check your configuration please.");
 	else
 		connlistener.handler = connlisteners_start('proxy65');
-		module:log("debug", "Connection listener registered ... ")
 		module:add_item("proxy65", {jid=_host, name=_name})
 		component = component_register(_host, function(origin, stanza)
 			local to_node, to_host, to_resource = jid_split(stanza.attr.to);
@@ -208,13 +220,12 @@ local function register()
 				elseif stanza.name == "iq" and type == "set" then
 					local reply, from, to, sid = set_activation(stanza);
 					if reply ~= nil and from ~= nil and to ~= nil and sid ~= nil then
-						module:log("debug", "need to build sha1 of data: from: %s, to: %s, sid: %s", from, to, sid);
 						local sha = sha1(sid .. from .. to, true);
-						module:log("debug", "generated sha: %s", sha);
-						if(transfers[sha] ~= nil and transfers[sha].initiator ~= nil and transfers[sha].target ~= nil) then
+						if transfers[sha] == nil then
+							module:log("error", "transfers[sha]: nil");
+						elseif(transfers[sha] ~= nil and transfers[sha].initiator ~= nil and transfers[sha].target ~= nil) then
 							origin.send(reply);
-							forward(transfers[sha].initiator, transfers[sha].target);
-							transfers[sha] = nil;
+							transfers[sha].activated = true;
 						end
 					end
 				end
