@@ -38,6 +38,15 @@ local get_online_users_layout = dataforms_new{
 		value = { "25", "50", "75", "100", "150", "200", "all" } };
 };
 
+local announce_layout = dataforms_new{
+	title = "Making an Announcement";
+	instructions = "Fill out this form to make an announcement to all\nactive users of this service.";
+
+	{ name = "FORM_TYPE", type = "hidden", value = "http://jabber.org/protocol/admin" };
+	{ name = "subject", type = "text-single", label = "Subject" };
+	{ name = "announcement", type = "text-multi", required = true, label = "Announcement" };
+};
+
 function add_user_command_handler(item, origin, stanza)
 	if stanza.tags[1].attr.sessionid and sessions[stanza.tags[1].attr.sessionid] then
 		if stanza.tags[1].attr.action == "cancel" then
@@ -45,7 +54,7 @@ function add_user_command_handler(item, origin, stanza)
 			sessions[stanza.tags[1].attr.sessionid] = nil;
 			return true;
 		end
-		form = stanza.tags[1]:child_with_ns("jabber:x:data");
+		local form = stanza.tags[1]:child_with_ns("jabber:x:data");
 		local fields = add_user_layout:data(form);
 		local username, host, resource = jid.split(fields.accountjid);
 		if (fields.password == fields["password-verify"]) and username and host and host == stanza.attr.to then
@@ -96,7 +105,7 @@ function get_online_users_command_handler(item, origin, stanza)
 			return true;
 		end
 
-		form = stanza.tags[1]:child_with_ns("jabber:x:data");
+		local form = stanza.tags[1]:child_with_ns("jabber:x:data");
 		local fields = add_user_layout:data(form);
 		
 		local max_items = nil
@@ -128,13 +137,54 @@ function get_online_users_command_handler(item, origin, stanza)
 	return true;
 end
 
+function announce_handler(item, origin, stanza)
+	if stanza.tags[1].attr.sessionid and sessions[stanza.tags[1].attr.sessionid] then
+		if stanza.tags[1].attr.action == "cancel" then
+			origin.send(st.reply(stanza):add_child(item:cmdtag("canceled", stanza.tags[1].attr.sessionid)));
+			sessions[stanza.tags[1].attr.sessionid] = nil;
+			return true;
+		end
+
+		local form = stanza.tags[1]:child_with_ns("jabber:x:data");
+		local fields = add_user_layout:data(form);
+
+		module:log("info", "Sending server announcement to all online users");
+		local host_session = hosts[stanza.attr.to];
+		local message = st.message({type = "headline", from = stanza.attr.to}, fields.announcement):up()
+			:tag("subject"):text(fields.subject or "Announcement");
+		
+		local c = 0;
+		for user in pairs(host_session.sessions) do
+			c = c + 1;
+			message.attr.to = user.."@"..stanza.attr.to;
+			core_post_stanza(host_session, message);
+		end
+		
+		module:log("info", "Announcement sent to %d online users", c);
+
+		origin.send(st.reply(stanza):add_child(item:cmdtag("completed", stanza.tags[1].attr.sessionid)
+			:tag("note"):text("Announcement sent.")));
+		sessions[stanza.tags[1].attr.sessionid] = nil;
+		return true;
+	else
+		local sessionid=uuid.generate();
+		sessions[sessionid] = "executing";
+		origin.send(st.reply(stanza):add_child(item:cmdtag("executing", sessionid):add_child(announce_layout:form())));
+	end
+
+	return true;
+end
+
 local add_user_desc = adhoc_new("Add User", "http://jabber.org/protocol/admin#add-user", add_user_command_handler, "admin");
 local get_online_users_desc = adhoc_new("Get List of Online Users", "http://jabber.org/protocol/admin#get-online-users", get_online_users_command_handler, "admin"); 
+local announce_desc = adhoc_new("Send Announcement to Online Users", "http://jabber.org/protocol/admin#announce", announce_handler, "admin");
 
 function module.unload()
 	module:remove_item("adhoc", add_user_desc);
 	module:remove_item("adhoc", get_online_users_desc);
+	module:remove_item("adhoc", announce_desc);
 end
 
 module:add_item("adhoc", add_user_desc);
 module:add_item("adhoc", get_online_users_desc);
+module:add_item("adhoc", announce_desc);
