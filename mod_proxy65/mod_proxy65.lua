@@ -34,7 +34,7 @@ local proxy_interface = config_get(host, "core", "proxy65_interface") or "*";
 local proxy_address = config_get(host, "core", "proxy65_address") or (proxy_interface ~= "*" and proxy_interface) or module.host;
 
 local connlistener = {
-	registered = false, default_port = proxy_port, 
+	default_port = proxy_port, 
 	default_interface = proxy_interface, default_mode = "*a"
 	};
 
@@ -42,19 +42,10 @@ local function bin2hex(bin)
 	return bin:gsub(".", function (c) return ("%02x"):format(c:byte()); end)
 end
 
-function new_session(conn)
-	local w = function(s) conn.write(s:gsub("\n", "\r\n")); end;
-	local session = { conn = conn;
-			send = function (t) w(tostring(t)); end;
-			disconnect = function () conn.close(); end;
-			};
-	return session;
-end
-
 function connlistener.listener(conn, data)
-	local session = sessions[conn];
+	local session = sessions[conn] or { alreadySeen = false, sha = nil };
 	
-	if session == nil and data ~= nil and data:sub(1):byte() == 0x05 and data:len() > 2 then
+	if session.alreadySeen == false and data ~= nil and data:sub(1):byte() == 0x05 and data:len() > 2 then
 		local nmethods = data:sub(2):byte();
 		local methods = data:sub(3);
 		local supported = false;
@@ -66,13 +57,13 @@ function connlistener.listener(conn, data)
 		end
 		if(supported) then
 			module:log("debug", "new session found ... ")
-			session = new_session(conn);
+			session.alreadySeen = true;
 			sessions[conn] = session;
-			session.send(string.char(5, 0));
+			conn.write(string.char(5, 0));
 		end
 		return;
 	end
-	if session ~= nil then
+	if session.alreadySeen == true then
 		if session.sha ~= nil and transfers[session.sha] ~= nil then
 			local sha = session.sha;
 			if transfers[sha].activated == true and transfers[sha].initiator == conn and transfers[sha].target ~= nil then
@@ -101,7 +92,7 @@ function connlistener.listener(conn, data)
 				session.sha = sha;
 				module:log("debug", "initiator connected ... ");
 			end
-			session.send(string.char(5, 0, 0, 3, sha:len()) .. sha .. string.char(0, 0)); -- VER, REP, RSV, ATYP, BND.ADDR (sha), BND.PORT (2 Byte)
+			conn.write(string.char(5, 0, 0, 3, sha:len()) .. sha .. string.char(0, 0)); -- VER, REP, RSV, ATYP, BND.ADDR (sha), BND.PORT (2 Byte)
 		end
 	end
 end
