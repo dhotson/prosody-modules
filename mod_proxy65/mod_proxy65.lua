@@ -11,41 +11,30 @@ end
 
 local jid_split = require "util.jid".split;
 local st = require "util.stanza";
-local component_register = require "core.componentmanager".register_component;
-local component_deregister = require "core.componentmanager".deregister_component;
-local configmanager = require "core.configmanager";
+local componentmanager = require "core.componentmanager";
 local config_get = require "core.configmanager".get;
-local connlisteners_register = require "net.connlisteners".register;
-local connlisteners_start = require "net.connlisteners".start;
-local connlisteners_deregister = require "net.connlisteners".deregister;
+local connlisteners = require "net.connlisteners";
 local adns, dns = require "net.adns", require "net.dns";
 local add_task = require "util.timer".add_task;
 local max_dns_depth = config.get("*", "core", "dns_max_depth") or 3;
 local dns_timeout = config.get("*", "core", "dns_timeout") or 60;
 local sha1 = require "util.hashes".sha1;
 
-local replies_cache = {};
-local host = module:get_host();
-local name = "SOCKS5 Bytestreams Service";
-local sessions, transfers, component = {}, {}, nil;
+local host, name = module:get_host(), "SOCKS5 Bytestreams Service";
+local sessions, transfers, component, replies_cache = {}, {}, {}, nil;
 
 local proxy_port = config_get(host, "core", "proxy65_port") or 5000;
 local proxy_interface = config_get(host, "core", "proxy65_interface") or "*";
 local proxy_address = config_get(host, "core", "proxy65_address") or (proxy_interface ~= "*" and proxy_interface) or module.host;
 
-local connlistener = {
-	default_port = proxy_port, 
-	default_interface = proxy_interface, default_mode = "*a"
-	};
-
-local function bin2hex(bin)
-	return bin:gsub(".", function (c) return ("%02x"):format(c:byte()); end)
-end
+local connlistener = { default_port = proxy_port, 
+			default_interface = proxy_interface,
+			default_mode = "*a" };
 
 function connlistener.listener(conn, data)
-	local session = sessions[conn] or { alreadySeen = false, sha = nil };
+	local session = sessions[conn] or {};
 	
-	if session.alreadySeen == false and data ~= nil and data:sub(1):byte() == 0x05 and data:len() > 2 then
+	if session.setup == false and data ~= nil and data:sub(1):byte() == 0x05 and data:len() > 2 then
 		local nmethods = data:sub(2):byte();
 		local methods = data:sub(3);
 		local supported = false;
@@ -57,13 +46,13 @@ function connlistener.listener(conn, data)
 		end
 		if(supported) then
 			module:log("debug", "new session found ... ")
-			session.alreadySeen = true;
+			session.setup = true;
 			sessions[conn] = session;
 			conn.write(string.char(5, 0));
 		end
 		return;
 	end
-	if session.alreadySeen == true then
+	if session.setup then
 		if session.sha ~= nil and transfers[session.sha] ~= nil then
 			local sha = session.sha;
 			if transfers[sha].activated == true and transfers[sha].initiator == conn and transfers[sha].target ~= nil then
@@ -147,8 +136,8 @@ local function get_stream_host(stanza)
 end
 
 module.unload = function()
-	component_deregister(host);
-	connlisteners_deregister("proxy65");
+	componentmanager.deregister(host);
+	connlisteners.deregister("proxy65");
 end
 
 local function set_activation(stanza)
@@ -202,9 +191,9 @@ function handle_to_domain(origin, stanza)
 	return;
 end
 
-if not connlisteners_register('proxy65', connlistener) then
+if not connlisteners.register('proxy65', connlistener) then
 	error("mod_proxy65: Could not establish a connection listener. Check your configuration please.");
 end
 
-connlisteners_start('proxy65');
-component = component_register(host, handle_to_domain);
+connlisteners.start('proxy65');
+component = componentmanager.register(host, handle_to_domain);
