@@ -136,7 +136,7 @@ end
 
 module.unload = function()
 	componentmanager.deregister_component(host);
-	connlisteners.deregister("proxy65");
+	connlisteners.deregister(module.host .. ':proxy65');
 end
 
 local function set_activation(stanza)
@@ -195,5 +195,5 @@ if not connlisteners.register(module.host .. ':proxy65', connlistener) then
 	error(" one possible cause for this would be that two proxy65 components share the same port.");
 end
 
-connlisteners.start('proxy65');
+connlisteners.start(module.host .. ':proxy65');
 component = componentmanager.register_component(host, handle_to_domain);
