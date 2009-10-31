@@ -21,7 +21,7 @@ local dns_timeout = config.get("*", "core", "dns_timeout") or 60;
 local sha1 = require "util.hashes".sha1;
 
 local host, name = module:get_host(), "SOCKS5 Bytestreams Service";
-local sessions, transfers, component, replies_cache = {}, {}, {}, nil;
+local sessions, transfers, component, replies_cache = {}, {}, nil, {};
 
 local proxy_port = config_get(host, "core", "proxy65_port") or 5000;
 local proxy_interface = config_get(host, "core", "proxy65_interface") or "*";
@@ -136,7 +136,7 @@ local function get_stream_host(stanza)
 end
 
 module.unload = function()
-	componentmanager.deregister(host);
+	componentmanager.deregister_component(host);
 	connlisteners.deregister("proxy65");
 end
 
@@ -196,4 +196,4 @@ if not connlisteners.register('proxy65', connlistener) then
 end
 
 connlisteners.start('proxy65');
-component = componentmanager.register(host, handle_to_domain);
+component = componentmanager.register_component(host, handle_to_domain);
