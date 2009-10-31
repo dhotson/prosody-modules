@@ -8,7 +8,6 @@ if module:get_host_type() ~= "component" then
 	error("proxy65 should be loaded as a component, please see http://prosody.im/doc/components", 0);
 end
 
-
 local jid_split = require "util.jid".split;
 local st = require "util.stanza";
 local componentmanager = require "core.componentmanager";
@@ -191,8 +190,9 @@ function handle_to_domain(origin, stanza)
 	return;
 end
 
-if not connlisteners.register('proxy65', connlistener) then
+if not connlisteners.register(module.host .. ':proxy65', connlistener) then
 	error("mod_proxy65: Could not establish a connection listener. Check your configuration please.");
+	error(" one possible cause for this would be that two proxy65 components share the same port.");
 end
 
 connlisteners.start('proxy65');
