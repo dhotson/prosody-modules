@@ -46,7 +46,7 @@ function check_message(data)
 	for k,v in ipairs(stanza) do
 		if v.name == "body" then
 			body, bodyindex = v, k;
-		elseif v.name == "html" and v.attr.xmlns == xmlns_xhtml then
+		elseif v.name == "html" and v.attr.xmlns == xmlns_xhtmlim then
 			htmlindex = k;
 		end
 	end
