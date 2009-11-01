@@ -13,8 +13,6 @@ local datamanager = require "util.datamanager";
 local data_load, data_store, data_getpath = datamanager.load, datamanager.store, datamanager.getpath;
 local datastore = "muc_log";
 local config = {};
-local verifyAuthRequest = module:require "verifyhttpauth".verifyHttpAuthRequest;
-
 
 
 --[[ LuaFileSystem 
@@ -423,7 +421,7 @@ local function parseDay(bareRoomJid, roomSubject, query)
 		return generateDayListSiteContentByRoom(bareRoomJid); -- fallback
 	end
 end
-local requests = {};
+
 function handle_request(method, body, request)
 	local query = splitQuery(request.url.query);
 	local node, host = grepRoomJid(request.url.path);
@@ -439,17 +437,7 @@ function handle_request(method, body, request)
 				if room._data ~= nil and room._data.subject ~= nil then
 					subject = room._data.subject;
 				end
-				local doc = createDoc(parseDay(bare, subject, query));
-				local id = "thisIsTheId";
-				requests[id] = request;
-				requests[id].doc = doc;
-				
-				verifyAuthRequest(request.url.path .. "?" .. request.url.query, "thilo@cestona.ro", id, function (id, confirmed)
-					if confirmed and requests[id] then
-						requests[id].send(requests[id].doc);
-					end
-				end)
-				return true;
+				return createDoc(parseDay(bare, subject, query));
 			end
 		else
 			return createDoc(generateRoomListSiteContent());
@@ -460,7 +448,7 @@ function handle_request(method, body, request)
 	return;
 end
 
-config = config_get(module:get_host(), "core", "muc_log") or {};
+config = config_get(module:get_host(), "core", "muc_log");
 
 httpserver.new_from_config({ config.http_port or true }, handle_request, { base = "muc_log" });
 
