@@ -3,6 +3,12 @@
 -- This project is MIT/X11 licensed. Please see the
 -- COPYING file in the source package for more information.
 --
+--[[
+* to restart the proxy in the console: e.g.
+module:unload("proxy65");
+> server.removeserver(<proxy65_port>);
+module:load("proxy65", <proxy65_jid>);
+]]--
 
 if module:get_host_type() ~= "component" then
 	error("proxy65 should be loaded as a component, please see http://prosody.im/doc/components", 0);
@@ -76,10 +82,13 @@ function connlistener.listener(conn, data)
 				module:log("debug", "initiator connected ... ");
 			end
 			conn.write(string.char(5, 0, 0, 3, sha:len()) .. sha .. string.char(0, 0)); -- VER, REP, RSV, ATYP, BND.ADDR (sha), BND.PORT (2 Byte)
+		else
+			log:module("warn", "Neither data transfer nor initial connect of a participator of a transfer.")
+			conn.close();
 		end
 	else
 		if data ~= nil then
-			module:log("debug", "unknown connection with no authentication data -> closing it");
+			module:log("warn", "unknown connection with no authentication data -> closing it");
 			conn.close();
 		end
 	end
@@ -90,9 +99,9 @@ function connlistener.disconnect(conn, err)
 	if session then
 		if session.sha and transfers[session.sha] then
 			local initiator, target = transfers[session.sha].initiator, transfers[session.sha].target;
-			if initiator == conn then
+			if initiator == conn and target ~= nil then
 				target.close();
-			elseif target == conn then
+			elseif target == conn and initiator ~= nil then
 			 	initiator.close();
 			end
 		end
@@ -175,7 +184,7 @@ local function get_stream_host(origin, stanza)
 			replies_cache.stream_host = reply;
 		end
 	else
-		module:log("debug", "Denying use of proxy for %s", tostring(_jid_join(jid_node, jid_host, jid_resource)));
+		module:log("warn", "Denying use of proxy for %s", tostring(_jid_join(jid_node, jid_host, jid_resource)));
 		if err_reply == nil then
 			err_reply = st.iq({type="error", from=host})
 				:query("http://jabber.org/protocol/bytestreams")
@@ -208,7 +217,7 @@ local function set_activation(stanza)
 		end
 	end
 	if from ~= nil and to ~= nil and sid ~= nil then
-		reply = st.iq({type="result", from=host});
+		reply = st.iq({type="result", from=host, to=from});
 		reply.attr.id = stanza.attr.id;
 	end
 	return reply, from, to, sid;
@@ -241,6 +250,8 @@ function handle_to_domain(origin, stanza)
 					origin.send(reply);
 					transfers[sha].activated = true;
 				end
+			else
+				module:log("error", "activation failed: sid: %s, initiator: %s, target: %s", tostring(sid), tostring(from), tostring(to));
 			end
 		end
 	end
