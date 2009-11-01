@@ -127,19 +127,41 @@ local function get_disco_items(stanza)
 	return reply;
 end
 
+local function _jid_join(node, host, resource)
+	local ret = host;
+	if ret then
+		if node then
+			ret = node .. "@" .. ret;
+		end
+		if resource then
+			ret = ret .. "/" .. resource;
+		end
+	end
+	return ret;
+end
+
 local function get_stream_host(origin, stanza)
 	local reply = replies_cache.stream_host;
 	local err_reply = replies_cache.stream_host_err;
 	local sid = stanza.tags[1].attr.sid;
 	local allow = false;
+	local jid_node, jid_host, jid_resource = jid_split(stanza.attr.from);
 	
-	if proxy_acl then
-		for _, acl in ipairs(proxy_acl) do
-			local acl_node, acl_host, acl_resource = jid_split(acl);
-			if ((acl_node ~= nil and acl_node == origin.username) or acl_node == nil) and
-			   ((acl_host ~= nil and acl_host == origin.host) or acl_host == nil) and
-			   ((acl_resource ~= nil and acl_resource == origin.resource) or acl_resource == nil) then
-				allow = true;
+	if stanza.attr.from == nil then
+		jid_node = origin.username;
+		jid_host = origin.host;
+		jid_resource = origin.resource;
+	end
+	
+	if proxy_acl and #proxy_acl > 0 then
+		if host ~= nil then -- at least a domain is needed.
+			for _, acl in ipairs(proxy_acl) do
+				local acl_node, acl_host, acl_resource = jid_split(acl);
+				if ((acl_node ~= nil and acl_node == jid_node) or acl_node == nil) and
+				   ((acl_host ~= nil and acl_host == jid_host) or acl_host == nil) and
+				   ((acl_resource ~= nil and acl_resource == jid_resource) or acl_resource == nil) then
+					allow = true;
+				end
 			end
 		end
 	else
@@ -153,7 +175,7 @@ local function get_stream_host(origin, stanza)
 			replies_cache.stream_host = reply;
 		end
 	else
-		module:log("debug", "Denying use of proxy for %s@%s/%s", tostring(origin.username), tostring(origin.host), tostring(origin.resource));
+		module:log("debug", "Denying use of proxy for %s", tostring(_jid_join(jid_node, jid_host, jid_resource)));
 		if err_reply == nil then
 			err_reply = st.iq({type="error", from=host})
 				:query("http://jabber.org/protocol/bytestreams")
