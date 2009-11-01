@@ -118,7 +118,7 @@ local function get_disco_items(stanza)
 	local reply = replies_cache.disco_items;
 	if reply == nil then
 	 	reply = st.iq({type='result', from=host}):query("http://jabber.org/protocol/disco#items");
-		replies_cache.disco_info = reply;
+		replies_cache.disco_items = reply;
 	end
 	
 	reply.attr.id = stanza.attr.id;
