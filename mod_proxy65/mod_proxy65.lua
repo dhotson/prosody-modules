@@ -21,6 +21,7 @@ local sessions, transfers, component, replies_cache = {}, {}, nil, {};
 local proxy_port = config_get(host, "core", "proxy65_port") or 5000;
 local proxy_interface = config_get(host, "core", "proxy65_interface") or "*";
 local proxy_address = config_get(host, "core", "proxy65_address") or (proxy_interface ~= "*" and proxy_interface) or host;
+local proxy_acl = config_get(host, "core", "proxy65_acl");
 
 local connlistener = { default_port = proxy_port, default_interface = proxy_interface, default_mode = "*a" };
 
@@ -126,16 +127,42 @@ local function get_disco_items(stanza)
 	return reply;
 end
 
-local function get_stream_host(stanza)
+local function get_stream_host(origin, stanza)
 	local reply = replies_cache.stream_host;
+	local err_reply = replies_cache.stream_host_err;
 	local sid = stanza.tags[1].attr.sid;
-	if reply == nil then
-		reply = st.iq({type="result", from=host})
-			:query("http://jabber.org/protocol/bytestreams")
-			:tag("streamhost", {jid=host, host=proxy_address, port=proxy_port}); -- TODO get the correct data
-		replies_cache.stream_host = reply;
-	end
+	local allow = false;
 	
+	if proxy_acl then
+		for _, acl in ipairs(proxy_acl) do
+			local acl_node, acl_host, acl_resource = jid_split(acl);
+			if ((acl_node ~= nil and acl_node == origin.username) or acl_node == nil) and
+			   ((acl_host ~= nil and acl_host == origin.host) or acl_host == nil) and
+			   ((acl_resource ~= nil and acl_resource == origin.resource) or acl_resource == nil) then
+				allow = true;
+			end
+		end
+	else
+		allow = true;
+	end
+	if allow == true then
+		if reply == nil then
+			reply = st.iq({type="result", from=host})
+				:query("http://jabber.org/protocol/bytestreams")
+				:tag("streamhost", {jid=host, host=proxy_address, port=proxy_port});
+			replies_cache.stream_host = reply;
+		end
+	else
+		module:log("debug", "Denying use of proxy for %s@%s/%s", tostring(origin.username), tostring(origin.host), tostring(origin.resource));
+		if err_reply == nil then
+			err_reply = st.iq({type="error", from=host})
+				:query("http://jabber.org/protocol/bytestreams")
+				:tag("error", {code='403', type='auth'})
+				:tag("forbidden", {xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'});
+			replies_cache.stream_host_err = err_reply;
+		end
+		reply = err_reply;
+	end
 	reply.attr.id = stanza.attr.id;
 	reply.attr.to = stanza.attr.from;
 	reply.tags[1].attr.sid = sid;
@@ -179,7 +206,7 @@ function handle_to_domain(origin, stanza)
 				origin.send(get_disco_items(stanza));
 				return true;
 			elseif xmlns == "http://jabber.org/protocol/bytestreams" then
-				origin.send(get_stream_host(stanza));
+				origin.send(get_stream_host(origin, stanza));
 				return true;
 			end
 		elseif stanza.name == "iq" and type == "set" then
