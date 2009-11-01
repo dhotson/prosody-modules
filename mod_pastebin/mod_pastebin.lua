@@ -18,7 +18,7 @@ local pastes = {};
 local xmlns_xhtmlim = "http://jabber.org/protocol/xhtml-im";
 local xmlns_xhtml = "http://www.w3.org/1999/xhtml";
 
-local function pastebin_message(text)
+function pastebin_text(text)
 	local uuid = uuid_new();
 	pastes[uuid] = { text = text, time = os_time() };
 	pastes[#pastes+1] = uuid;
@@ -57,7 +57,7 @@ function check_message(data)
 	--module:log("debug", "Body(%s) length: %d", type(body), #(body or ""));
 	
 	if body and #body > length_threshold then
-		local url = pastebin_message(body);
+		local url = pastebin_text(body);
 		module:log("debug", "Pasted message as %s", url);		
 		--module:log("debug", " stanza[bodyindex] = %q", tostring( stanza[bodyindex]));
 		stanza[bodyindex][1] = url;
