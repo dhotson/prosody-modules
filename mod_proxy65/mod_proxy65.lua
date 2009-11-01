@@ -13,10 +13,6 @@ local st = require "util.stanza";
 local componentmanager = require "core.componentmanager";
 local config_get = require "core.configmanager".get;
 local connlisteners = require "net.connlisteners";
-local adns, dns = require "net.adns", require "net.dns";
-local add_task = require "util.timer".add_task;
-local max_dns_depth = config.get("*", "core", "dns_max_depth") or 3;
-local dns_timeout = config.get("*", "core", "dns_timeout") or 60;
 local sha1 = require "util.hashes".sha1;
 
 local host, name = module:get_host(), "SOCKS5 Bytestreams Service";
@@ -24,16 +20,14 @@ local sessions, transfers, component, replies_cache = {}, {}, nil, {};
 
 local proxy_port = config_get(host, "core", "proxy65_port") or 5000;
 local proxy_interface = config_get(host, "core", "proxy65_interface") or "*";
-local proxy_address = config_get(host, "core", "proxy65_address") or (proxy_interface ~= "*" and proxy_interface) or module.host;
+local proxy_address = config_get(host, "core", "proxy65_address") or (proxy_interface ~= "*" and proxy_interface) or host;
 
-local connlistener = { default_port = proxy_port, 
-			default_interface = proxy_interface,
-			default_mode = "*a" };
+local connlistener = { default_port = proxy_port, default_interface = proxy_interface, default_mode = "*a" };
 
 function connlistener.listener(conn, data)
 	local session = sessions[conn] or {};
 	
-	if session.setup == false and data ~= nil and data:sub(1):byte() == 0x05 and data:len() > 2 then
+	if session.setup == nil and data ~= nil and data:sub(1):byte() == 0x05 and data:len() > 2 then
 		local nmethods = data:sub(2):byte();
 		local methods = data:sub(3);
 		local supported = false;
@@ -64,7 +58,7 @@ function connlistener.listener(conn, data)
 			data:sub(2):byte() == 0x01 and -- CMD must be 1
 			data:sub(3):byte() == 0x00 and -- RSV must be 0
 			data:sub(4):byte() == 0x03 and -- ATYP must be 3
-			data:sub(5):byte() == 40 and -- SHA1 HASH length must be 64 (0x40)
+			data:sub(5):byte() == 40 and -- SHA1 HASH length must be 40 (0x28)
 			data:sub(-2):byte() == 0x00 and -- PORT must be 0, size 2 byte
 			data:sub(-1):byte() == 0x00 		
 		then
@@ -82,11 +76,25 @@ function connlistener.listener(conn, data)
 			end
 			conn.write(string.char(5, 0, 0, 3, sha:len()) .. sha .. string.char(0, 0)); -- VER, REP, RSV, ATYP, BND.ADDR (sha), BND.PORT (2 Byte)
 		end
+	else
+		if data ~= nil then
+			module:log("debug", "unknown connection with no authentication data -> closing it");
+			conn.close();
+		end
 	end
 end
 
 function connlistener.disconnect(conn, err)
-	if sessions[conn] then
+	local session = sessions[conn];
+	if session then
+		if session.sha and transfers[session.sha] then
+			local initiator, target = transfers[session.sha].initiator, transfers[session.sha].target;
+			if initiator == conn then
+				target.close();
+			elseif target == conn then
+			 	initiator.close();
+			end
+		end
 		-- Clean up any session-related stuff here
 		sessions[conn] = nil;
 	end
