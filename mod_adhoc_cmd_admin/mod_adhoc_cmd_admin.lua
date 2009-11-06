@@ -9,6 +9,8 @@ local _G = _G;
 local prosody = _G.prosody;
 local hosts = prosody.hosts;
 
+local t_concat = table.concat;
+
 local usermanager_user_exists = require "core.usermanager".user_exists;
 local usermanager_create_user = require "core.usermanager".create_user;
 local is_admin = require "core.usermanager".is_admin;
@@ -27,6 +29,14 @@ local add_user_layout = dataforms_new{
 	{ name = "accountjid", type = "jid-single", required = true, label = "The Jabber ID for the account to be added" };
 	{ name = "password", type = "text-private", label = "The password for this account" };
 	{ name = "password-verify", type = "text-private", label = "Retype password" };
+};
+
+local delete_user_layout = dataforms_new{
+	title = "Deleting a User";
+	instructions = "Fill out this form to delete a user.";
+
+	{ name = "FORM_TYPE", type = "hidden", value = "http://jabber.org/protocol/admin" };
+	{ name = "accountjids", type = "jid-multi", label = "The Jabber ID(s) to delete" };
 };
 
 local get_online_users_layout = dataforms_new{
@@ -57,7 +67,7 @@ function add_user_command_handler(item, origin, stanza)
 		local form = stanza.tags[1]:child_with_ns("jabber:x:data");
 		local fields = add_user_layout:data(form);
 		local username, host, resource = jid.split(fields.accountjid);
-		if (fields.password == fields["password-verify"]) and username and host and host == stanza.attr.to then
+		if (fields["password"] == fields["password-verify"]) and username and host and host == stanza.attr.to then
 			if usermanager_user_exists(username, host) then
 				origin.send(st.error_reply(stanza, "cancel", "conflict", "Account already exists"):up()
 					:add_child(item:cmdtag("canceled", stanza.tags[1].attr.sessionid)
@@ -93,6 +103,41 @@ function add_user_command_handler(item, origin, stanza)
 		local sessionid=uuid.generate();
 		sessions[sessionid] = "executing";
 		origin.send(st.reply(stanza):add_child(item:cmdtag("executing", sessionid):add_child(add_user_layout:form())));
+	end
+	return true;
+end
+
+function delete_user_command_handler(item, origin, stanza)
+	if stanza.tags[1].attr.sessionid and sessions[stanza.tags[1].attr.sessionid] then
+		if stanza.tags[1].attr.action == "cancel" then
+			origin.send(st.reply(stanza):add_child(item:cmdtag("canceled", stanza.tags[1].attr.sessionid)));
+			sessions[stanza.tags[1].attr.sessionid] = nil;
+			return true;
+		end
+		local form = stanza.tags[1]:child_with_ns("jabber:x:data");
+		local fields = delete_user_layout:data(form);
+		local failed = {};
+		local succeeded = {};
+		for _, aJID in ipairs(fields.accountjids) do
+			local username, host, resource = jid.split(aJID);
+			if usermanager_user_exists(username, host) and usermanager_create_user(username, nil, host) then
+				module:log("debug", "User" .. aJID .. "has been deleted");
+				succeeded[#succeeded+1] = aJID;
+			else
+				module:log("debug", "Tried to delete not existing user "..aJID);
+				failed[#failed+1] = aJID;
+			end
+		end
+		origin.send(st.reply(stanza):add_child(item:cmdtag("completed", stanza.tags[1].attr.sessionid)
+			:tag("note", {type="info"})
+				:text((#succeeded ~= 0 and "The following accounts were successfully deleted:\n"..t_concat(succeeded, "\n").."\n" or "")
+					..(#failed ~= 0 and "The following accounts could not be deleted:\n"..t_concat(failed, "\n") or ""))));
+		sessions[stanza.tags[1].attr.sessionid] = nil;
+		return true;
+	else
+		local sessionid=uuid.generate();
+		sessions[sessionid] = "executing";
+		origin.send(st.reply(stanza):add_child(item:cmdtag("executing", sessionid):add_child(delete_user_layout:form())));
 	end
 	return true;
 end
@@ -176,15 +221,18 @@ function announce_handler(item, origin, stanza)
 end
 
 local add_user_desc = adhoc_new("Add User", "http://jabber.org/protocol/admin#add-user", add_user_command_handler, "admin");
+local delete_user_desc = adhoc_new("Delete User", "http://jabber.org/protocol/admin#delete-user", delete_user_command_handler, "admin");
 local get_online_users_desc = adhoc_new("Get List of Online Users", "http://jabber.org/protocol/admin#get-online-users", get_online_users_command_handler, "admin"); 
 local announce_desc = adhoc_new("Send Announcement to Online Users", "http://jabber.org/protocol/admin#announce", announce_handler, "admin");
 
 function module.unload()
 	module:remove_item("adhoc", add_user_desc);
+	module:remove_item("adhoc", delete_user_desc);
 	module:remove_item("adhoc", get_online_users_desc);
 	module:remove_item("adhoc", announce_desc);
 end
 
 module:add_item("adhoc", add_user_desc);
+module:add_item("adhoc", delete_user_desc);
 module:add_item("adhoc", get_online_users_desc);
 module:add_item("adhoc", announce_desc);
