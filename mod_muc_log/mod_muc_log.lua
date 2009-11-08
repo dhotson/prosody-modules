@@ -304,29 +304,35 @@ end
 
 local function parseIqStanza(stanza, timeStuff, nick)
 	local text = nil;
-	for _,tag in ipairs(stanza) do
-		if tag.tag == "query" then
-			for _,item in ipairs(tag) do
-				if item.tag == "item" then
-					for _,reason in ipairs(item) do
-						if reason.tag == "reason" then
-							text = reason[1];
-							break;
+	local victim = nil;
+	if(stanza.attr.type == "set") then
+		for _,tag in ipairs(stanza) do
+			if tag.tag == "query" then
+				for _,item in ipairs(tag) do
+					if item.tag == "item" and item.attr.nick ~= nil and tostring(item.attr.role) == 'none' then
+						victim = item.attr.nick;
+						for _,reason in ipairs(item) do
+							if reason.tag == "reason" then
+								text = reason[1];
+								break;
+							end
 						end
-					end
-					break;
-				end 
+						break;
+					end 
+				end
+				break;
 			end
-			break;
+		end
+		if victim ~= nil then
+			if text ~= nil then	
+				text = html.day.reason:gsub("###REASON###", htmlEscape(text));
+			else
+				text = "";
+			end	
+			return html.day.kick:gsub("###TIME_STUFF###", timeStuff):gsub("###VICTIM###", victim):gsub("###REASON_STUFF###", text);
 		end
 	end
-	
-	if text ~= nil then	
-		text = html.day.reason:gsub("###REASON###", htmlEscape(text));
-	else
-		text = "";
-	end	
-	return html.day.kick:gsub("###TIME_STUFF###", timeStuff):gsub("###VICTIM###", nick):gsub("###REASON_STUFF###", text);
+	return;
 end
 
 local function parsePresenceStanza(stanza, timeStuff, nick)
@@ -409,6 +415,7 @@ local function parseDay(bareRoomJid, roomSubject, query)
 					local timeStuff = html.day.time:gsub("###TIME###", stanza.attr.time);
 					if stanza[1] ~= nil then
 						local nick;
+						local tmp;
 						
 						-- grep nick from "from" resource
 						if stanza[1].attr.from ~= nil then -- presence and messages
@@ -418,13 +425,17 @@ local function parseDay(bareRoomJid, roomSubject, query)
 						end
 						
 						if stanza[1].tag == "presence" and nick ~= nil then
-							ret = ret .. parsePresenceStanza(stanza[1], timeStuff, nick);
+							tmp = parsePresenceStanza(stanza[1], timeStuff, nick);
 						elseif stanza[1].tag == "message" then
-							ret = ret .. parseMessageStanza(stanza[1], timeStuff, nick);
+							tmp = parseMessageStanza(stanza[1], timeStuff, nick);
 						elseif stanza[1].tag == "iq" then
-							ret = ret .. parseIqStanza(stanza[1], timeStuff, nick);
+							tmp = parseIqStanza(stanza[1], timeStuff, nick);
 						else
 							module:log("info", "unknown stanza subtag in log found. room: %s; day: %s", bareRoomJid, query.year .. "/" .. query.month .. "/" .. query.day);
+						end
+						if tmp ~= nil then
+							ret = ret .. tmp
+							tmp = nil;
 						end
 					end
 				end
