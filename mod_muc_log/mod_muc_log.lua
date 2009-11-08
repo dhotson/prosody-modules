@@ -12,6 +12,7 @@ local serialize = require "util.serialization".serialize;
 local datamanager = require "util.datamanager";
 local data_load, data_store, data_getpath = datamanager.load, datamanager.store, datamanager.getpath;
 local datastore = "muc_log";
+local muc_host = module:get_host();
 local config = {};
 
 
@@ -100,13 +101,13 @@ local function ensureDatastorePathExists(node, host, today)
 	path = path:gsub("/[^/]*$", "");
 
 	-- check existance
-	local attributes = lfs.attributes(path);
-	if attributes.mode ~= "directory" then
+	local attributes, err = lfs.attributes(path);
+	if attributes == nil or attributes.mode ~= "directory" then
 		module:log("warn", "muc_log folder isn't a folder: %s", path);
 		return false;
 	end
 	
-	attributes = lfs.attributes(path .. "/" .. today);
+	attributes, err = lfs.attributes(path .. "/" .. today);
 	if attributes == nil then
 		return lfs.mkdir(path .. "/" .. today);
 	elseif attributes.mode == "directory" then
@@ -125,14 +126,18 @@ function logIfNeeded(e)
 		local node, host, resource = splitJid(stanza.attr.to);
 		if node ~= nil and host ~= nil then
 			local bare = node .. "@" .. host;
-			if prosody.hosts[host] ~= nil and prosody.hosts[host].muc ~= nil and prosody.hosts[host].muc.rooms[bare] ~= nil then
+			if host == muc_host and prosody.hosts[host] ~= nil and prosody.hosts[host].muc ~= nil and prosody.hosts[host].muc.rooms[bare] ~= nil then
 				local room = prosody.hosts[host].muc.rooms[bare]
 				local today = os.date("%y%m%d");
 				local now = os.date("%X")
 				local mucTo = nil
 				local mucFrom = nil;
 				local alreadyJoined = false;
-		
+				
+				if room._data.hidden then -- do not log any data of private rooms
+					return;
+				end
+				
 				if stanza.name == "presence" and stanza.attr.type == nil then
 					mucFrom = stanza.attr.to;
 					if room._occupants ~= nil and room._occupants[stanza.attr.to] ~= nil then -- if true, the user has already joined the room
@@ -248,9 +253,11 @@ end
 local function generateRoomListSiteContent()
 	local rooms = "";
 	for host, config in pairs(prosody.hosts) do
-		if prosody.hosts[host].muc ~= nil then
+		if host == muc_host and prosody.hosts[host].muc ~= nil then
 			for jid, room in pairs(prosody.hosts[host].muc.rooms) do
-				rooms = rooms .. html.hosts.bit:gsub("###JID###", jid);
+				if not room._data.hidden then
+					rooms = rooms .. html.hosts.bit:gsub("###JID###", jid);
+				end
 			end
 		end
 	end
@@ -263,16 +270,28 @@ local function generateDayListSiteContentByRoom(bareRoomJid)
 	local tmp;
 	local node, host, resource = splitJid(bareRoomJid);
 	local path = data_getpath(node, host, datastore);
+	local room = nil;
+	local attributes = nil;
+	
 	path = path:gsub("/[^/]*$", "");
-	for file in lfs.dir(path) do
-		local year, month, day = file:match("^(%d%d)(%d%d)(%d%d)");
-		if	year ~= nil and month ~= nil and day ~= nil and
-			year ~= ""  and month ~= ""  and day ~= ""
-		then
-			tmp = html.days.bit;
-			tmp = tmp:gsub("###JID###", bareRoomJid);
-			tmp = tmp:gsub("###YEAR###", year):gsub("###MONTH###", month):gsub("###DAY###", day);
-			days = tmp .. days;
+	attributes = lfs.attributes(path);
+	if host == muc_host and prosody.hosts[host] ~= nil and prosody.hosts[host].muc ~= nil and prosody.hosts[host].muc.rooms[bareRoomJid] ~= nil then
+		room = prosody.hosts[host].muc.rooms[bareRoomJid];
+		if room._data.hidden then
+			room = nil
+		end
+	end
+	if attributes ~= nil and room ~= nil then
+		for file in lfs.dir(path) do
+			local year, month, day = file:match("^(%d%d)(%d%d)(%d%d)");
+			if	year ~= nil and month ~= nil and day ~= nil and
+				year ~= ""  and month ~= ""  and day ~= ""
+			then
+				tmp = html.days.bit;
+				tmp = tmp:gsub("###JID###", bareRoomJid);
+				tmp = tmp:gsub("###YEAR###", year):gsub("###MONTH###", month):gsub("###DAY###", day);
+				days = tmp .. days;
+			end
 		end
 	end
 	if days ~= "" then
