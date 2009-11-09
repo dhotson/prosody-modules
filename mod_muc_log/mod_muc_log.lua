@@ -34,6 +34,15 @@ html.doc = [[<html>
 <head>
 	<title>muc_log</title>
 </head>
+<script type="text/javascript"><!--
+function showHide(name) {
+	var eles = document.getElementsByName(name);
+	for (var i = 0; i < eles.length; i++) {
+		eles[i].style.display = eles[i].style.display != "none" ? "none" : "";
+	}
+	
+}
+--></script>
 <style type="text/css">
 <!--
 .timestuff {color: #AAAAAA; text-decoration: none;}
@@ -68,10 +77,10 @@ html.day = {};
 html.day.title = [[Subject: <font class="muc_title">###TITLE###</font>]];
 html.day.time = [[<a name="###TIME###" href="####TIME###" class="timestuff">[###TIME###]</a> ]]; -- the one ####TIME### need to stay! it will evaluate to e.g. #09:10:56 which is an anker then
 html.day.presence = {};
-html.day.presence.join = [[###TIME_STUFF###<font class="muc_join"> *** ###NICK### joins the room</font><br />]];
-html.day.presence.leave = [[###TIME_STUFF###<font class="muc_leave"> *** ###NICK### leaves the room</font><br />]];
+html.day.presence.join = [[<div name="joinLeave" style="display: ###SHOWHIDE###;">###TIME_STUFF###<font class="muc_join"> *** ###NICK### joins the room</font><br /></div>]];
+html.day.presence.leave = [[<div name="joinLeave" style="display: ###SHOWHIDE###;">###TIME_STUFF###<font class="muc_leave"> *** ###NICK### leaves the room</font><br /></div>]];
 html.day.presence.statusText = [[ and his status message is "###STATUS###"]];
-html.day.presence.statusChange = [[###TIME_STUFF###<font class="muc_statusChange"> *** ###NICK### shows now as "###SHOW###"###STATUS_STUFF###</font><br />]];
+html.day.presence.statusChange = [[<div name="status" style="display: ###SHOWHIDE###;">###TIME_STUFF###<font class="muc_statusChange"> *** ###NICK### shows now as "###SHOW###"###STATUS_STUFF###</font><br /></div>]];
 html.day.message = [[###TIME_STUFF###<font class="muc_msg_nick">&lt;###NICK###&gt;</font> ###MSG###<br />]];
 html.day.titleChange = [[###TIME_STUFF###<font class="muc_titleChange"> *** ###NICK### changed the title to "###TITLE###"</font><br />]];
 html.day.reason = [[, the reason was "###REASON###"]]
@@ -79,9 +88,14 @@ html.day.kick = [[###TIME_STUFF###<font class="muc_kick"> *** ###VICTIM### got k
 html.day.bann = [[###TIME_STUFF###<font class="muc_bann"> *** ###VICTIM### got banned###REASON_STUFF###</font><br />]];
 html.day.body = [[<h2>room ###JID### logging of 20###YEAR###/###MONTH###/###DAY###</h2>
 <p>###TITLE_STUFF###</p>
-<hr /><p>
+<input type="checkbox" onclick="showHide('joinLeave')" ###JOIN_CHECKED###/>show/hide joins and Leaves</button>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<input type="checkbox" onclick="showHide('status')" ###STATUS_CHECKED###/>show/hide status changes</button>
+<hr /><div id="main" style="overflow: scroll;">
 ###DAY_STUFF###
-</p><hr />]];
+</div><hr />
+<script><!--
+document.getElementById("main").style.height = screen.availHeight - 300;
+--></script>]];
 
 html.help = [[
 MUC logging is not configured correctly.<br />
@@ -337,7 +351,16 @@ end
 
 local function parsePresenceStanza(stanza, timeStuff, nick)
 	local ret = "";
+	local showJoin = "block"
+	if not config.showJoin then
+		showJoin = "none";
+	end
+
 	if stanza.attr.type == nil then
+		local showStatus = "block"
+		if not config.showStatus then
+			showStatus = "none";
+		end
 		local show, status = nil, "";
 		local alreadyJoined = false;
 		for _, tag in ipairs(stanza) do
@@ -357,12 +380,13 @@ local function parsePresenceStanza(stanza, timeStuff, nick)
 			if status ~= "" then
 				status = html.day.presence.statusText:gsub("###STATUS###", htmlEscape(status));
 			end
-			ret = ret:gsub("###SHOW###", show):gsub("###NICK###", nick):gsub("###STATUS_STUFF###", status);
+			ret = ret:gsub("###SHOW###", show):gsub("###NICK###", nick):gsub("###SHOWHIDE###", showStatus):gsub("###STATUS_STUFF###", status);
 		else
-			ret = html.day.presence.join:gsub("###TIME_STUFF###", timeStuff):gsub("###NICK###", nick);
+			ret = html.day.presence.join:gsub("###TIME_STUFF###", timeStuff):gsub("###SHOWHIDE###", showJoin):gsub("###NICK###", nick);
 		end
 	elseif stanza.attr.type ~= nil and stanza.attr.type == "unavailable" then
-		ret = html.day.presence.leave:gsub("###TIME_STUFF###", timeStuff):gsub("###NICK###", nick);
+
+		ret = html.day.presence.leave:gsub("###TIME_STUFF###", timeStuff):gsub("###SHOWHIDE###", showJoin):gsub("###NICK###", nick);
 	end
 	return ret;
 end
@@ -446,6 +470,8 @@ local function parseDay(bareRoomJid, roomSubject, query)
 		tmp = html.day.body:gsub("###DAY_STUFF###", ret):gsub("###JID###", bareRoomJid);
 		tmp = tmp:gsub("###YEAR###", query.year):gsub("###MONTH###", query.month):gsub("###DAY###", query.day);
 		tmp = tmp:gsub("###TITLE_STUFF###", html.day.title:gsub("###TITLE###", roomSubject));
+		tmp = tmp:gsub("###STATUS_CHECKED###", config.showStatus and "checked='checked'" or "");
+		tmp = tmp:gsub("###JOIN_CHECKED###", config.showJoin and "checked='checked'" or "");
 		return tmp;
 	else
 		return generateDayListSiteContentByRoom(bareRoomJid); -- fallback
@@ -479,6 +505,8 @@ function handle_request(method, body, request)
 end
 
 config = config_get(module:get_host(), "core", "muc_log");
+config.showStatus = config.showStatus or true;
+config.showJoin = config.showJoin or true;
 
 httpserver.new_from_config({ config.http_port or true }, handle_request, { base = "muc_log" });
 
