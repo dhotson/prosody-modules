@@ -12,8 +12,8 @@ local serialize = require "util.serialization".serialize;
 local datamanager = require "util.datamanager";
 local data_load, data_store, data_getpath = datamanager.load, datamanager.store, datamanager.getpath;
 local datastore = "muc_log";
-local muc_host = module:get_host();
-local config = {};
+local muc_hosts = {};
+local config = nil;
 
 
 --[[ LuaFileSystem 
@@ -61,14 +61,20 @@ function showHide(name) {
 </body>
 </html>]];
 
-html.hosts = {};
-html.hosts.bit = [[<a href="/muc_log/###JID###">###JID###</a><br />]]
-html.hosts.body = [[<h2>Rooms hosted on this server:</h2><hr /><p>
-###HOSTS_STUFF###
+html.components = {};
+html.components.bit = [[<a href="/muc_log/###COMPONENT###/">###COMPONENT###</a><br />]]
+html.components.body = [[<h2>MUC hosts available on this server:</h2><hr /><p>
+###COMPONENTS_STUFF###
+</p><hr />]];
+
+html.rooms = {};
+html.rooms.bit = [[<a href="/muc_log/###COMPONENT###/###ROOM###">###ROOM###</a><br />]]
+html.rooms.body = [[<h2>Rooms hosted on MUC host: ###COMPONENT###</h2><hr /><p>
+###ROOMS_STUFF###
 </p><hr />]];
 
 html.days = {};
-html.days.bit = [[<a href="/muc_log/###JID###/?year=###YEAR###&month=###MONTH###&day=###DAY###">20###YEAR###/###MONTH###/###DAY###</a><br />]];
+html.days.bit = [[<a href="/muc_log/###COMPONENT###/###ROOM###/?year=###YEAR###&month=###MONTH###&day=###DAY###">20###YEAR###/###MONTH###/###DAY###</a><br />]];
 html.days.body = [[<h2>available logged days of room: ###JID###</h2><hr /><p>
 ###DAYS_STUFF###
 </p><hr />]];
@@ -140,7 +146,7 @@ function logIfNeeded(e)
 		local node, host, resource = splitJid(stanza.attr.to);
 		if node ~= nil and host ~= nil then
 			local bare = node .. "@" .. host;
-			if host == muc_host and prosody.hosts[host] ~= nil and prosody.hosts[host].muc ~= nil and prosody.hosts[host].muc.rooms[bare] ~= nil then
+			if muc_hosts[host] and prosody.hosts[host] ~= nil and prosody.hosts[host].muc ~= nil and prosody.hosts[host].muc.rooms[bare] ~= nil then
 				local room = prosody.hosts[host].muc.rooms[bare]
 				local today = os.date("%y%m%d");
 				local now = os.date("%X")
@@ -246,37 +252,52 @@ end
 
 function grepRoomJid(url)
 	local tmp = url:sub(string.len("/muc_log/") + 1);
-	local node = nil;
-	local host = nil;
+	local room = nil;
+	local component = nil;
 	local at = nil;
 	local slash = nil;
+	local slash2 = nil;
 	
-	at = tmp:find("@");
 	slash = tmp:find("/");
 	if slash ~= nil then
-		slash = slash - 1;
+	 	component = tmp:sub(1, slash - 1);
+		if tmp:len() > slash then
+			room = tmp:sub(slash + 1);
+			slash = room:find("/");
+			if slash then
+				room = room:sub(1, slash - 1);
+			end
+			module:log("debug", "", room);
+		end
 	end
 	
-	if at ~= nil then
-	 	node = tmp:sub(1, at - 1);
-		host = tmp:sub(at + 1, slash);
-	end
-	return node, host;
+	module:log("debug", "component: %s; room: %s", tostring(component), tostring(room));
+	return room, component;
 end
 
-local function generateRoomListSiteContent()
+local function generateComponentListSiteContent()
+	local components = "";
+	for component,muc_host in pairs(muc_hosts) do
+		components = components .. html.components.bit:gsub("###COMPONENT###", component);
+	end
+	
+	return html.components.body:gsub("###COMPONENTS_STUFF###", components);
+end
+
+local function generateRoomListSiteContent(component)
 	local rooms = "";
 	for host, config in pairs(prosody.hosts) do
-		if host == muc_host and prosody.hosts[host].muc ~= nil then
+		if host == component and prosody.hosts[host].muc ~= nil then
 			for jid, room in pairs(prosody.hosts[host].muc.rooms) do
-				if not room._data.hidden then
-					rooms = rooms .. html.hosts.bit:gsub("###JID###", jid);
+				local node = splitJid(jid);
+				if not room._data.hidden and node then
+					rooms = rooms .. html.rooms.bit:gsub("###ROOM###", node):gsub("###COMPONENT###", host);
 				end
 			end
 		end
 	end
 	
-	return html.hosts.body:gsub("###HOSTS_STUFF###", rooms);
+	return html.rooms.body:gsub("###ROOMS_STUFF###", rooms):gsub("###COMPONENT###", component);
 end
 
 local function generateDayListSiteContentByRoom(bareRoomJid)
@@ -289,7 +310,7 @@ local function generateDayListSiteContentByRoom(bareRoomJid)
 	
 	path = path:gsub("/[^/]*$", "");
 	attributes = lfs.attributes(path);
-	if host == muc_host and prosody.hosts[host] ~= nil and prosody.hosts[host].muc ~= nil and prosody.hosts[host].muc.rooms[bareRoomJid] ~= nil then
+	if muc_hosts[host] and prosody.hosts[host] ~= nil and prosody.hosts[host].muc ~= nil and prosody.hosts[host].muc.rooms[bareRoomJid] ~= nil then
 		room = prosody.hosts[host].muc.rooms[bareRoomJid];
 		if room._data.hidden then
 			room = nil
@@ -302,7 +323,7 @@ local function generateDayListSiteContentByRoom(bareRoomJid)
 				year ~= ""  and month ~= ""  and day ~= ""
 			then
 				tmp = html.days.bit;
-				tmp = tmp:gsub("###JID###", bareRoomJid);
+				tmp = tmp:gsub("###ROOM###", node):gsub("###COMPONENT###", host);
 				tmp = tmp:gsub("###YEAR###", year):gsub("###MONTH###", month):gsub("###DAY###", day);
 				days = tmp .. days;
 			end
@@ -312,7 +333,7 @@ local function generateDayListSiteContentByRoom(bareRoomJid)
 		tmp = html.days.body:gsub("###DAYS_STUFF###", days);
 		return tmp:gsub("###JID###", bareRoomJid);
 	else
-		return generateRoomListSiteContent(); -- fallback
+		return generateRoomListSiteContent(host); -- fallback
 	end
 end
 
@@ -352,13 +373,14 @@ end
 local function parsePresenceStanza(stanza, timeStuff, nick)
 	local ret = "";
 	local showJoin = "block"
-	if not config.showJoin then
+	
+	if config and not config.showJoin then
 		showJoin = "none";
 	end
 
 	if stanza.attr.type == nil then
 		local showStatus = "block"
-		if not config.showStatus then
+		if config and not config.showStatus then
 			showStatus = "none";
 		end
 		local show, status = nil, "";
@@ -482,7 +504,7 @@ function handle_request(method, body, request)
 	local query = splitQuery(request.url.query);
 	local node, host = grepRoomJid(request.url.path);
 	
-	if node ~= nil  and host ~= nil then
+	if node ~= nil and host ~= nil then
 		local bare = node .. "@" .. host;
 		if prosody.hosts[host] ~= nil and prosody.hosts[host].muc ~= nil and prosody.hosts[host].muc.rooms[bare] ~= nil then
 			local room = prosody.hosts[host].muc.rooms[bare];
@@ -495,20 +517,43 @@ function handle_request(method, body, request)
 				end
 				return createDoc(parseDay(bare, subject, query));
 			end
-		else
-			return createDoc(generateRoomListSiteContent());
 		end
+	elseif host ~= nil then
+		return createDoc(generateRoomListSiteContent(host));
 	else
-		return createDoc(generateRoomListSiteContent());
+		module:log("debug", "build component list site content")
+		return createDoc(generateComponentListSiteContent());
 	end
 	return;
 end
 
-config = config_get(module:get_host(), "core", "muc_log");
-config.showStatus = config.showStatus or true;
-config.showJoin = config.showJoin or true;
+function module.load()
+	config = config_get("*", "core", "muc_log") or {};
+	config.showStatus = config.showStatus or true;
+	config.showJoin = config.showJoin or true;
+	httpserver.new_from_config({ config.http_port or true }, handle_request, { base = "muc_log" });
+	
+	for jid, host in pairs(prosody.hosts) do
+		if host.muc then
+			local logging = config_get(jid, "core", "logging");
+			if logging then
+				module:log("debug", "Component enabled: %s", jid);
+				muc_hosts[jid] = true;
+			end
+		end
+	end
+end
 
-httpserver.new_from_config({ config.http_port or true }, handle_request, { base = "muc_log" });
+function module.unload()
+	muc_hosts = nil;
+end
+
+module:add_event_hook("component-activated", function(component, config)
+	if config.core.logging == true then
+		module:log("debug", "Component enabled: %s", component);
+		muc_hosts[component] = true;
+	end
+end);
 
 module:hook("message/bare", logIfNeeded, 500);
 module:hook("pre-message/bare", logIfNeeded, 500);
