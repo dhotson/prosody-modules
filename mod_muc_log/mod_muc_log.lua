@@ -62,19 +62,19 @@ function showHide(name) {
 </html>]];
 
 html.components = {};
-html.components.bit = [[<a href="/muc_log/###COMPONENT###/">###COMPONENT###</a><br />]]
+html.components.bit = [[<a href="###COMPONENT###/">###COMPONENT###</a><br />]]
 html.components.body = [[<h2>MUC hosts available on this server:</h2><hr /><p>
 ###COMPONENTS_STUFF###
 </p><hr />]];
 
 html.rooms = {};
-html.rooms.bit = [[<a href="/muc_log/###COMPONENT###/###ROOM###">###ROOM###</a><br />]]
+html.rooms.bit = [[<a href="###ROOM###/">###ROOM###</a><br />]]
 html.rooms.body = [[<h2>Rooms hosted on MUC host: ###COMPONENT###</h2><hr /><p>
 ###ROOMS_STUFF###
 </p><hr />]];
 
 html.days = {};
-html.days.bit = [[<a href="/muc_log/###COMPONENT###/###ROOM###/?year=###YEAR###&month=###MONTH###&day=###DAY###">20###YEAR###/###MONTH###/###DAY###</a><br />]];
+html.days.bit = [[<a href="./?year=###YEAR###&month=###MONTH###&day=###DAY###">20###YEAR###/###MONTH###/###DAY###</a><br />]];
 html.days.body = [[<h2>available logged days of room: ###JID###</h2><hr /><p>
 ###DAYS_STUFF###
 </p><hr />]];
