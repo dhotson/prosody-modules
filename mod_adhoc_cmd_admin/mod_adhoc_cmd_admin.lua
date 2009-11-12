@@ -12,6 +12,7 @@ local hosts = prosody.hosts;
 local t_concat = table.concat;
 
 local usermanager_user_exists = require "core.usermanager".user_exists;
+local usermanager_get_password = require "core.usermanager".get_password;
 local usermanager_create_user = require "core.usermanager".create_user;
 local is_admin = require "core.usermanager".is_admin;
 
@@ -37,6 +38,14 @@ local delete_user_layout = dataforms_new{
 
 	{ name = "FORM_TYPE", type = "hidden", value = "http://jabber.org/protocol/admin" };
 	{ name = "accountjids", type = "jid-multi", label = "The Jabber ID(s) to delete" };
+};
+
+local get_user_password_layout = dataforms_new{
+	title = "Getting Users' Passwords";
+	instructions = "Fill out this form to get users' passwords.";
+
+	{ name = "FORM_TYPE", type = "hidden", value = "http://jabber.org/protocol/admin" };
+	{ name = "accountjids", type = "jid-multi", label = "The Jabber ID(s) for which to retrieve the password" };
 };
 
 local get_online_users_layout = dataforms_new{
@@ -142,6 +151,40 @@ function delete_user_command_handler(item, origin, stanza)
 	return true;
 end
 
+function get_user_password_handler(item, origin, stanza)
+	if stanza.tags[1].attr.sessionid and sessions[stanza.tags[1].attr.sessionid] then
+		if stanza.tags[1].attr.action == "cancel" then
+			origin.send(st.reply(stanza):add_child(item:cmdtag("canceled", stanza.tags[1].attr.sessionid)));
+			sessions[stanza.tags[1].attr.sessionid] = nil;
+			return true;
+		end
+		local form = stanza.tags[1]:child_with_ns("jabber:x:data");
+		local fields = get_user_password_layout:data(form);
+		local accountjids = st.stanza("field", {var="accountjids", label = "JIDs", type="jid-multi"});
+		local passwords = st.stanza("field", {var="password", label = "Passwords", type="text-multi"});
+		for _, aJID in ipairs(fields.accountjids) do
+			user, host, resource = jid.split(aJID);
+			if usermanager_user_exists(user, host) then
+				accountjids:tag("value"):text(aJID):up();
+				passwords:tag("value"):text(usermanager_get_password(user, host)):up();
+			end
+		end
+		origin.send(st.reply(stanza):add_child(item:cmdtag("completed", stanza.tags[1].attr.sessionid)
+			:tag("x", {xmlns="jabber:x:data", type="result"})
+				:tag("field", {type="hidden", var="FORM_TYPE"})
+					:tag("value"):text("http://jabber.org/protocol/admin"):up():up()
+				:add_child(accountjids)
+				:add_child(passwords)));
+		sessions[stanza.tags[1].attr.sessionid] = nil;
+		return true;
+	else
+		local sessionid=uuid.generate();
+		sessions[sessionid] = "executing";
+		origin.send(st.reply(stanza):add_child(item:cmdtag("executing", sessionid):add_child(get_user_password_layout:form())));
+	end
+	return true;
+end
+
 function get_online_users_command_handler(item, origin, stanza)
 	if stanza.tags[1].attr.sessionid and sessions[stanza.tags[1].attr.sessionid] then
 		if stanza.tags[1].attr.action == "cancel" then
@@ -222,17 +265,20 @@ end
 
 local add_user_desc = adhoc_new("Add User", "http://jabber.org/protocol/admin#add-user", add_user_command_handler, "admin");
 local delete_user_desc = adhoc_new("Delete User", "http://jabber.org/protocol/admin#delete-user", delete_user_command_handler, "admin");
+local get_user_password_desc = adhoc_new("Get User Password", "http://jabber.org/protocol/admin#get-user-password", get_user_password_handler, "admin");
 local get_online_users_desc = adhoc_new("Get List of Online Users", "http://jabber.org/protocol/admin#get-online-users", get_online_users_command_handler, "admin"); 
 local announce_desc = adhoc_new("Send Announcement to Online Users", "http://jabber.org/protocol/admin#announce", announce_handler, "admin");
 
 function module.unload()
 	module:remove_item("adhoc", add_user_desc);
 	module:remove_item("adhoc", delete_user_desc);
+	module:remove_item("adhoc", get_user_password_desc);
 	module:remove_item("adhoc", get_online_users_desc);
 	module:remove_item("adhoc", announce_desc);
 end
 
 module:add_item("adhoc", add_user_desc);
 module:add_item("adhoc", delete_user_desc);
+module:add_item("adhoc", get_user_password_desc);
 module:add_item("adhoc", get_online_users_desc);
 module:add_item("adhoc", announce_desc);
