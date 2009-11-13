@@ -41,11 +41,11 @@ local delete_user_layout = dataforms_new{
 };
 
 local get_user_password_layout = dataforms_new{
-	title = "Getting Users' Passwords";
-	instructions = "Fill out this form to get users' passwords.";
+	title = "Getting User's Password";
+	instructions = "Fill out this form to get a user's password.";
 
 	{ name = "FORM_TYPE", type = "hidden", value = "http://jabber.org/protocol/admin" };
-	{ name = "accountjids", type = "jid-multi", label = "The Jabber ID(s) for which to retrieve the password" };
+	{ name = "accountjid", type = "jid-single", label = "The Jabber ID for which to retrieve the password" };
 };
 
 local get_online_users_layout = dataforms_new{
@@ -160,21 +160,25 @@ function get_user_password_handler(item, origin, stanza)
 		end
 		local form = stanza.tags[1]:child_with_ns("jabber:x:data");
 		local fields = get_user_password_layout:data(form);
-		local accountjids = st.stanza("field", {var="accountjids", label = "JIDs", type="jid-multi"});
-		local passwords = st.stanza("field", {var="password", label = "Passwords", type="text-multi"});
-		for _, aJID in ipairs(fields.accountjids) do
-			user, host, resource = jid.split(aJID);
-			if usermanager_user_exists(user, host) then
-				accountjids:tag("value"):text(aJID):up();
-				passwords:tag("value"):text(usermanager_get_password(user, host)):up();
-			end
+		local accountjid = st.stanza("field", {var="accountjid", label = "JID", type="jid-single"});
+		local password = st.stanza("field", {var="password", label = "Password", type="text-single"});
+		user, host, resource = jid.split(fields.accountjid);
+		if usermanager_user_exists(user, host) then
+			accountjid:tag("value"):text(fields.accountjid):up();
+			password:tag("value"):text(usermanager_get_password(user, host)):up();
+		else
+			origin.send(st.error_reply(stanza, "cancel", "item-not-found", "User does not exist")
+				:add_child(item:cmdtag("canceled", stanza.tags[1].attr.sessionid)
+					:tag("note", {type="error"}):text("User does not exist")));
+			sessions[stanza.tags[1].attr.sessionid] = nil;
+			return true;
 		end
 		origin.send(st.reply(stanza):add_child(item:cmdtag("completed", stanza.tags[1].attr.sessionid)
 			:tag("x", {xmlns="jabber:x:data", type="result"})
 				:tag("field", {type="hidden", var="FORM_TYPE"})
 					:tag("value"):text("http://jabber.org/protocol/admin"):up():up()
-				:add_child(accountjids)
-				:add_child(passwords)));
+				:add_child(accountjid)
+				:add_child(password)));
 		sessions[stanza.tags[1].attr.sessionid] = nil;
 		return true;
 	else
