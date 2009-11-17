@@ -104,6 +104,7 @@ function connlistener.disconnect(conn, err)
 			elseif target == conn and initiator ~= nil then
 			 	initiator.close();
 			end
+			transfers[session.sha] = nil;
 		end
 		-- Clean up any session-related stuff here
 		sessions[conn] = nil;
