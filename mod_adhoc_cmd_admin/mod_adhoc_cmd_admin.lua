@@ -162,7 +162,7 @@ function get_user_password_handler(item, origin, stanza)
 		local fields = get_user_password_layout:data(form);
 		local accountjid = st.stanza("field", {var="accountjid", label = "JID", type="jid-single"});
 		local password = st.stanza("field", {var="password", label = "Password", type="text-single"});
-		user, host, resource = jid.split(fields.accountjid);
+		local user, host, resource = jid.split(fields.accountjid);
 		if usermanager_user_exists(user, host) then
 			accountjid:tag("value"):text(fields.accountjid):up();
 			password:tag("value"):text(usermanager_get_password(user, host)):up();
