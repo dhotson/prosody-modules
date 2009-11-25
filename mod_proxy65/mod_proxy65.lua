@@ -246,7 +246,8 @@ function handle_to_domain(origin, stanza)
 			if reply ~= nil and from ~= nil and to ~= nil and sid ~= nil then
 				local sha = sha1(sid .. from .. to, true);
 				if transfers[sha] == nil then
-					module:log("error", "transfers[sha]: nil");
+					module:log("warn", "Recieved request to activate transfer with no participants");
+					module:log("debug", "The sha1 of the transfer which should be activated was: %s", sha);
 				elseif(transfers[sha] ~= nil and transfers[sha].initiator ~= nil and transfers[sha].target ~= nil) then
 					origin.send(reply);
 					transfers[sha].activated = true;
