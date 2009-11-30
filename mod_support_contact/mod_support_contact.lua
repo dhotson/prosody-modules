@@ -16,6 +16,7 @@ if not(support_contact and support_contact_nick) then return; end
 local rostermanager = require "core.rostermanager";
 local datamanager = require "util.datamanager";
 local jid_split = require "util.jid".split;
+local st = require "util.stanza";
 
 module:hook("user-registered", function(event)
 	module:log("debug", "Adding support contact");
@@ -26,14 +27,22 @@ module:hook("user-registered", function(event)
 	local jid = node and (node..'@'..host) or host;
 	local roster;
 
-	roster = rostermanager.load_roster(node, host) or {};
-	roster[support_contact] = {subscription = "both", name = support_contact_nick, groups = {}};
-	datamanager.store(node, host, "roster", roster);
+	roster = rostermanager.load_roster(node, host);
+	if hosts[host] then
+		roster[support_contact] = {subscription = "both", name = support_contact_nick, groups = {}};
+	else
+		roster[support_contact] = {subscription = "from", ask = "subscribe", name = support_contact_nick, groups = {}};
+	end
+	rostermanager.save_roster(node, host, roster);
 
 	node, host = jid_split(support_contact);
 	
-	roster = rostermanager.load_roster(node, host) or {};
-	roster[jid] = {subscription = "both", groups = groups};
-	datamanager.store(node, host, "roster", roster);
-	rostermanager.roster_push(node, host, jid);
+	if hosts[host] then
+		roster = rostermanager.load_roster(node, host);
+		roster[jid] = {subscription = "both", groups = groups};
+		rostermanager.save_roster(node, host, roster);
+		rostermanager.roster_push(node, host, jid);
+	else
+		core_post_stanza(hosts[event.host], st.presence({from=jid, to=support_contact, type="subscribe"}));
+	end
 end);
