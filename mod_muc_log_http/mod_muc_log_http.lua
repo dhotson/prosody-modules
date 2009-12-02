@@ -16,6 +16,10 @@ local data_load, data_getpath = datamanager.load, datamanager.getpath;
 local datastore = "muc_log";
 local muc_hosts = {};
 local config = nil;
+local tostring = _G.tostring;
+local tonumber = _G.tonumber;
+local os_date, os_time = os.date, os.time;
+local str_format = string.format;
 
 local lom = require "lxp.lom";
 
@@ -41,11 +45,12 @@ function showHide(name) {
 	for (var i = 0; i < eles.length; i++) {
 		eles[i].style.display = eles[i].style.display != "none" ? "none" : "";
 	}
-	
 }
 --></script>
 <style type="text/css">
 <!--
+.day { font: 12px Verdana; height: 17px; }
+.weekday { font: 10px Verdana; height: 17px; color: #FFFFFF; background-color: #000000; }
 .timestuff {color: #AAAAAA; text-decoration: none;}
 .muc_join {color: #009900; font-style: italic;}
 .muc_leave {color: #009900; font-style: italic;}
@@ -62,6 +67,27 @@ function showHide(name) {
 <body>
 ###BODY_STUFF###
 </body>
+<script><!--
+window.captureEvents(Event.RESIZE | Event.LOAD);
+window.onresize = resize;
+window.onload = load;
+function load(e) {
+	resize(e);
+}
+
+function resize(e) {
+	var ele = document.getElementById("main");
+	ele.style.height = window.innerHeight - ele.offsetTop - 25;
+	
+	var yearDivs = document.getElemetsByName("yearDiv");
+	if(yearDivs) {
+		for each (var year in yearDivs) {
+			year.style.width = window.innerWidth - year.style.padding;
+		}
+	}
+}
+
+--></script>
 </html>]];
 
 html.components = {};
@@ -77,10 +103,10 @@ html.rooms.body = [[<h2>Rooms hosted on MUC host: ###COMPONENT###</h2><hr /><p>
 </p><hr />]];
 
 html.days = {};
-html.days.bit = [[<a href="###BARE_DAY###/">20###YEAR###/###MONTH###/###DAY###</a><br />]];
-html.days.body = [[<h2>available logged days of room: ###JID###</h2><hr /><p>
+html.days.bit = [[<a href="###BARE_DAY###/">###DAY###</a><br />]];
+html.days.body = [[<h2>available logged days of room: ###JID###</h2><hr /><div id="main" style="overflow: auto;">
 ###DAYS_STUFF###
-</p><hr />]];
+</div><hr />]];
 
 html.day = {};
 html.day.title = [[Subject: <font class="muc_title">###TITLE###</font>]];
@@ -106,16 +132,24 @@ html.day.body = [[<h2>Logs of room ###JID### of 20###YEAR###/###MONTH###/###DAY#
 <hr /><div id="main" style="overflow: auto;">
 ###DAY_STUFF###
 </div><hr />
-<script><!--
-window.captureEvents(Event.RESIZE | Event.LOAD);
-window.onresize = resize;
-window.onload = resize;
-function resize(e) {
-	var ele = document.getElementById("main");
-	ele.style.height = window.innerHeight - ele.offsetTop - 25;
-}
+]];
 
---></script>]];
+-- Calendar stuff
+html.year = {};
+html.year.title = [[<center><font style="font: bold 16px Verdana;"><a name="###YEAR###">###YEAR###</a></font></center>]];
+
+html.month = {};
+html.month.header = [[<table rules="groups" cellpadding="5">
+<thead><tr><td colspan="7"><center><H2><font size="2" face="Verdana">###TITLE###</font></H2></center></td></tr></thead>
+<tbody style="border: solid black 1px;">
+<tr>
+###WEEKDAYS###</tr>
+]];
+html.month.weekDay = [[    <th class="weekday" valign="middle" align="center">###DAY###</th>]];
+html.month.emptyDay = [[    <td class="day">&nbsp;</td>]];
+html.month.day = [[    <td class="day" valign="middle" align="center">###DAY###</td>]];
+html.month.footer = [[</tbody></table>]];
+
 
 local function checkDatastorePathExists(node, host, today, create)
 	create = create or false;
@@ -213,6 +247,134 @@ local function generateRoomListSiteContent(component)
 	end
 end
 
+-- Calendar stuff
+local function getDaysForMonth(month, year)
+    local daysCount = 30;
+    local leapyear = false;
+
+    if year%4 == 0 and year%100 == 0 then
+        if year%400 == 0 then
+            leapyear = true;
+        else
+            leapyear = false; -- turn of the century but not a leapyear
+        end
+    elseif year%4 == 0 then
+        leapyear = true;
+    end
+
+    if month == 2 and leapyear then
+        daysCount = 29;
+    elseif month == 2 and not leapyear then
+        daysCount = 28;
+    elseif  month < 8 and month%2 == 1 or
+            month >= 8 and month%2 == 0
+    then
+        daysCount = 31;
+    end
+    return daysCount;
+end
+
+local function createMonth(month, year, dayCallback)
+    local htmlStr = html.month.header;
+    local days = getDaysForMonth(month, year);
+    local time = os_time{year=year, month=month, day=1};
+    local dow = tostring(os_date("%a", time))
+    local title = tostring(os_date("%B", time));
+    local weekDays = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
+    local weekDay = 0;
+    local weeks = 1;
+
+    local weekDaysHtml = "";
+    for _, tmp in ipairs(weekDays) do
+        weekDaysHtml = weekDaysHtml .. html.month.weekDay:gsub("###DAY###", tmp) .. "\n";
+    end
+
+    htmlStr = htmlStr:gsub("###TITLE###", title):gsub("###WEEKDAYS###", weekDaysHtml);
+
+    for i = 1, 31 do
+        weekDay = weekDay + 1;
+        if weekDay == 1 then htmlStr = htmlStr .. "<tr>\n"; end
+        if i == 1 then
+            for _, tmp in ipairs(weekDays) do
+                if dow ~= tmp then
+                    htmlStr = htmlStr .. html.month.emptyDay .. "\n";
+                    weekDay = weekDay + 1;
+                else
+                    break;
+                end
+            end
+        end
+        if i < days + 1 then
+            tmp = tostring(i);
+            if dayCallback ~= nil and dayCallback.callback ~= nil then
+                tmp = dayCallback.callback(dayCallback.path, i, month, year);
+            end
+            htmlStr = htmlStr .. html.month.day:gsub("###DAY###", tmp) .. "\n";
+        end
+
+        if i >= days then
+            break;
+        end
+
+        if weekDay == 7 then
+            weekDay = 0;
+            weeks = weeks + 1;
+            htmlStr = htmlStr .. "</tr>\n";
+        end
+    end
+
+    if weekDay + 1 < 8 or weeks < 6 then
+        weekDay = weekDay + 1;
+        if weekDay > 7 then
+            weekDay = 1;
+        end
+        if weekDay == 1 then
+            weeks = weeks + 1;
+        end
+        for y = weeks, 6 do
+            if weekDay == 1 then
+                htmlStr = htmlStr .. "<tr>\n";
+            end
+            for i = weekDay, 7 do
+                htmlStr = htmlStr .. html.month.emptyDay .. "\n";
+            end
+            weekDay = 1
+            htmlStr = htmlStr .. "</tr>\n";
+        end
+    end
+    htmlStr = htmlStr .. html.month.footer;
+    return htmlStr;
+end
+
+local function createYear(year, dayCallback)
+	local year = year;
+	if tonumber(year) <= 99 then
+		year = year + 2000;
+	end
+	local htmlStr = "<div name='yearDiv' style='padding: 40px; text-align: center;'>" .. html.year.title:gsub("###YEAR###", tostring(year));
+    for i=1, 12 do
+        htmlStr = htmlStr .. "<div style='float: left; padding: 5px;'>\n" .. createMonth(i, year, dayCallback) .. "</div>\n";
+    end
+	return htmlStr .. "</div><div style='clear:left;'/> \n";
+end
+
+local function perDayCallback(path, day, month, year)
+	local year = year;
+	if year > 2000 then
+		year = year - 2000;
+	end
+	local bareDay = str_format("%.02d%.02d%.02d", year, month, day);
+	local attributes, err = lfs.attributes(path.."/"..bareDay)
+	if attributes ~= nil and attributes.mode == "directory" then
+		local s = html.days.bit;
+		s = s:gsub("###BARE_DAY###", bareDay);
+		s = s:gsub("###DAY###", day);
+		return s;
+	else
+		return tostring("<font color='#DDDDDD'>"..day.."</font>");
+	end
+end
+
 local function generateDayListSiteContentByRoom(bareRoomJid)
 	local days = "";
 	local arrDays = {};
@@ -231,23 +393,13 @@ local function generateDayListSiteContentByRoom(bareRoomJid)
 		end
 	end
 	if attributes ~= nil and room ~= nil then
+		local alreadyDoneYears = {};
 		for file in lfs.dir(path) do
 			local year, month, day = file:match("^(%d%d)(%d%d)(%d%d)");
-			if	year ~= nil and month ~= nil and day ~= nil and
-				year ~= ""  and month ~= ""  and day ~= ""
-			then
-					arrDays[#arrDays + 1] = {bare=file, year=year, month=month, day=day};
+			if year ~= nil and alreadyDoneYears[year] == nil then
+				days = days .. createYear(year, {callback=perDayCallback, path=path});
+				alreadyDoneYears[year] = true;
 			end
-		end
-		tabSort(arrDays, function(a,b) 
-			return a.bare < b.bare;
-		end);
-		for _, date in pairs(arrDays) do
-			tmp = html.days.bit;
-			tmp = tmp:gsub("###ROOM###", node):gsub("###COMPONENT###", host);
-			tmp = tmp:gsub("###BARE_DAY###", date.bare);
-			tmp = tmp:gsub("###YEAR###", date.year):gsub("###MONTH###", date.month):gsub("###DAY###", date.day);
-			days = tmp .. days;
 		end
 	end
 	
@@ -565,6 +717,7 @@ function handle_request(method, body, request)
 end
 
 function module.load()
+	module:log("debug", "loading mod_muc_log_http");
 	config = config_get("*", "core", "muc_log_http") or {};
 	if config.showStatus == nil then
 		config.showStatus = true;
@@ -572,7 +725,8 @@ function module.load()
 	if config.showJoin == nil then
 		config.showJoin = true;
 	end
-	httpserver.new_from_config({ config.http_port or true }, handle_request, { base = "muc_log" });
+	module:log("debug", "opening httpserver port: " .. tostring(config.port));
+	httpserver.new_from_config({ config.port or true }, handle_request, { base = "muc_log", ssl = false, port = 5290 });
 	
 	for jid, host in pairs(prosody.hosts) do
 		if host.muc then
@@ -588,10 +742,13 @@ function module.load()
 			end
 		end
 	end
+	module:log("debug", "loaded mod_muc_log_http");
 end
 
 function module.unload()
+	module:log("debug", "unloading mod_muc_log_http");
 	muc_hosts = nil;
+	module:log("debug", "unloaded mod_muc_log_http");
 end
 
 module:add_event_hook("component-activated", function(component, config)
