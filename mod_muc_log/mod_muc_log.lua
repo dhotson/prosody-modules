@@ -10,7 +10,7 @@ local config_get = require "core.configmanager".get;
 local datamanager = require "util.datamanager";
 local data_load, data_store, data_getpath = datamanager.load, datamanager.store, datamanager.getpath;
 local datastore = "muc_log";
--- local mod_host = module:get_host();
+local mod_host = module:get_host();
 local config = nil;
 
 --[[ LuaFileSystem 
@@ -18,7 +18,7 @@ local config = nil;
 * Install: luarocks install luafilesystem
 * ]]
 local lfs = require "lfs";
---[[
+
 local function checkDatastorePathExists(node, host, today, create)
 	create = create or false;
 	local path = data_getpath(node, host, datastore, "dat", true);
@@ -130,5 +130,5 @@ end
 module:hook("message/bare", logIfNeeded, 500);
 module:hook("iq/bare", logIfNeeded, 500);
 module:hook("presence/full", logIfNeeded, 500);
-]]--
+
 module:log("debug", "module mod_muc_log loaded!");
