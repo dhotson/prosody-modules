@@ -3,6 +3,7 @@
 -- This project is MIT/X11 licensed. Please see the
 -- COPYING file in the source package for more information.
 --
+
 local prosody = prosody;
 local tabSort = table.sort;
 local tonumber = _G.tonumber;
@@ -14,6 +15,7 @@ local httpserver = require "net.httpserver";
 local datamanager = require "util.datamanager";
 local data_load, data_getpath = datamanager.load, datamanager.getpath;
 local datastore = "muc_log";
+local urlBase = "muc_log";
 local muc_hosts = {};
 local config = nil;
 local tostring = _G.tostring;
@@ -224,7 +226,7 @@ end
 
 local function generateComponentListSiteContent()
 	local components = "";
-	for component,muc_host in pairs(muc_hosts) do
+	for component,muc_host in pairs(muc_hosts or {}) do
 		components = components .. html.components.bit:gsub("###COMPONENT###", component);
 	end
 	if components ~= "" then
@@ -386,7 +388,7 @@ local function generateDayListSiteContentByRoom(bareRoomJid)
 	
 	path = path:gsub("/[^/]*$", "");
 	attributes = lfs.attributes(path);
-	if muc_hosts[host] and prosody.hosts[host] ~= nil and prosody.hosts[host].muc ~= nil and prosody.hosts[host].muc.rooms[bareRoomJid] ~= nil then
+	if muc_hosts ~= nil and muc_hosts[host] and prosody.hosts[host] ~= nil and prosody.hosts[host].muc ~= nil and prosody.hosts[host].muc.rooms[bareRoomJid] ~= nil then
 		room = prosody.hosts[host].muc.rooms[bareRoomJid];
 		if room._data.hidden then
 			room = nil
@@ -688,36 +690,37 @@ end
 function handle_request(method, body, request)
 	local node, host, day = splitUrl(request.url.path);
 	
-	if node ~= nil and host ~= nil then
-		local bare = node .. "@" .. host;
-		if prosody.hosts[host] ~= nil and prosody.hosts[host].muc ~= nil then
-			if prosody.hosts[host].muc.rooms[bare] ~= nil then
-				local room = prosody.hosts[host].muc.rooms[bare];
-				if day == nil then
-					return createDoc(generateDayListSiteContentByRoom(bare));
-				else
-					local subject = ""
-					if room._data ~= nil and room._data.subject ~= nil then
-						subject = room._data.subject;
+	if muc_hosts ~= nil then
+	 	if node ~= nil and host ~= nil then
+			local bare = node .. "@" .. host;
+			if prosody.hosts[host] ~= nil and prosody.hosts[host].muc ~= nil then
+				if prosody.hosts[host].muc.rooms[bare] ~= nil then
+					local room = prosody.hosts[host].muc.rooms[bare];
+					if day == nil then
+						return createDoc(generateDayListSiteContentByRoom(bare));
+					else
+						local subject = ""
+						if room._data ~= nil and room._data.subject ~= nil then
+							subject = room._data.subject;
+						end
+						return createDoc(parseDay(bare, subject, day));
 					end
-					return createDoc(parseDay(bare, subject, day));
+				else
+					return createDoc(generateRoomListSiteContent(host));
 				end
 			else
-				return createDoc(generateRoomListSiteContent(host));
+				return createDoc(generateComponentListSiteContent());
 			end
+		elseif host ~= nil then
+			return createDoc(generateRoomListSiteContent(host));
 		else
 			return createDoc(generateComponentListSiteContent());
 		end
-	elseif host ~= nil then
-		return createDoc(generateRoomListSiteContent(host));
-	else
-		return createDoc(generateComponentListSiteContent());
 	end
 	return;
 end
 
 function module.load()
-	module:log("debug", "loading mod_muc_log_http");
 	config = config_get("*", "core", "muc_log_http") or {};
 	if config.showStatus == nil then
 		config.showStatus = true;
@@ -725,8 +728,8 @@ function module.load()
 	if config.showJoin == nil then
 		config.showJoin = true;
 	end
-	module:log("debug", "opening httpserver port: " .. tostring(config.port));
-	httpserver.new_from_config({ config.port or true }, handle_request, { base = "muc_log", ssl = false, port = 5290 });
+
+	httpserver.new_from_config({ config.http_port or true }, handle_request, { base = urlBase, ssl = false, port = 5290 });
 	
 	for jid, host in pairs(prosody.hosts) do
 		if host.muc then
@@ -746,7 +749,6 @@ function module.load()
 end
 
 function module.unload()
-	module:log("debug", "unloading mod_muc_log_http");
 	muc_hosts = nil;
 	module:log("debug", "unloaded mod_muc_log_http");
 end
