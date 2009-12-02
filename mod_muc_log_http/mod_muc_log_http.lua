@@ -285,6 +285,7 @@ local function createMonth(month, year, dayCallback)
     local weekDays = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
     local weekDay = 0;
     local weeks = 1;
+	local logAvailableForMinimumOneDay = false;
 
     local weekDaysHtml = "";
     for _, tmp in ipairs(weekDays) do
@@ -307,10 +308,15 @@ local function createMonth(month, year, dayCallback)
             end
         end
         if i < days + 1 then
-            tmp = tostring(i);
+            local tmp = tostring("<font color='#DDDDDD'>"..tostring(i).."</font>");
             if dayCallback ~= nil and dayCallback.callback ~= nil then
                 tmp = dayCallback.callback(dayCallback.path, i, month, year);
             end
+			if tmp == nil then
+            	tmp = tostring("<font color='#DDDDDD'>"..tostring(i).."</font>");
+			else
+				logAvailableForMinimumOneDay = true;
+			end
             htmlStr = htmlStr .. html.month.day:gsub("###DAY###", tmp) .. "\n";
         end
 
@@ -345,19 +351,25 @@ local function createMonth(month, year, dayCallback)
         end
     end
     htmlStr = htmlStr .. html.month.footer;
-    return htmlStr;
+	if logAvailableForMinimumOneDay then
+    	return htmlStr;
+	end
 end
 
 local function createYear(year, dayCallback)
 	local year = year;
+	local tmp;
 	if tonumber(year) <= 99 then
 		year = year + 2000;
 	end
 	local htmlStr = "<div name='yearDiv' style='padding: 40px; text-align: center;'>" .. html.year.title:gsub("###YEAR###", tostring(year));
     for i=1, 12 do
-        htmlStr = htmlStr .. "<div style='float: left; padding: 5px;'>\n" .. createMonth(i, year, dayCallback) .. "</div>\n";
+		tmp = createMonth(i, year, dayCallback);
+		if tmp then
+        	htmlStr = htmlStr .. "<div style='float: left; padding: 5px;'>\n" .. tmp .. "</div>\n";
+		end
     end
-	return htmlStr .. "</div><div style='clear:left;'/> \n";
+	return htmlStr .. "</div><br style='clear:both;'/> \n";
 end
 
 local function perDayCallback(path, day, month, year)
@@ -372,9 +384,8 @@ local function perDayCallback(path, day, month, year)
 		s = s:gsub("###BARE_DAY###", bareDay);
 		s = s:gsub("###DAY###", day);
 		return s;
-	else
-		return tostring("<font color='#DDDDDD'>"..day.."</font>");
 	end
+	return;
 end
 
 local function generateDayListSiteContentByRoom(bareRoomJid)
