@@ -22,6 +22,8 @@ local tostring = _G.tostring;
 local tonumber = _G.tonumber;
 local os_date, os_time = os.date, os.time;
 local str_format = string.format;
+local io_open = io.open;
+local themesParent = (CFG_PLUGINDIR or "./plugins/") .. "muc_log_http/themes";
 
 local lom = require "lxp.lom";
 
@@ -36,122 +38,7 @@ local lfs = require "lfs";
 * Default templates for the html output.
 ]]--
 local html = {};
-html.doc = [[<html>
-<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" >
-<head>
-	<title>muc_log</title>
-</head>
-<script type="text/javascript"><!--
-function showHide(name) {
-	var eles = document.getElementsByName(name);
-	for (var i = 0; i < eles.length; i++) {
-		eles[i].style.display = eles[i].style.display != "none" ? "none" : "";
-	}
-}
---></script>
-<style type="text/css">
-<!--
-.day { font: 12px Verdana; height: 17px; }
-.weekday { font: 10px Verdana; height: 17px; color: #FFFFFF; background-color: #000000; }
-.timestuff {color: #AAAAAA; text-decoration: none;}
-.muc_join {color: #009900; font-style: italic;}
-.muc_leave {color: #009900; font-style: italic;}
-.muc_statusChange {color: #009900; font-style: italic;}
-.muc_title {color: #BBBBBB; font-size: 32px;}
-.muc_titleChange {color: #009900; font-style: italic;}
-.muc_kick {color: #009900; font-style: italic;}
-.muc_bann {color: #009900; font-style: italic;}
-.muc_msg_nick {color: #0000AA;}
-.muc_msg_me {color: #0000AA;}
-.join_link {font-height: 9px;}
-//-->
-</style>
-<body>
-###BODY_STUFF###
-</body>
-<script><!--
-window.captureEvents(Event.RESIZE | Event.LOAD);
-window.onresize = resize;
-window.onload = load;
-function load(e) {
-	resize(e);
-}
-
-function resize(e) {
-	var ele = document.getElementById("main");
-	ele.style.height = window.innerHeight - ele.offsetTop - 25;
-	
-	var yearDivs = document.getElemetsByName("yearDiv");
-	if(yearDivs) {
-		for each (var year in yearDivs) {
-			year.style.width = window.innerWidth - year.style.padding;
-		}
-	}
-}
-
---></script>
-</html>]];
-
-html.components = {};
-html.components.bit = [[<a href="###COMPONENT###/">###COMPONENT###</a><br />]]
-html.components.body = [[<h2>MUC hosts available on this server:</h2><hr /><p>
-###COMPONENTS_STUFF###
-</p><hr />]];
-
-html.rooms = {};
-html.rooms.bit = [[<a href="###ROOM###/">###ROOM###</a><br />]]
-html.rooms.body = [[<h2>Rooms hosted on MUC host: ###COMPONENT###</h2><hr /><p>
-###ROOMS_STUFF###
-</p><hr />]];
-
-html.days = {};
-html.days.bit = [[<a href="###BARE_DAY###/">###DAY###</a><br />]];
-html.days.body = [[<h2>available logged days of room: ###JID###</h2><hr /><div id="main" style="overflow: auto;">
-###DAYS_STUFF###
-</div><hr />]];
-
-html.day = {};
-html.day.title = [[Subject: <font class="muc_title">###TITLE###</font>]];
-html.day.time = [[<a name="###TIME###" href="####TIME###" class="timestuff">[###TIME###]</a> ]]; -- the one ####TIME### need to stay! it will evaluate to e.g. #09:10:56 which is an anker then
-html.day.presence = {};
-html.day.presence.join = [[<div name="joinLeave" style="display: ###SHOWHIDE###;">###TIME_STUFF###<font class="muc_join"> *** ###NICK### joins the room</font><br /></div>]];
-html.day.presence.leave = [[<div name="joinLeave" style="display: ###SHOWHIDE###;">###TIME_STUFF###<font class="muc_leave"> *** ###NICK### leaves the room</font><br /></div>]];
-html.day.presence.statusText = [[ and his status message is "###STATUS###"]];
-html.day.presence.statusChange = [[<div name="status" style="display: ###SHOWHIDE###;">###TIME_STUFF###<font class="muc_statusChange"> *** ###NICK### shows now as "###SHOW###"###STATUS_STUFF###</font><br /></div>]];
-html.day.message = [[###TIME_STUFF###<font class="muc_msg_nick">&lt;###NICK###&gt;</font> ###MSG###<br />]];
-html.day.message_me = [[###TIME_STUFF###<font class="muc_msg_me">*###NICK### ###MSG###</font><br />]];
-html.day.titleChange = [[###TIME_STUFF###<font class="muc_titleChange"> *** ###NICK### changed the title to "###TITLE###"</font><br />]];
-html.day.reason = [[, the reason was "###REASON###"]]
-html.day.kick = [[###TIME_STUFF###<font class="muc_kick"> *** ###VICTIM### got kicked###REASON_STUFF###</font><br />]];
-html.day.bann = [[###TIME_STUFF###<font class="muc_bann"> *** ###VICTIM### got banned###REASON_STUFF###</font><br />]];
-html.day.day_link = [[<a href="../###DAY###/">###TEXT###</a>]]
-html.day.body = [[<h2>Logs of room ###JID### of 20###YEAR###/###MONTH###/###DAY###</h2>
-<p>###TITLE_STUFF###</p>
-<font class="join_link"><a href="http://speeqe.com/room/###JID###/" target="_blank">Join room now via speeqe.com!</a></font><br />
-###PREVIOUS_LINK###   ###NEXT_LINK###<br />
-<input type="checkbox" onclick="showHide('joinLeave')" ###JOIN_CHECKED###/>show/hide joins and Leaves</button>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-<input type="checkbox" onclick="showHide('status')" ###STATUS_CHECKED###/>show/hide status changes</button>
-<hr /><div id="main" style="overflow: auto;">
-###DAY_STUFF###
-</div><hr />
-]];
-
--- Calendar stuff
-html.year = {};
-html.year.title = [[<center><font style="font: bold 16px Verdana;"><a name="###YEAR###">###YEAR###</a></font></center>]];
-
-html.month = {};
-html.month.header = [[<table rules="groups" cellpadding="5">
-<thead><tr><td colspan="7"><center><H2><font size="2" face="Verdana">###TITLE###</font></H2></center></td></tr></thead>
-<tbody style="border: solid black 1px;">
-<tr>
-###WEEKDAYS###</tr>
-]];
-html.month.weekDay = [[    <th class="weekday" valign="middle" align="center">###DAY###</th>]];
-html.month.emptyDay = [[    <td class="day">&nbsp;</td>]];
-html.month.day = [[    <td class="day" valign="middle" align="center">###DAY###</td>]];
-html.month.footer = [[</tbody></table>]];
-
+local theme = "default";
 
 local function checkDatastorePathExists(node, host, today, create)
 	create = create or false;
@@ -526,7 +413,7 @@ local function parseMessageStanza(stanza, timeStuff, nick)
 		if not me then			
 			template = html.day.message;
 		else
-			template = html.day.message_me;
+			template = html.day.messageMe;
 			body = body:gsub("^/me ", "");
 		end
 		ret = template:gsub("###TIME_STUFF###", timeStuff):gsub("###NICK###", nick):gsub("###MSG###", body);
@@ -680,10 +567,10 @@ local function parseDay(bareRoomJid, roomSubject, bare_day)
 		end
 		if ret ~= "" then
 			if nextDay then
-				nextDay = html.day.day_link:gsub("###DAY###", nextDay):gsub("###TEXT###", "next day &gt;&gt;")
+				nextDay = html.day.dayLink:gsub("###DAY###", nextDay):gsub("###TEXT###", "next day &gt;&gt;")
 			end
 			if previousDay then
-				previousDay = html.day.day_link:gsub("###DAY###", previousDay):gsub("###TEXT###", "&lt;&lt; previous day");
+				previousDay = html.day.dayLink:gsub("###DAY###", previousDay):gsub("###TEXT###", "&lt;&lt; previous day");
 			end
 			tmp = html.day.body:gsub("###DAY_STUFF###", ret):gsub("###JID###", bareRoomJid);
 			tmp = tmp:gsub("###YEAR###", year):gsub("###MONTH###", month):gsub("###DAY###", day);
@@ -731,6 +618,61 @@ function handle_request(method, body, request)
 	return;
 end
 
+-- Compatibility: Lua-5.1
+function split(str, pat)
+   local t = {}  -- NOTE: use {n = 0} in Lua-5.0
+   local fpat = "(.-)" .. pat
+   local last_end = 1
+   local s, e, cap = str:find(fpat, 1)
+   while s do
+      if s ~= 1 or cap ~= "" then
+	 table.insert(t,cap)
+      end
+      last_end = e+1
+      s, e, cap = str:find(fpat, last_end)
+   end
+   if last_end <= #str then
+      cap = str:sub(last_end)
+      table.insert(t, cap)
+   end
+   return t
+end
+
+local function assign(arr, content)
+	local tmp = html;
+	local idx = nil;
+	for _,i in ipairs(arr) do
+		if idx ~= nil then
+			if tmp[idx] == nil then
+				tmp[idx] = {};
+			end
+			tmp = tmp[idx];
+		end
+		idx = i;
+	end
+	tmp[idx] = content;
+end
+
+local function readFile(filepath)
+	local f = assert(io_open(filepath, "r"));
+	local t = f:read("*all");
+	f:close()
+	return t;
+end
+
+local function loadTheme(path)
+	local iter = lfs.dir(path);
+    for file in iter do
+        if file ~= "." and file ~= ".." then
+			module:log("debug", "opening theme file: " .. file);
+			local tmp = split(file:gsub("\.html$", ""), "_");
+			local content = readFile(path .. "/" .. file);
+			assign(tmp, content);
+		end
+	end
+	return true;
+end
+
 function module.load()
 	config = config_get("*", "core", "muc_log_http") or {};
 	if config.showStatus == nil then
@@ -739,6 +681,21 @@ function module.load()
 	if config.showJoin == nil then
 		config.showJoin = true;
 	end
+
+	theme = config.theme or "default";
+	local themePath = themesParent .. "/" .. tostring(theme);
+	local attributes, err = lfs.attributes(themePath);
+	if attributes == nil or attributes.mode ~= "directory" then
+		module:log("error", "Theme folder of theme \"".. tostring(theme) .. "\" isn't existing. expected Path: " .. themePath);
+		return false;
+	end
+	
+	-- module:log("debug", (require "util.serialization").serialize(html));
+	if(not loadTheme(themePath)) then
+		module:log("error", "Theme \"".. tostring(theme) .. "\" is missing something.");
+		return false;
+	end
+	-- module:log("debug", (require "util.serialization").serialize(html));
 
 	httpserver.new_from_config({ config.http_port or true }, handle_request, { base = urlBase, ssl = false, port = 5290 });
 	
