@@ -22,6 +22,8 @@ local tostring = _G.tostring;
 local tonumber = _G.tonumber;
 local os_date, os_time = os.date, os.time;
 local str_format = string.format;
+local io_open = io.open;
+local themesParent = (CFG_PLUGINDIR or "./plugins/") .. "muc_log_http/themes";
 
 local lom = require "lxp.lom";
 
@@ -36,6 +38,9 @@ local lfs = require "lfs";
 * Default templates for the html output.
 ]]--
 local html = {};
+<<<<<<< local
+local theme = "default";
+=======
 html.doc = [[<html>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" >
 <head>
@@ -152,6 +157,7 @@ html.month.emptyDay = [[    <td class="day">&nbsp;</td>]];
 html.month.day = [[    <td class="day" valign="middle" align="center">###DAY###</td>]];
 html.month.footer = [[</tbody></table>]];
 
+>>>>>>> other
 
 local function checkDatastorePathExists(node, host, today, create)
 	create = create or false;
@@ -526,7 +532,7 @@ local function parseMessageStanza(stanza, timeStuff, nick)
 		if not me then			
 			template = html.day.message;
 		else
-			template = html.day.message_me;
+			template = html.day.messageMe;
 			body = body:gsub("^/me ", "");
 		end
 		ret = template:gsub("###TIME_STUFF###", timeStuff):gsub("###NICK###", nick):gsub("###MSG###", body);
@@ -680,10 +686,10 @@ local function parseDay(bareRoomJid, roomSubject, bare_day)
 		end
 		if ret ~= "" then
 			if nextDay then
-				nextDay = html.day.day_link:gsub("###DAY###", nextDay):gsub("###TEXT###", "next day &gt;&gt;")
+				nextDay = html.day.dayLink:gsub("###DAY###", nextDay):gsub("###TEXT###", "next day &gt;&gt;")
 			end
 			if previousDay then
-				previousDay = html.day.day_link:gsub("###DAY###", previousDay):gsub("###TEXT###", "&lt;&lt; previous day");
+				previousDay = html.day.dayLink:gsub("###DAY###", previousDay):gsub("###TEXT###", "&lt;&lt; previous day");
 			end
 			tmp = html.day.body:gsub("###DAY_STUFF###", ret):gsub("###JID###", bareRoomJid);
 			tmp = tmp:gsub("###YEAR###", year):gsub("###MONTH###", month):gsub("###DAY###", day);
@@ -731,6 +737,61 @@ function handle_request(method, body, request)
 	return;
 end
 
+-- Compatibility: Lua-5.1
+function split(str, pat)
+   local t = {}  -- NOTE: use {n = 0} in Lua-5.0
+   local fpat = "(.-)" .. pat
+   local last_end = 1
+   local s, e, cap = str:find(fpat, 1)
+   while s do
+      if s ~= 1 or cap ~= "" then
+	 table.insert(t,cap)
+      end
+      last_end = e+1
+      s, e, cap = str:find(fpat, last_end)
+   end
+   if last_end <= #str then
+      cap = str:sub(last_end)
+      table.insert(t, cap)
+   end
+   return t
+end
+
+local function assign(arr, content)
+	local tmp = html;
+	local idx = nil;
+	for _,i in ipairs(arr) do
+		if idx ~= nil then
+			if tmp[idx] == nil then
+				tmp[idx] = {};
+			end
+			tmp = tmp[idx];
+		end
+		idx = i;
+	end
+	tmp[idx] = content;
+end
+
+local function readFile(filepath)
+	local f = assert(io_open(filepath, "r"));
+	local t = f:read("*all");
+	f:close()
+	return t;
+end
+
+local function loadTheme(path)
+	local iter = lfs.dir(path);
+    for file in iter do
+        if file ~= "." and file ~= ".." then
+			module:log("debug", "opening theme file: " .. file);
+			local tmp = split(file:gsub("\.html$", ""), "_");
+			local content = readFile(path .. "/" .. file);
+			assign(tmp, content);
+		end
+	end
+	return true;
+end
+
 function module.load()
 	config = config_get("*", "core", "muc_log_http") or {};
 	if config.showStatus == nil then
@@ -739,6 +800,21 @@ function module.load()
 	if config.showJoin == nil then
 		config.showJoin = true;
 	end
+
+	theme = config.theme or "default";
+	local themePath = themesParent .. "/" .. tostring(theme);
+	local attributes, err = lfs.attributes(themePath);
+	if attributes == nil or attributes.mode ~= "directory" then
+		module:log("error", "Theme folder of theme \"".. tostring(theme) .. "\" isn't existing. expected Path: " .. themePath);
+		return false;
+	end
+	
+	-- module:log("debug", (require "util.serialization").serialize(html));
+	if(not loadTheme(themePath)) then
+		module:log("error", "Theme \"".. tostring(theme) .. "\" is missing something.");
+		return false;
+	end
+	-- module:log("debug", (require "util.serialization").serialize(html));
 
 	httpserver.new_from_config({ config.http_port or true }, handle_request, { base = urlBase, ssl = false, port = 5290 });
 	
