@@ -273,14 +273,6 @@ local get_user_password_desc = adhoc_new("Get User Password", "http://jabber.org
 local get_online_users_desc = adhoc_new("Get List of Online Users", "http://jabber.org/protocol/admin#get-online-users", get_online_users_command_handler, "admin"); 
 local announce_desc = adhoc_new("Send Announcement to Online Users", "http://jabber.org/protocol/admin#announce", announce_handler, "admin");
 
-function module.unload()
-	module:remove_item("adhoc", add_user_desc);
-	module:remove_item("adhoc", delete_user_desc);
-	module:remove_item("adhoc", get_user_password_desc);
-	module:remove_item("adhoc", get_online_users_desc);
-	module:remove_item("adhoc", announce_desc);
-end
-
 module:add_item("adhoc", add_user_desc);
 module:add_item("adhoc", delete_user_desc);
 module:add_item("adhoc", get_user_password_desc);

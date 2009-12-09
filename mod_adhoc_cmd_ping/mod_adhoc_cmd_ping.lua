@@ -15,9 +15,5 @@ end
 
 local descriptor = adhoc_new("Ping", "ping", ping_command_handler);
 
-function module.unload()
-	module:remove_item("adhoc", descriptor);
-end
-
 module:add_item ("adhoc", descriptor);
 

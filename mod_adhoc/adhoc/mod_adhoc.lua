@@ -50,7 +50,7 @@ module:hook("iq/host", function (event)
 end, 500);
 
 module:hook("item-added/adhoc", function (event)
-	commands[ # commands + 1] = event.item;
+	commands[ #commands + 1] = event.item;
 end, 500);
 
 local _G = _G;
