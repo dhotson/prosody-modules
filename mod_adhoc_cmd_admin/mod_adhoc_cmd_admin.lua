@@ -32,6 +32,15 @@ local add_user_layout = dataforms_new{
 	{ name = "password-verify", type = "text-private", label = "Retype password" };
 };
 
+local change_user_password_layout = dataforms_new{
+	title = "Changing a User Password";
+	instructions = "Fill out this form to change a user's password.";
+
+	{ name = "FORM_TYPE", type = "hidden", value = "http://jabber.org/protocol/admin" };
+	{ name = "accountjid", type = "jid-single", required = true, label = "The Jabber ID for this account" };
+	{ name = "password", type = "text-private", required = true, label = "The password for this account" };
+};
+
 local delete_user_layout = dataforms_new{
 	title = "Deleting a User";
 	instructions = "Fill out this form to delete a user.";
@@ -112,6 +121,35 @@ function add_user_command_handler(item, origin, stanza)
 		local sessionid=uuid.generate();
 		sessions[sessionid] = "executing";
 		origin.send(st.reply(stanza):add_child(item:cmdtag("executing", sessionid):add_child(add_user_layout:form())));
+	end
+	return true;
+end
+
+function change_user_password_command_handler(item, origin, stanza)
+	if stanza.tags[1].attr.sessionid and sessions[stanza.tags[1].attr.sessionid] then
+		if stanza.tags[1].attr.action == "cancel" then
+			origin.send(st.reply(stanza):add_child(item:cmdtag("canceled", stanza.tags[1].attr.sessionid)));
+			sessions[stanza.tags[1].attr.sessionid] = nil;
+			return true;
+		end
+		local form = stanza.tags[1]:child_with_ns("jabber:x:data");
+		local fields = change_user_password_layout:data(form);
+		local username, host, resource = jid.split(fields.accountjid);
+		if usermanager_user_exists(username, host) and usermanager_create_user(username, fields.password, host) then
+			origin.send(st.reply(stanza):add_child(item:cmdtag("completed", stanza.tags[1].attr.sessionid)
+				:tag("note", {type="info"})
+					:text("Password successfully changed")));
+		else
+			origin.send(st.error_reply(stanza, "cancel", "item-not-found", "User does not exist")
+				:add_child(item:cmdtag("canceled", stanza.tags[1].attr.sessionid)
+					:tag("note", {type="error"}):text("User does not exist")));
+		end
+		sessions[stanza.tags[1].attr.sessionid] = nil;
+		return true;
+	else
+		local sessionid=uuid.generate();
+		sessions[sessionid] = "executing";
+		origin.send(st.reply(stanza):add_child(item:cmdtag("executing", sessionid):add_child(change_user_password_layout:form())));
 	end
 	return true;
 end
@@ -268,12 +306,14 @@ function announce_handler(item, origin, stanza)
 end
 
 local add_user_desc = adhoc_new("Add User", "http://jabber.org/protocol/admin#add-user", add_user_command_handler, "admin");
+local change_user_password_desc = adhoc_new("Change User Password", "http://jabber.org/protocol/admin#change-user-password", change_user_password_command_handler, "admin");
 local delete_user_desc = adhoc_new("Delete User", "http://jabber.org/protocol/admin#delete-user", delete_user_command_handler, "admin");
 local get_user_password_desc = adhoc_new("Get User Password", "http://jabber.org/protocol/admin#get-user-password", get_user_password_handler, "admin");
 local get_online_users_desc = adhoc_new("Get List of Online Users", "http://jabber.org/protocol/admin#get-online-users", get_online_users_command_handler, "admin"); 
 local announce_desc = adhoc_new("Send Announcement to Online Users", "http://jabber.org/protocol/admin#announce", announce_handler, "admin");
 
 module:add_item("adhoc", add_user_desc);
+module:add_item("adhoc", change_user_password_desc);
 module:add_item("adhoc", delete_user_desc);
 module:add_item("adhoc", get_user_password_desc);
 module:add_item("adhoc", get_online_users_desc);
