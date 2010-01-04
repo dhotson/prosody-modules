@@ -195,12 +195,12 @@ local function createMonth(month, year, dayCallback)
             end
         end
         if i < days + 1 then
-            local tmp = tostring("<font color='#DDDDDD'>"..tostring(i).."</font>");
+            local tmp = tostring("<span style='color:#DDDDDD'>"..tostring(i).."</span>");
             if dayCallback ~= nil and dayCallback.callback ~= nil then
                 tmp = dayCallback.callback(dayCallback.path, i, month, year);
             end
 			if tmp == nil then
-            	tmp = tostring("<font color='#DDDDDD'>"..tostring(i).."</font>");
+            	tmp = tostring("<span style='color:#DDDDDD'>"..tostring(i).."</span>");
 			else
 				logAvailableForMinimumOneDay = true;
 			end
