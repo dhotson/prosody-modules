@@ -8,6 +8,7 @@ local prosody = prosody;
 local tabSort = table.sort;
 local tonumber = _G.tonumber;
 local tostring = _G.tostring;
+local strchar = string.char;
 local strformat = string.format;
 local splitJid = require "util.jid".split;
 local config_get = require "core.configmanager".get;
@@ -71,10 +72,20 @@ function createDoc(body)
 	end
 end
 
+function urlunescape (escapedUrl)
+	escapedUrl = escapedUrl:gsub("+", " ")
+	escapedUrl = escapedUrl:gsub("%%(%x%x)", function(h) return strchar(tonumber(h,16)) end)
+	escapedUrl = escapedUrl:gsub("\r\n", "\n")
+	return escapedUrl
+end
+
 local function htmlEscape(t)
 	t = t:gsub("<", "&lt;");
 	t = t:gsub(">", "&gt;");
-	t = t:gsub("(http://[%a%d@%.:/&%?=%-_#]+)", [[<a href="%1">%1</a>]]);
+	t = t:gsub("(http://[%a%d@%.:/&%?=%-_#%%]+)", function(h)
+		h = urlunescape(h)
+		return "<a href='" .. h .. "'>" .. h .. "</a>";
+	end);
 	t = t:gsub("\n", "<br />");
 	return t;
 end
