@@ -68,6 +68,7 @@ end
 
 function createDoc(body)
 	if body then
+		body = body:gsub("%%", "%%%%");
 		return html.doc:gsub("###BODY_STUFF###", body);
 	end
 end
@@ -82,11 +83,12 @@ end
 local function htmlEscape(t)
 	t = t:gsub("<", "&lt;");
 	t = t:gsub(">", "&gt;");
-	t = t:gsub("(http://[%a%d@%.:/&%?=%-_#%%]+)", function(h)
+	t = t:gsub("(http://[%a%d@%.:/&%?=%-_#%%~]+)", function(h)
 		h = urlunescape(h)
 		return "<a href='" .. h .. "'>" .. h .. "</a>";
 	end);
 	t = t:gsub("\n", "<br />");
+	t = t:gsub("%%", "%%%%");
 	return t;
 end
 
@@ -583,7 +585,7 @@ local function parseDay(bareRoomJid, roomSubject, bare_day)
 			if previousDay then
 				previousDay = html.day.dayLink:gsub("###DAY###", previousDay):gsub("###TEXT###", "&lt;&lt; previous day");
 			end
-			tmp = html.day.body:gsub("###DAY_STUFF###", ret):gsub("###JID###", bareRoomJid);
+			tmp = html.day.body:gsub("###DAY_STUFF###", ret:gsub("%%", "%%%%")):gsub("###JID###", bareRoomJid);
 			tmp = tmp:gsub("###YEAR###", year):gsub("###MONTH###", month):gsub("###DAY###", day);
 			tmp = tmp:gsub("###TITLE_STUFF###", html.day.title:gsub("###TITLE###", roomSubject));
 			tmp = tmp:gsub("###STATUS_CHECKED###", config.showStatus and "checked='checked'" or "");
