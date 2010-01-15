@@ -465,8 +465,11 @@ local function incrementDay(bare_day)
 	then
 		if month + 1 > 12 then
 			year = year + 1;
+			month = 1;
+			day = 1;
 		else
 			month = month + 1;
+			day = 1;
 		end
 	else
 		day = day + 1;
@@ -496,16 +499,35 @@ end
 
 local function decrementDay(bare_day)
 	local year, month, day = bare_day:match("^(%d%d)(%d%d)(%d%d)");
+	local leapyear = false;
 	module:log("debug", tostring(day).."/"..tostring(month).."/"..tostring(year))
+
 	day = tonumber(day);
 	month = tonumber(month);
 	year = tonumber(year);
-	
+
+	if year%4 == 0 and year%100 == 0 then
+		if year%400 == 0 then
+			leapyear = true;
+		else
+			leapyear = false; -- turn of the century but not a leapyear
+		end
+	elseif year%4 == 0 then
+		leapyear = true;
+	end	
+		
 	if day - 1 == 0 then
 		if month - 1 == 0 then
 			year = year - 1;
+			month = 12;
+			day = 31;
 		else
 			month = month - 1;
+			if (month == 2 and leapyear) then day = 29 
+			elseif (month == 2 and not leapyear) then day = 28
+			elseif (month < 8 and month%2 == 1) or (month >= 8 and month%2 == 0) then day = 31
+			else day = 30
+			end
 		end
 	else
 		day = day - 1;
