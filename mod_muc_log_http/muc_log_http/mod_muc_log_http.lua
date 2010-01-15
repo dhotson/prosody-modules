@@ -307,10 +307,10 @@ local function generateDayListSiteContentByRoom(bareRoomJid)
 	end
 	if attributes ~= nil and room ~= nil then
 		local alreadyDoneYears = {};
-		for file in lfs.dir(path) do
-			local year, month, day = file:match("^(%d%d)(%d%d)(%d%d)");
+		for folder in lfs.dir(path) do
+			local year, month, day = folder:match("^(%d%d)(%d%d)(%d%d)");
 			if year ~= nil and alreadyDoneYears[year] == nil then
-				days = days .. createYear(year, {callback=perDayCallback, path=path});
+				days = createYear(year, {callback=perDayCallback, path=path}) .. days;
 				alreadyDoneYears[year] = true;
 			end
 		end
