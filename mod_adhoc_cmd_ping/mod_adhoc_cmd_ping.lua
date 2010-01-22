@@ -7,10 +7,9 @@
 local st = require "util.stanza";
 local adhoc_new = module:require "adhoc".new;
 
-function ping_command_handler (item, origin, stanza)
+function ping_command_handler (self, data, sessid)
 	local now = os.date("%Y-%m-%dT%X");
-	origin.send(st.reply(stanza):add_child(item:cmdtag("completed", now):tag("note", {type="info"}):text("Pong\n" .. now)));
-	return true;
+	return { info = "Pong\n"..now, status = "completed" }, now;
 end
 
 local descriptor = adhoc_new("Ping", "ping", ping_command_handler);

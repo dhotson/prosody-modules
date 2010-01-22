@@ -23,9 +23,8 @@ function uptime()
 		minutes, (minutes ~= 1 and "s") or "", os.date("%c", prosody.start_time));
 end
 
-function uptime_command_handler (item, origin, stanza)
-	origin.send(st.reply(stanza):add_child(item:cmdtag("completed", uuid.generate()):tag("note", {type="info"}):text(uptime())));
-	return true;
+function uptime_command_handler (self, data, sessid)
+	return { info = uptime(), status = "completed" }, uuid.generate();
 end
 
 local descriptor = adhoc_new("Get uptime", "uptime", uptime_command_handler);

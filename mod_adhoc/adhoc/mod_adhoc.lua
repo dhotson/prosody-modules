@@ -6,6 +6,7 @@
 
 local st = require "util.stanza";
 local is_admin = require "core.usermanager".is_admin;
+local adhoc_handle_cmd = module:require "adhoc".handle_cmd;
 local commands = {};
 
 module:add_feature("http://jabber.org/protocol/commands");
@@ -15,7 +16,7 @@ module:hook("iq/host/http://jabber.org/protocol/disco#items:query", function (ev
     local privileged = is_admin(event.stanza.attr.from) or is_admin(stanza.attr.from, stanza.attr.to); -- TODO: Is this correct, or should is_admin be changed?
     if stanza.attr.type == "get" and stanza.tags[1].attr.node and stanza.tags[1].attr.node == "http://jabber.org/protocol/commands" then
 		reply = st.reply(stanza);
-		reply:tag("query", {xmlns="http://jabber.org/protocol/disco#items", node="http://jabber.org/protocol/commands"})
+		reply:tag("query", {xmlns="http://jabber.org/protocol/disco#items", node="http://jabber.org/protocol/commands"});
 		for i = 1, #commands do
 			-- module:log("info", "adding command %s", commands[i].name);
 			if (commands[i].permission == "admin" and privileged) or (commands[i].permission == "user") then
@@ -43,7 +44,7 @@ module:hook("iq/host", function (event)
 				return true
 			end
 			-- User has permission now execute the command
-			return commands[i].handler(commands[i], origin, stanza);
+			return adhoc_handle_cmd(commands[i], origin, stanza);
 		end
 	end
     end 
