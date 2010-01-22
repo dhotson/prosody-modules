@@ -39,13 +39,26 @@ function _M.handle_cmd(command, origin, stanza)
 
 	for name, content in pairs(data) do
 		if name == "info" then
-			cmdtag:tag("note", {type="info"}):text(content);
+			cmdtag:tag("note", {type="info"}):text(content):up();
+		elseif name == "warn" then
+			cmdtag:tag("note", {type="warn"}):text(content):up();
 		elseif name == "error" then
-			cmdtag:tag("note", {type="error"}):text(content.message);
+			cmdtag:tag("note", {type="error"}):text(content.message):up();
+		elseif name =="actions" then
+			local actions = st.stanza("actions");
+			for _, action in ipairs(content) do
+				if (action == "prev") or (action == "next") or (action == "complete") then
+					actions:tag(action):up();
+				else
+					module:log("error", 'Command "'..command.name..
+						'" at node "'..command.node..'" provided an invalid action "'..action..'"');
+				end
+			end
+			cmdtag:add_child(actions):up();
 		elseif name == "form" then
-			cmdtag:add_child(data.form:form());
+			cmdtag:add_child(data.form:form()):up();
 		elseif name == "other" then
-			cmdtag:add_child(content);
+			cmdtag:add_child(content):up();
 		end
 	end
 	stanza:add_child(cmdtag);
