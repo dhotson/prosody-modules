@@ -54,11 +54,13 @@ function _M.handle_cmd(command, origin, stanza)
 						'" at node "'..command.node..'" provided an invalid action "'..action..'"');
 				end
 			end
-			cmdtag:add_child(actions):up();
+			cmdtag:add_child(actions);
 		elseif name == "form" then
-			cmdtag:add_child(data.form:form()):up();
+			cmdtag:add_child(content:form());
+		elseif name == "result" then
+			cmdtag:add_child(content.layout:form(content.data, "result"));
 		elseif name == "other" then
-			cmdtag:add_child(content):up();
+			cmdtag:add_child(content);
 		end
 	end
 	stanza:add_child(cmdtag);

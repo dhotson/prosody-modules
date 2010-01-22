@@ -58,6 +58,12 @@ local get_user_password_layout = dataforms_new{
 	{ name = "accountjid", type = "jid-single", label = "The Jabber ID for which to retrieve the password" };
 };
 
+local get_user_password_result_layout = dataforms_new{
+	{ name = "FORM_TYPE", type = "hidden", value = "http://jabber.org/protocol/admin" };
+	{ name = "accountjid", type = "jid-single", label = "JID" };
+	{ name = "password", type = "text-single", label = "Password" };
+};
+
 local get_online_users_layout = dataforms_new{
 	title = "Getting List of Online Users";
 	instructions = "How many users should be returned at most?";
@@ -65,6 +71,11 @@ local get_online_users_layout = dataforms_new{
 	{ name = "FORM_TYPE", type = "hidden", value = "http://jabber.org/protocol/admin" };
 	{ name = "max_items", type = "list-single", label = "Maximum number of users",
 		value = { "25", "50", "75", "100", "150", "200", "all" } };
+};
+
+local get_online_users_result_layout = dataforms_new{
+	{ name = "FORM_TYPE", type = "hidden", value = "http://jabber.org/protocol/admin" };
+	{ name = "onlineuserjids", type = "text-multi", label = "The list of all online users" };
 };
 
 local announce_layout = dataforms_new{
@@ -173,22 +184,18 @@ function get_user_password_handler(self, data, sessid)
 			return { status = "canceled" }, sessid;
 		end
 		local fields = get_user_password_layout:data(data.form);
-		local accountjid = st.stanza("field", {var="accountjid", label = "JID", type="jid-single"});
-		local password = st.stanza("field", {var="password", label = "Password", type="text-single"});
 		local user, host, resource = jid.split(fields.accountjid);
+		local accountjid = "";
+		local password = "";
 		if usermanager_user_exists(user, host) then
-			accountjid:tag("value"):text(fields.accountjid):up();
-			password:tag("value"):text(usermanager_get_password(user, host)):up();
+			accountjid = fields.accountjid;
+			password = usermanager_get_password(user, host);
 		else
 			sessions[sessid] = nil;
 			return { status = "error", error = { type = "cancel", condition = "item-not-found", message = "User does not exist" } }, sessid;
 		end
 		sessions[sessid] = nil;
-		return { status = "completed", other = st.stanza("x", {xmlns="jabber:x:data", type="result"})
-				:tag("field", {type="hidden", var="FORM_TYPE"})
-					:tag("value"):text("http://jabber.org/protocol/admin"):up():up()
-				:add_child(accountjid)
-				:add_child(password) }, sessid;
+		return { status = "completed", result = { layout = get_user_password_result_layout, data = {accountjid = accountjid, password = password} } }, sessid;
 	else
 		local sessionid=uuid.generate();
 		sessions[sessionid] = "executing";
@@ -210,19 +217,16 @@ function get_online_users_command_handler(self, data, sessid)
 			max_items = tonumber(fields.max_items);
 		end
 		local count = 0;
-		local field = st.stanza("field", {label="The list of all online users", var="onlineuserjids", type="text-multi"});
+		local users = nil;
 		for username, user in pairs(hosts[data.to].sessions or {}) do
 			if (max_items ~= nil) and (count >= max_items) then
 				break;
 			end
-			field:tag("value"):text(username.."@"..data.to):up();
+			users = ((users and users.."\n") or "")..(username.."@"..data.to);
 			count = count + 1;
 		end
 		sessions[sessid] = nil;
-		return { status = "completed", other = st.stanza("x", {xmlns="jabber:x:data", type="result"})
-				:tag("field", {type="hidden", var="FORM_TYPE"})
-					:tag("value"):text("http://jabber.org/protocol/admin"):up():up()
-				:add_child(field) }, sessid;
+		return { status = "completed", result = {layout = get_online_users_result_layout, data = {onlineuserjids=users}} }, sessid;
 	else
 		local sessionid=uuid.generate();
 		sessions[sessionid] = "executing";
