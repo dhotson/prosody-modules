@@ -21,8 +21,6 @@ local dataforms_new = require "util.dataforms".new;
 module:log("debug", module:get_name());
 local adhoc_new = module:require "adhoc".new;
 
-local sessions = {};
-
 local add_user_layout = dataforms_new{
 	title = "Adding a User";
 	instructions = "Fill out this form to add a user.";
@@ -87,70 +85,56 @@ local announce_layout = dataforms_new{
 	{ name = "announcement", type = "text-multi", required = true, label = "Announcement" };
 };
 
-function add_user_command_handler(self, data, sessid)
-	if sessid and sessions[sessid] then
+function add_user_command_handler(self, data, state)
+	if state then
 		if data.action == "cancel" then
-			sessions[sessid] = nil;
-			return { status = "canceled" }, sessid;
+			return { status = "canceled" };
 		end
 		local fields = add_user_layout:data(data.form);
 		local username, host, resource = jid.split(fields.accountjid);
 		if (fields["password"] == fields["password-verify"]) and username and host and host == data.to then
 			if usermanager_user_exists(username, host) then
-				sessions[sessid] = nil;
-				return { status = "error", error = { type = "cancel", condition = "conflict", message = "Account already exists" } }, sessid;
+				return { status = "error", error = { type = "cancel", condition = "conflict", message = "Account already exists" } };
 			else
 				if usermanager_create_user(username, fields.password, host) then
-					sessions[sessid] = nil;
 					module:log("info", "Created new account " .. username.."@"..host);
-					return { status = "completed", info = "Account successfully created" }, sessid;
+					return { status = "completed", info = "Account successfully created" };
 				else
-					sessions[sessid] = nil;
 					return { status = "error", error = { type = "wait", condition = "internal-server-error",
-						 message = "Failed to write data to disk" } }, sessid;
+						 message = "Failed to write data to disk" } };
 				end
 			end
 		else
 			module:log("debug", fields.accountjid .. " " .. fields.password .. " " .. fields["password-verify"]);
-			sessions[sessid] = nil;
 			return { status = "error", error = { type = "cancel", condition = "conflict",
-				 message = "Invalid data.\nPassword mismatch, or empty username" } }, sessid;
+				 message = "Invalid data.\nPassword mismatch, or empty username" } };
 		end
 	else
-		local sessionid=uuid.generate();
-		sessions[sessionid] = "executing";
-		return { status = "executing", form = add_user_layout }, sessionid;
+		return { status = "executing", form = add_user_layout }, "executing";
 	end
 end
 
-function change_user_password_command_handler(self, data, sessid)
-	if sessid and sessions[sessid] then
+function change_user_password_command_handler(self, data, state)
+	if state then
 		if data.action == "cancel" then
-			sessions[sessid] = nil;
-			return { status = "canceled" }, sessid;
+			return { status = "canceled" };
 		end
 		local fields = change_user_password_layout:data(data.form);
 		local username, host, resource = jid.split(fields.accountjid);
 		if usermanager_user_exists(username, host) and usermanager_create_user(username, fields.password, host) then
-			return { status = "completed", info = "Password successfully changed" }, sessid;
+			return { status = "completed", info = "Password successfully changed" };
 		else
-			sessions[sessid] = nil;
-			return { status = "error", error = { type = "cancel", condition = "item-not-found", message = "User does not exist" } }, sessid;
+			return { status = "error", error = { type = "cancel", condition = "item-not-found", message = "User does not exist" } };
 		end
-		sessions[sessid] = nil;
-		return { status = "canceled" }, sessid;
 	else
-		local sessionid=uuid.generate();
-		sessions[sessionid] = "executing";
-		return { status = "executing", form = change_user_password_layout }, sessionid;
+		return { status = "executing", form = change_user_password_layout }, "executing";
 	end
 end
 
-function delete_user_command_handler(self, data, sessid)
-	if sessid and sessions[sessid] then
+function delete_user_command_handler(self, data, state)
+	if state then
 		if data.action == "cancel" then
-			sessions[sessid] = nil;
-			return { status = "canceled" }, sessid;
+			return { status = "canceled" };
 		end
 		local fields = delete_user_layout:data(data.form);
 		local failed = {};
@@ -165,23 +149,19 @@ function delete_user_command_handler(self, data, sessid)
 				failed[#failed+1] = aJID;
 			end
 		end
-		sessions[sessid] = nil;
 		return {status = "completed", info = (#succeeded ~= 0 and
 				"The following accounts were successfully deleted:\n"..t_concat(succeeded, "\n").."\n" or "")..
 				(#failed ~= 0 and
-				"The following accounts could not be deleted:\n"..t_concat(failed, "\n") or "") }, sessid;
+				"The following accounts could not be deleted:\n"..t_concat(failed, "\n") or "") };
 	else
-		local sessionid=uuid.generate();
-		sessions[sessionid] = "executing";
-		return { status = "executing", form = delete_user_layout }, sessionid;
+		return { status = "executing", form = delete_user_layout }, "executing";
 	end
 end
 
-function get_user_password_handler(self, data, sessid)
-	if sessid and sessions[sessid] then
+function get_user_password_handler(self, data, state)
+	if state then
 		if data.action == "cancel" then
-			sessions[sessid] = nil;
-			return { status = "canceled" }, sessid;
+			return { status = "canceled" };
 		end
 		local fields = get_user_password_layout:data(data.form);
 		local user, host, resource = jid.split(fields.accountjid);
@@ -191,23 +171,18 @@ function get_user_password_handler(self, data, sessid)
 			accountjid = fields.accountjid;
 			password = usermanager_get_password(user, host);
 		else
-			sessions[sessid] = nil;
-			return { status = "error", error = { type = "cancel", condition = "item-not-found", message = "User does not exist" } }, sessid;
+			return { status = "error", error = { type = "cancel", condition = "item-not-found", message = "User does not exist" } };
 		end
-		sessions[sessid] = nil;
-		return { status = "completed", result = { layout = get_user_password_result_layout, data = {accountjid = accountjid, password = password} } }, sessid;
+		return { status = "completed", result = { layout = get_user_password_result_layout, data = {accountjid = accountjid, password = password} } };
 	else
-		local sessionid=uuid.generate();
-		sessions[sessionid] = "executing";
-		return { status = "executing", form = get_user_password_layout }, sessionid;
+		return { status = "executing", form = get_user_password_layout }, "executing";
 	end
 end
 
-function get_online_users_command_handler(self, data, sessid)
-	if sessid and sessions[sessid] then
+function get_online_users_command_handler(self, data, state)
+	if state then
 		if data.action == "cancel" then
-			sessions[sessid] = nil;
-			return { status = "canceled" }, sessid;
+			return { status = "canceled" };
 		end
 
 		local fields = add_user_layout:data(data.form);
@@ -225,20 +200,16 @@ function get_online_users_command_handler(self, data, sessid)
 			users = ((users and users.."\n") or "")..(username.."@"..data.to);
 			count = count + 1;
 		end
-		sessions[sessid] = nil;
-		return { status = "completed", result = {layout = get_online_users_result_layout, data = {onlineuserjids=users}} }, sessid;
+		return { status = "completed", result = {layout = get_online_users_result_layout, data = {onlineuserjids=users}} };
 	else
-		local sessionid=uuid.generate();
-		sessions[sessionid] = "executing";
-		return { status = "executing", form = get_online_users_layout }, sessionid;
+		return { status = "executing", form = get_online_users_layout }, "executing";
 	end
 end
 
-function announce_handler(self, data, sessid)
-	if sessid and sessions[sessid] then
+function announce_handler(self, data, state)
+	if state then
 		if data.action == "cancel" then
-			sessions[sessid] = nil;
-			return { status = "canceled" }, sessid;
+			return { status = "canceled" };
 		end
 
 		local fields = announce_layout:data(data.form);
@@ -256,12 +227,9 @@ function announce_handler(self, data, sessid)
 		end
 		
 		module:log("info", "Announcement sent to %d online users", c);
-		sessions[sessid] = nil;
-		return { status = "completed", info = "Announcement sent." }, sessid;
+		return { status = "completed", info = "Announcement sent." };
 	else
-		local sessionid=uuid.generate();
-		sessions[sessionid] = "executing";
-		return { status = "executing", form = announce_layout }, sessionid;
+		return { status = "executing", form = announce_layout }, "executing";
 	end
 
 	return true;

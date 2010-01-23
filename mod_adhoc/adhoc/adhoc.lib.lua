@@ -1,6 +1,8 @@
-local st = require "util.stanza";
+local st, uuid = require "util.stanza", require "util.uuid";
 
 local xmlns_cmd = "http://jabber.org/protocol/commands";
+
+local states = {}
 
 local _M = {};
 
@@ -17,24 +19,28 @@ function _M.new(name, node, handler, permission)
 end
 
 function _M.handle_cmd(command, origin, stanza)
-	local sessionid = stanza.tags[1].attr.sessionid or nil;
+	local sessionid = stanza.tags[1].attr.sessionid or uuid.generate();
 	local dataIn = {};
 	dataIn.to = stanza.attr.to;
 	dataIn.from = stanza.attr.from;
 	dataIn.action = stanza.tags[1].attr.action or nil;
 	dataIn.form = stanza.tags[1]:child_with_ns("jabber:x:data");
 
-	local data, sessid = command:handler(dataIn, sessionid);
+	local data, state = command:handler(dataIn, states[sessionid]);
+	states[sessionid] = state;
 	local stanza = st.reply(stanza);
 	if data.status == "completed" then
-		cmdtag = command:cmdtag("completed", sessid);
+		states[sessionid] = nil;
+		cmdtag = command:cmdtag("completed", sessionid);
 	elseif data.status == "canceled" then
-		cmdtag = command:cmdtag("canceled", sessid);
+		states[sessionid] = nil;
+		cmdtag = command:cmdtag("canceled", sessionid);
 	elseif data.status == "error" then
+		states[sessionid] = nil;
 		stanza = st.error_reply(stanza, data.error.type, data.error.condition, data.error.message);
-		cmdtag = command:cmdtag("canceled", sessid);
+		cmdtag = command:cmdtag("canceled", sessionid);
 	else 
-		cmdtag = command:cmdtag("executing", sessid);
+		cmdtag = command:cmdtag("executing", sessionid);
 	end
 
 	for name, content in pairs(data) do

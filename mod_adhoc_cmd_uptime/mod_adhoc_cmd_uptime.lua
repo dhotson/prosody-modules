@@ -6,7 +6,7 @@
 
 local _G = _G;
 local prosody = _G.prosody;
-local st, uuid = require "util.stanza", require "util.uuid";
+local st = require "util.stanza";
 local adhoc_new = module:require "adhoc".new;
 
 function uptime()
@@ -23,8 +23,8 @@ function uptime()
 		minutes, (minutes ~= 1 and "s") or "", os.date("%c", prosody.start_time));
 end
 
-function uptime_command_handler (self, data, sessid)
-	return { info = uptime(), status = "completed" }, uuid.generate();
+function uptime_command_handler (self, data, state)
+	return { info = uptime(), status = "completed" };
 end
 
 local descriptor = adhoc_new("Get uptime", "uptime", uptime_command_handler);
