@@ -48,6 +48,14 @@ local delete_user_layout = dataforms_new{
 	{ name = "accountjids", type = "jid-multi", label = "The Jabber ID(s) to delete" };
 };
 
+local end_user_session_layout = dataforms_new{
+	title = "Ending a User Session";
+	instructions = "Fill out this form to end a user's session.";
+
+	{ name = "FORM_TYPE", type = "hidden", value = "http://jabber.org/protocol/admin" };
+	{ name = "accountjids", type = "jid-multi", label = "The Jabber ID(s) for which to end sessions" };
+};
+
 local get_user_password_layout = dataforms_new{
 	title = "Getting User's Password";
 	instructions = "Fill out this form to get a user's password.";
@@ -131,6 +139,19 @@ function change_user_password_command_handler(self, data, state)
 	end
 end
 
+function disconnect_user(match_jid)
+	local node, hostname, givenResource = jid.split(match_jid);
+	local host = hosts[hostname];
+	local sessions = host.sessions[node] and host.sessions[node].sessions;
+	for resource, session in pairs(sessions or {}) do
+		if not givenResource or (resource == givenResource) then
+			module:log("debug", "Disconnecting "..node.."@"..hostname.."/"..resource);
+			session:close();
+		end
+	end
+	return true;
+end
+
 function delete_user_command_handler(self, data, state)
 	if state then
 		if data.action == "cancel" then
@@ -141,7 +162,7 @@ function delete_user_command_handler(self, data, state)
 		local succeeded = {};
 		for _, aJID in ipairs(fields.accountjids) do
 			local username, host, resource = jid.split(aJID);
-			if usermanager_user_exists(username, host) and usermanager_create_user(username, nil, host) then
+			if usermanager_user_exists(username, host) and disconnect_user(aJID) and usermanager_create_user(username, nil, host) then
 				module:log("debug", "User " .. aJID .. " has been deleted");
 				succeeded[#succeeded+1] = aJID;
 			else
@@ -155,6 +176,23 @@ function delete_user_command_handler(self, data, state)
 				"The following accounts could not be deleted:\n"..t_concat(failed, "\n") or "") };
 	else
 		return { status = "executing", form = delete_user_layout }, "executing";
+	end
+end
+
+function end_user_session_handler(self, data, state)
+	if state then
+		if data.action == "cancel" then
+			return { status = "canceled" };
+		end
+
+		local fields = end_user_session_layout:data(data.form);
+
+		for _, aJID in ipairs(fields.accountjids) do
+			disconnect_user(aJID);
+		end
+		return { status = "completed", info = "User(s) have been disconnected" };
+	else
+		return { status = "executing", form = end_user_session_layout }, "executing";
 	end
 end
 
@@ -238,6 +276,7 @@ end
 local add_user_desc = adhoc_new("Add User", "http://jabber.org/protocol/admin#add-user", add_user_command_handler, "admin");
 local change_user_password_desc = adhoc_new("Change User Password", "http://jabber.org/protocol/admin#change-user-password", change_user_password_command_handler, "admin");
 local delete_user_desc = adhoc_new("Delete User", "http://jabber.org/protocol/admin#delete-user", delete_user_command_handler, "admin");
+local end_user_session_desc = adhoc_new("End User Session", "http://jabber.org/protocol/admin#end-user-session", end_user_session_handler, "admin");
 local get_user_password_desc = adhoc_new("Get User Password", "http://jabber.org/protocol/admin#get-user-password", get_user_password_handler, "admin");
 local get_online_users_desc = adhoc_new("Get List of Online Users", "http://jabber.org/protocol/admin#get-online-users", get_online_users_command_handler, "admin"); 
 local announce_desc = adhoc_new("Send Announcement to Online Users", "http://jabber.org/protocol/admin#announce", announce_handler, "admin");
@@ -245,6 +284,7 @@ local announce_desc = adhoc_new("Send Announcement to Online Users", "http://jab
 module:add_item("adhoc", add_user_desc);
 module:add_item("adhoc", change_user_password_desc);
 module:add_item("adhoc", delete_user_desc);
+module:add_item("adhoc", end_user_session_desc);
 module:add_item("adhoc", get_user_password_desc);
 module:add_item("adhoc", get_online_users_desc);
 module:add_item("adhoc", announce_desc);
