@@ -80,9 +80,11 @@ function commands.JOIN(session, channel)
 end
 
 function commands.PART(session, channel)
-	local channel, part_message = channel:match("^(%S+) :(.+)$");
+	local channel, part_message = channel:match("^([^:]+):?(.*)$");
+	channel = channel:match("^([%S]*)");
 	core_process_stanza(session, st.presence{ type = "unavailable", from = session.full_jid,
 		to = channel:gsub("^#", "").."@"..conference_server.."/"..session.nick }:tag("status"):text(part_message));
+	session.send(":"..session.nick.." PART :"..channel);
 end
 
 function commands.PRIVMSG(session, message)
@@ -90,6 +92,10 @@ function commands.PRIVMSG(session, message)
 	if joined_mucs[who] then
 		core_process_stanza(session, st.message{to=who:gsub("^#", "").."@"..conference_server, type="groupchat"}:tag("body"):text(message));
 	end
+end
+
+function commands.PING(session, server)
+	session.send(":"..session.host..": PONG "..server);
 end
 
 function commands.WHO(session, channel)
