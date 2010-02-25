@@ -17,6 +17,7 @@ local usermanager_create_user = require "core.usermanager".create_user;
 local is_admin = require "core.usermanager".is_admin;
 
 local st, jid, uuid = require "util.stanza", require "util.jid", require "util.uuid";
+local timer_add_task = require "util.timer".add_task;
 local dataforms_new = require "util.dataforms".new;
 module:log("debug", module:get_name());
 local adhoc_new = module:require "adhoc".new;
@@ -91,6 +92,24 @@ local announce_layout = dataforms_new{
 	{ name = "FORM_TYPE", type = "hidden", value = "http://jabber.org/protocol/admin" };
 	{ name = "subject", type = "text-single", label = "Subject" };
 	{ name = "announcement", type = "text-multi", required = true, label = "Announcement" };
+};
+
+local shut_down_service_layout = dataforms_new{
+	title = "Shutting Down the Service";
+	instructions = "Fill out this form to shut down the service.";
+
+	{ name = "FORM_TYPE", type = "hidden", value = "http://jabber.org/protocol/admin" };
+	{ name = "delay", type = "list-single", label = "Time delay before shutting down",
+		value = { {label = "30 seconds", value = "30"},
+			  {label = "60 seconds", value = "60"},
+			  {label = "90 seconds", value = "90"},
+			  {label = "2 minutes", value = "120"},
+			  {label = "3 minutes", value = "180"},
+			  {label = "4 minutes", value = "240"},
+			  {label = "5 minutes", value = "300"},
+		};
+	};
+	{ name = "announcement", type = "text-multi", label = "Announcement" };
 };
 
 function add_user_command_handler(self, data, state)
@@ -244,6 +263,26 @@ function get_online_users_command_handler(self, data, state)
 	end
 end
 
+function send_to_online(message, server)
+	if server then
+		sessions = { [server] = hosts[server] };
+	else
+		sessions = hosts;
+	end
+
+	local c = 0;
+	for domain, session in pairs(sessions) do
+		for user in pairs(session.sessions or {}) do
+			c = c + 1;
+			message.attr.from = domain;
+			message.attr.to = user.."@"..domain;
+			core_post_stanza(session, message);
+		end
+	end
+
+	return c;
+end
+
 function announce_handler(self, data, state)
 	if state then
 		if data.action == "cancel" then
@@ -253,18 +292,12 @@ function announce_handler(self, data, state)
 		local fields = announce_layout:data(data.form);
 
 		module:log("info", "Sending server announcement to all online users");
-		local host_session = hosts[data.to];
-		local message = st.message({type = "headline", from = data.to}, fields.announcement):up()
+		local message = st.message({type = "headline"}, fields.announcement):up()
 			:tag("subject"):text(fields.subject or "Announcement");
 		
-		local c = 0;
-		for user in pairs(host_session.sessions) do
-			c = c + 1;
-			message.attr.to = user.."@"..data.to;
-			core_post_stanza(host_session, message);
-		end
+		local count = send_to_online(message, data.to);
 		
-		module:log("info", "Announcement sent to %d online users", c);
+		module:log("info", "Announcement sent to %d online users", count);
 		return { status = "completed", info = "Announcement sent." };
 	else
 		return { status = "executing", form = announce_layout }, "executing";
@@ -273,18 +306,44 @@ function announce_handler(self, data, state)
 	return true;
 end
 
+function shut_down_service_handler(self, data, state)
+	if state then
+		if data.action == "cancel" then
+			return { status = "canceled" };
+		end
+
+		local fields = shut_down_service_layout:data(data.form);
+
+		if fields.announcement then
+			local message = st.message({type = "headline"}, fields.announcement):up()
+				:tag("subject"):text("Server is shutting down");
+			send_to_online(message);
+		end
+
+		timer_add_task(tonumber(fields.delay or "5"), prosody.shutdown);
+
+		return { status = "completed", info = "Server is about to shut down" };
+	else
+		return { status = "executing", form = shut_down_service_layout }, "executing";
+	end
+
+	return true;
+end
+
 local add_user_desc = adhoc_new("Add User", "http://jabber.org/protocol/admin#add-user", add_user_command_handler, "admin");
+local announce_desc = adhoc_new("Send Announcement to Online Users", "http://jabber.org/protocol/admin#announce", announce_handler, "admin");
 local change_user_password_desc = adhoc_new("Change User Password", "http://jabber.org/protocol/admin#change-user-password", change_user_password_command_handler, "admin");
 local delete_user_desc = adhoc_new("Delete User", "http://jabber.org/protocol/admin#delete-user", delete_user_command_handler, "admin");
 local end_user_session_desc = adhoc_new("End User Session", "http://jabber.org/protocol/admin#end-user-session", end_user_session_handler, "admin");
 local get_user_password_desc = adhoc_new("Get User Password", "http://jabber.org/protocol/admin#get-user-password", get_user_password_handler, "admin");
 local get_online_users_desc = adhoc_new("Get List of Online Users", "http://jabber.org/protocol/admin#get-online-users", get_online_users_command_handler, "admin"); 
-local announce_desc = adhoc_new("Send Announcement to Online Users", "http://jabber.org/protocol/admin#announce", announce_handler, "admin");
+local shut_down_service_desc = adhoc_new("Shut Down Service", "http://jabber.org/protocol/admin#shutdown", shut_down_service_handler, "admin");
 
 module:add_item("adhoc", add_user_desc);
+module:add_item("adhoc", announce_desc);
 module:add_item("adhoc", change_user_password_desc);
 module:add_item("adhoc", delete_user_desc);
 module:add_item("adhoc", end_user_session_desc);
 module:add_item("adhoc", get_user_password_desc);
 module:add_item("adhoc", get_online_users_desc);
-module:add_item("adhoc", announce_desc);
+module:add_item("adhoc", shut_down_service_desc);
