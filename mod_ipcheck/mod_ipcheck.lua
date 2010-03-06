@@ -8,7 +8,7 @@ module:add_feature("urn:xmpp:sic:0");
 
 module:hook("iq/bare/urn:xmpp:sic:0:ip", function(event)
 	local origin, stanza = event.origin, event.stanza;
-	if not stanza.attr.to and stanza.attr.type == "get" then
+	if stanza.attr.type == "get" then
 		if stanza.attr.to then
 			origin.send(st.error_reply(stanza, "auth", "forbidden", "You can only ask about your own IP address"));
 		elseif origin.ip then
