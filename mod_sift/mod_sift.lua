@@ -96,7 +96,7 @@ module:hook("iq/full", function(event)
 	local siftdata = data[stanza.attr.to];
 	if siftdata and siftdata.iq then -- we seem to have an IQ filter
 		local tag = stanza.tags[1]; -- the IQ child
-		if not siftdata.iq[tag.attr.xmlns.."|"..tag.name] then
+		if not siftdata.iq[(tag.attr.xmlns or "jabber:client").."|"..tag.name] then
 			-- element not allowed; sending back generic error
 			origin.send(st.error_reply(stanza, "cancel", "service-unavailable"));
 			return true;
