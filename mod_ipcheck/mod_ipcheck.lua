@@ -15,7 +15,7 @@ module:hook("iq/bare/urn:xmpp:sic:0:ip", function(event)
 			origin.send(st.reply(stanza):tag("ip", {xmlns='urn:xmpp:sic:0'}):text(origin.ip));
 		else
 			-- IP addresses should normally be available, but in case they are not
-			origin.send(st.error_reply(stanza, "cancel", "item-not-found", "IP address for this session is not available"));
+			origin.send(st.error_reply(stanza, "cancel", "service-unavailable", "IP address for this session is not available"));
 		end
 		return true;
 	end
