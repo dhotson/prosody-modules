@@ -1,6 +1,6 @@
 
 -- mod_ipcheck.lua
--- Implementation of XEP-xxxx: Server IP Check <http://xmpp.org/extensions/inbox/sic.html>
+-- Implementation of XEP-0279: Server IP Check <http://xmpp.org/extensions/xep-0279.html>
 
 local st = require "util.stanza";
 
