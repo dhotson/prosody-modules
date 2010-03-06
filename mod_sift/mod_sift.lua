@@ -87,7 +87,7 @@ end);
 
 -- handle user disconnect
 module:hook("resource-unbind", function(event)
-	data[event.origin.full_jid] = nil; -- discard data
+	data[event.session.full_jid] = nil; -- discard data
 end);
 
 -- IQ handler
