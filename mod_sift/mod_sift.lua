@@ -131,7 +131,7 @@ module:hook("message/bare", function(event)
 	local origin, stanza = event.origin, event.stanza;
 	local user = bare_sessions[jid_bare(stanza.attr.to)];
 	local allowed = false;
-	for _, session in pairs(user or {}) do
+	for _, session in pairs(user and user.sessions or {}) do
 		local siftdata = data[session.full_jid];
 		if siftdata and siftdata.message then -- we seem to have an message filter
 			for _, childtag in ipairs(stanza.tags) do
@@ -175,7 +175,7 @@ module:hook("presence/bare", function(event)
 	local origin, stanza = event.origin, event.stanza;
 	local user = bare_sessions[jid_bare(stanza.attr.to)];
 	local allowed = false;
-	for _, session in pairs(user or {}) do
+	for _, session in pairs(user and user.sessions or {}) do
 		local siftdata = data[session.full_jid];
 		if siftdata and siftdata.presence then -- we seem to have an presence filter
 			for _, childtag in ipairs(stanza.tags) do
