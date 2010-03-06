@@ -139,9 +139,11 @@ module:hook("message/bare", function(event)
 					allowed = true;
 				end
 			end
+		else
+			allowed = true;
 		end
 	end
-	if not allowed then
+	if user and not allowed then
 		-- element not allowed; sending back generic error
 		origin.send(st.error_reply(stanza, "cancel", "service-unavailable"));
 		-- FIXME maybe send to offline storage
@@ -181,9 +183,11 @@ module:hook("presence/bare", function(event)
 					allowed = true;
 				end
 			end
+		else
+			allowed = true;
 		end
 	end
-	if not allowed then
+	if user and not allowed then
 		-- element not allowed; sending back generic error
 		--origin.send(st.error_reply(stanza, "cancel", "service-unavailable"));
 		return true;
