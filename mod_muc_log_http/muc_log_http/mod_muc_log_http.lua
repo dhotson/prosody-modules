@@ -81,14 +81,18 @@ function urlunescape (escapedUrl)
 end
 
 local function htmlEscape(t)
-	t = t:gsub("<", "&lt;");
-	t = t:gsub(">", "&gt;");
-	t = t:gsub("(http://[%a%d@%.:/&%?=%-_#%%~]+)", function(h)
-		h = urlunescape(h)
-		return "<a href='" .. h .. "'>" .. h .. "</a>";
-	end);
-	t = t:gsub("\n", "<br />");
-	t = t:gsub("%%", "%%%%");
+	if t then
+		t = t:gsub("<", "&lt;");
+		t = t:gsub(">", "&gt;");
+		t = t:gsub("(http://[%a%d@%.:/&%?=%-_#%%~]+)", function(h)
+			h = urlunescape(h)
+			return "<a href='" .. h .. "'>" .. h .. "</a>";
+		end);
+		t = t:gsub("\n", "<br />");
+		t = t:gsub("%%", "%%%%");
+	else
+		t = "";
+	end
 	return t;
 end
 
@@ -375,7 +379,7 @@ local function parsePresenceStanza(stanza, timeStuff, nick)
 				alreadyJoined = true;
 			elseif tag.tag == "show" then
 				show = tag[1];
-			elseif tag.tag == "status" then
+			elseif tag.tag == "status" and tag[1] ~= nil then
 				status = tag[1];
 			end
 		end
