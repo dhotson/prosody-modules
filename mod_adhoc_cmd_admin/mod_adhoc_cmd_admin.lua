@@ -16,6 +16,8 @@ local usermanager_get_password = require "core.usermanager".get_password;
 local usermanager_create_user = require "core.usermanager".create_user;
 local is_admin = require "core.usermanager".is_admin;
 
+local rm_load_roster = require "core.rostermanager".load_roster;
+
 local st, jid, uuid = require "util.stanza", require "util.jid", require "util.uuid";
 local timer_add_task = require "util.timer".add_task;
 local dataforms_new = require "util.dataforms".new;
@@ -69,6 +71,17 @@ local get_user_password_result_layout = dataforms_new{
 	{ name = "FORM_TYPE", type = "hidden", value = "http://jabber.org/protocol/admin" };
 	{ name = "accountjid", type = "jid-single", label = "JID" };
 	{ name = "password", type = "text-single", label = "Password" };
+};
+
+local get_user_roster_layout = dataforms_new{
+	{ name = "FORM_TYPE", type = "hidden", value = "http://jabber.org/protocol/admin" };
+	{ name = "accountjid", type = "jid-single", label = "The Jabber ID for which to retrieve the roster" };
+};
+
+local get_user_roster_result_layout = dataforms_new{
+	{ name = "FORM_TYPE", type = "hidden", value = "http://jabber.org/protocol/admin" };
+	{ name = "accountjid", type = "jid-single", label = "This is the roster for" };
+	{ name = "roster", type = "text-multi", label = "Roster XML" };
 };
 
 local get_online_users_layout = dataforms_new{
@@ -236,6 +249,47 @@ function get_user_password_handler(self, data, state)
 	end
 end
 
+function get_user_roster_handler(self, data, state)
+	if state then
+		if data.action == "cancel" then
+			return { status = "canceled" };
+		end
+
+		local fields = add_user_layout:data(data.form);
+
+		local user, host, resource = jid.split(fields.accountjid);
+		if not usermanager_user_exists(user, host) then
+			return { status = "error", error = { type = "cancel", condition = "item-not-found", message = "User does not exist" } };
+		end
+		local roster = rm_load_roster(user, host);
+
+		local query = st.stanza("query", { xmlns = "jabber:iq:roster" });
+		for jid in pairs(roster) do
+			if jid ~= "pending" and jid then
+				query:tag("item", {
+					jid = jid,
+					subscription = roster[jid].subscription,
+					ask = roster[jid].ask,
+					name = roster[jid].name,
+				});
+				for group in pairs(roster[jid].groups) do
+					query:tag("group"):text(group):up();
+				end
+				query:up();
+			end
+		end
+
+		local query_text = query:__tostring(); -- TODO: Use upcoming pretty_print() function
+		query_text = query_text:gsub("><", ">\n<");
+
+		local result = get_user_roster_result_layout:form({ accountjid = user.."@"..host, roster = query_text }, "result");
+		result:add_child(query);
+		return { status = "completed", other = result };
+	else
+		return { status = "executing", form = get_user_roster_layout }, "executing";
+	end
+end
+
 function get_online_users_command_handler(self, data, state)
 	if state then
 		if data.action == "cancel" then
@@ -336,6 +390,7 @@ local change_user_password_desc = adhoc_new("Change User Password", "http://jabb
 local delete_user_desc = adhoc_new("Delete User", "http://jabber.org/protocol/admin#delete-user", delete_user_command_handler, "admin");
 local end_user_session_desc = adhoc_new("End User Session", "http://jabber.org/protocol/admin#end-user-session", end_user_session_handler, "admin");
 local get_user_password_desc = adhoc_new("Get User Password", "http://jabber.org/protocol/admin#get-user-password", get_user_password_handler, "admin");
+local get_user_roster_desc = adhoc_new("Get User Roster","http://jabber.org/protocol/admin#get-user-roster", get_user_roster_handler, "admin");
 local get_online_users_desc = adhoc_new("Get List of Online Users", "http://jabber.org/protocol/admin#get-online-users", get_online_users_command_handler, "admin"); 
 local shut_down_service_desc = adhoc_new("Shut Down Service", "http://jabber.org/protocol/admin#shutdown", shut_down_service_handler, "admin");
 
@@ -345,5 +400,6 @@ module:add_item("adhoc", change_user_password_desc);
 module:add_item("adhoc", delete_user_desc);
 module:add_item("adhoc", end_user_session_desc);
 module:add_item("adhoc", get_user_password_desc);
+module:add_item("adhoc", get_user_roster_desc);
 module:add_item("adhoc", get_online_users_desc);
 module:add_item("adhoc", shut_down_service_desc);
