@@ -12,8 +12,10 @@ local hosts = prosody.hosts;
 local t_concat = table.concat;
 
 local usermanager_user_exists = require "core.usermanager".user_exists;
-local usermanager_get_password = require "core.usermanager".get_password;
 local usermanager_create_user = require "core.usermanager".create_user;
+local usermanager_get_password = require "core.usermanager".get_password;
+local usermanager_set_password = require "core.usermanager".set_password or
+	function (username, host, password) return usermanager_create_user(username, password, host) end;
 local is_admin = require "core.usermanager".is_admin;
 
 local rm_load_roster = require "core.rostermanager".load_roster;
@@ -161,7 +163,7 @@ function change_user_password_command_handler(self, data, state)
 		end
 		local fields = change_user_password_layout:data(data.form);
 		local username, host, resource = jid.split(fields.accountjid);
-		if usermanager_user_exists(username, host) and usermanager_create_user(username, fields.password, host) then
+		if usermanager_user_exists(username, host) and usermanager_set_password(username, host, fields.password) then
 			return { status = "completed", info = "Password successfully changed" };
 		else
 			return { status = "error", error = { type = "cancel", condition = "item-not-found", message = "User does not exist" } };
