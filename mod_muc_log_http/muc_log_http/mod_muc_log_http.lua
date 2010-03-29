@@ -214,7 +214,7 @@ local function createMonth(month, year, dayCallback)
         if i < days + 1 then
             local tmp = tostring("<span style='color:#DDDDDD'>"..tostring(i).."</span>");
             if dayCallback ~= nil and dayCallback.callback ~= nil then
-                tmp = dayCallback.callback(dayCallback.path, i, month, year);
+                tmp = dayCallback.callback(dayCallback.path, i, month, year, dayCallback.room);
             end
 			if tmp == nil then
             	tmp = tostring("<span style='color:#DDDDDD'>"..tostring(i).."</span>");
@@ -266,24 +266,27 @@ local function createYear(year, dayCallback)
 	if tonumber(year) <= 99 then
 		year = year + 2000;
 	end
-	local htmlStr = "<div name='yearDiv' style='padding: 40px; text-align: center;'>" .. html.year.title:gsub("###YEAR###", tostring(year));
+	local htmlStr = "";
     for i=1, 12 do
 		tmp = createMonth(i, year, dayCallback);
 		if tmp then
         	htmlStr = htmlStr .. "<div style='float: left; padding: 5px;'>\n" .. tmp .. "</div>\n";
 		end
     end
-	return htmlStr .. "</div><br style='clear:both;'/> \n";
+	if htmlStr ~= "" then
+		return "<div name='yearDiv' style='padding: 40px; text-align: center;'>" .. html.year.title:gsub("###YEAR###", tostring(year)) .. htmlStr .. "</div><br style='clear:both;'/> \n";
+	end
+	return "";
 end
 
-local function perDayCallback(path, day, month, year)
+local function perDayCallback(path, day, month, year, room)
 	local year = year;
 	if year > 2000 then
 		year = year - 2000;
 	end
 	local bareDay = str_format("%.02d%.02d%.02d", year, month, day);
-	local attributes, err = lfs.attributes(path.."/"..bareDay)
-	if attributes ~= nil and attributes.mode == "directory" then
+	local attributes, err = lfs.attributes(path.."/"..bareDay.."/"..room..".dat")
+	if attributes ~= nil and attributes.mode == "file" then
 		local s = html.days.bit;
 		s = s:gsub("###BARE_DAY###", bareDay);
 		s = s:gsub("###DAY###", day);
@@ -314,7 +317,7 @@ local function generateDayListSiteContentByRoom(bareRoomJid)
 		for folder in lfs.dir(path) do
 			local year, month, day = folder:match("^(%d%d)(%d%d)(%d%d)");
 			if year ~= nil and alreadyDoneYears[year] == nil then
-				days = createYear(year, {callback=perDayCallback, path=path}) .. days;
+				days = createYear(year, {callback=perDayCallback, path=path, room=node}) .. days;
 				alreadyDoneYears[year] = true;
 			end
 		end
@@ -575,7 +578,7 @@ local function parseDay(bareRoomJid, roomSubject, bare_day)
 			for i=1, #data, 1 do
 				local stanza = lom.parse(data[i]);
 				if stanza ~= nil and stanza.attr ~= nil and stanza.attr.time ~= nil then
-					local timeStuff = html.day.time:gsub("###TIME###", stanza.attr.time);
+					local timeStuff = html.day.time:gsub("###TIME###", stanza.attr.time):gsub("###UTC###", stanza.attr.utc or stanza.attr.time);
 					if stanza[1] ~= nil then
 						local nick;
 						local tmp;
