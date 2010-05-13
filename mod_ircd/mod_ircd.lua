@@ -122,10 +122,10 @@ function irc_component(origin, stanza)
 		local joined_muc = joined_mucs[from_node];
 		if stanza.name == "message" then
 			local subject = stanza:get_child("subject");
+			subject = subject and (subject:get_text() or "");
 			if subject then
-				local subject_text = subject:get_text();
 				for session in pairs(joined_muc.sessions) do
-					session.send(":"..session.host.." 332 "..session.nick.." "..from_node.." :"..subject_text);
+					session.send(":"..session.host.." 332 "..session.nick.." "..from_node.." :"..subject);
 				end
 			end
 		end
