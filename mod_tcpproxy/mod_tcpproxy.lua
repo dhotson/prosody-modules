@@ -84,7 +84,14 @@ function proxy_component(origin, stanza)
 	elseif ibb_tag.name == "data" then
 		local conn = open_connections[stanza.attr.from][ibb_tag.attr.sid];
 		if conn then
-			conn:write(unb64(ibb_tag:get_text()));
+			local data = unb64(ibb_tag:get_text());
+			if data then
+				conn:write(data);
+			else
+				return origin.send(
+					st.error_reply(stanza, "modify", "bad-request", "Invalid data (base64?)")
+				);
+			end
 		else
 			return origin.send(st.error_reply(stanza, "cancel", "item-not-found"));
 		end
