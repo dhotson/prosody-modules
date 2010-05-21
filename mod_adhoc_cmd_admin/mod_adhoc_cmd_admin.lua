@@ -86,6 +86,21 @@ local get_user_roster_result_layout = dataforms_new{
 	{ name = "roster", type = "text-multi", label = "Roster XML" };
 };
 
+local get_user_stats_layout = dataforms_new{
+	title = "Get User Statistics";
+	instructions = "Fill out this form to gather user statistics.";
+
+	{ name = "FORM_TYPE", type = "hidden", value = "http://jabber.org/protocol/admin" };
+	{ name = "accountjid", type = "jid-single", label = "The Jabber ID for statistics" };
+};
+
+local get_user_stats_result_layout = dataforms_new{
+	{ name = "FORM_TYPE", type = "hidden", value = "http://jabber.org/protocol/admin" };
+	{ name = "ipaddresses", type = "text-multi", label = "IP Addresses" };
+	{ name = "rostersize", type = "text-single", label = "Roster size" };
+	{ name = "onlineresources", type = "text-multi", label = "Online Resources" };
+};
+
 local get_online_users_layout = dataforms_new{
 	title = "Getting List of Online Users";
 	instructions = "How many users should be returned at most?";
@@ -292,6 +307,38 @@ function get_user_roster_handler(self, data, state)
 	end
 end
 
+function get_user_stats_handler(self, data, state)
+	if state then
+		if data.action == "cancel" then
+			return { status = "canceled" };
+		end
+
+		local fields = get_user_stats_layout:data(data.form);
+
+		local user, host, resource = jid.split(fields.accountjid);
+		if not usermanager_user_exists(user, host) then
+			return { status = "error", error = { type = "cancel", condition = "item-not-found", message = "User does not exist" } };
+		end
+		local roster = rm_load_roster(user, host);
+		local rostersize = 0;
+		local IPs = "";
+		local resources = "";
+		for jid in pairs(roster) do
+			if jid ~= "pending" and jid then
+				rostersize = rostersize + 1;
+			end
+		end
+		for resource, session in pairs((hosts[host].sessions[user] and hosts[host].sessions[user].sessions) or {}) do
+			resources = resources .. "\n" .. resource;
+			IPs = IPs .. "\n" .. session.ip;
+		end
+		return { status = "completed", result = {layout = get_user_stats_result_layout, data = {ipaddresses = IPs, rostersize = tostring(rostersize),
+			onlineresources = resources}} };
+	else
+		return { status = "executing", form = get_user_stats_layout }, "executing";
+	end
+end
+
 function get_online_users_command_handler(self, data, state)
 	if state then
 		if data.action == "cancel" then
@@ -393,6 +440,7 @@ local delete_user_desc = adhoc_new("Delete User", "http://jabber.org/protocol/ad
 local end_user_session_desc = adhoc_new("End User Session", "http://jabber.org/protocol/admin#end-user-session", end_user_session_handler, "admin");
 local get_user_password_desc = adhoc_new("Get User Password", "http://jabber.org/protocol/admin#get-user-password", get_user_password_handler, "admin");
 local get_user_roster_desc = adhoc_new("Get User Roster","http://jabber.org/protocol/admin#get-user-roster", get_user_roster_handler, "admin");
+local get_user_stats_desc = adhoc_new("Get User Statistics","http://jabber.org/protocol/admin#user-stats", get_user_stats_handler, "admin");
 local get_online_users_desc = adhoc_new("Get List of Online Users", "http://jabber.org/protocol/admin#get-online-users", get_online_users_command_handler, "admin"); 
 local shut_down_service_desc = adhoc_new("Shut Down Service", "http://jabber.org/protocol/admin#shutdown", shut_down_service_handler, "admin");
 
@@ -403,5 +451,6 @@ module:add_item("adhoc", delete_user_desc);
 module:add_item("adhoc", end_user_session_desc);
 module:add_item("adhoc", get_user_password_desc);
 module:add_item("adhoc", get_user_roster_desc);
+module:add_item("adhoc", get_user_stats_desc);
 module:add_item("adhoc", get_online_users_desc);
 module:add_item("adhoc", shut_down_service_desc);
