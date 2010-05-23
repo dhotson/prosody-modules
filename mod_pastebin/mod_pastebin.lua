@@ -13,6 +13,9 @@ local base_url = config.get(module.host, "core", "pastebin_url");
 -- Seconds a paste should live for in seconds (config is in hours), default 24 hours
 local expire_after = math.floor((config.get(module.host, "core", "pastebin_expire_after") or 24) * 3600);
 
+local trigger_string = config.get(module.host, "core", "pastebin_trigger");
+trigger_string = (trigger_string and trigger_string .. " ") or "";
+
 local pastes = {};
 local default_headers = { ["Content-Type"] = "text/plain; charset=utf-8" };
 
@@ -57,7 +60,8 @@ function check_message(data)
 	
 	--module:log("debug", "Body(%s) length: %d", type(body), #(body or ""));
 	
-	if body and #body > length_threshold then
+	if body and ((#body > length_threshold) or (body:find(trigger_string, 1, true) == 1)) then
+		body = body:gsub("^" .. trigger_string, "", 1);
 		local url = pastebin_text(body);
 		module:log("debug", "Pasted message as %s", url);		
 		--module:log("debug", " stanza[bodyindex] = %q", tostring( stanza[bodyindex]));
