@@ -1,23 +1,57 @@
+--
+-- NOTE: currently this uses lpc; when waqas fixes process, it can go back to that
+--
+-- Prosody IM
+-- Copyright (C) 2010 Waqas Hussain
+-- Copyright (C) 2010 Jeff Mitchell
+--
+-- This project is MIT/X11 licensed. Please see the
+-- COPYING file in the source package for more information.
+--
 
 
 local nodeprep = require "util.encodings".stringprep.nodeprep;
-local process = require "process";
+--local process = require "process";
+local lpc = require "lpc";
 
-local script_type = module:get_option("extauth_type");
-assert(script_type == "ejabberd");
-local command = module:get_option("extauth_command");
-assert(type(command) == "string");
+local config = require "core.configmanager";
+local log = require "util.logger".init("usermanager");
 local host = module.host;
+local script_type = config.get(host, "core", "extauth_type") or "generic";
+assert(script_type == "ejabberd" or script_type == "generic");
+local command = config.get(host, "core", "extauth_command") or "";
+assert(type(command) == "string");
 assert(not host:find(":"));
+local usermanager = require "core.usermanager";
+local jid_bare = require "util.jid".bare;
 
-local proc;
+--local proc;
+local pid;
+local readfile;
+local writefile;
 local function send_query(text)
-	if not proc then
-		proc = process.popen(command);
+	-- if not proc then
+	if not pid then
+		log("debug", "EXTAUTH: Opening process");
+		-- proc = process.popen(command);
+		pid, writefile, readfile = lpc.run(command);
 	end
-	proc:write(text);
-	proc:flush();
-	return proc:read(4); -- FIXME do properly
+	-- if not proc then
+	if not pid then
+		log("debug", "EXTAUTH: Process failed to open");
+		return nil;
+	end
+	-- proc:write(text);
+	-- proc:flush();
+	writefile:write(text);
+	writefile:flush();
+	if script_type == "ejabberd" then
+		-- return proc:read(4); -- FIXME do properly
+		return readfile:read(4); -- FIXME do properly
+	elseif script_type == "generic" then
+		-- return proc:read(1);
+		return readfile:read();
+	end
 end
 
 function do_query(kind, username, password)
@@ -29,55 +63,65 @@ function do_query(kind, username, password)
 	local len = #query
 	if len > 1000 then return nil, "policy-violation"; end
 	
-	local lo = len % 256;
-	local hi = (len - lo) / 256;
-	query = string.char(hi, lo)..query;
+	if script_type == "ejabberd" then
+		local lo = len % 256;
+		local hi = (len - lo) / 256;
+		query = string.char(hi, lo)..query;
+	end
+	if script_type == "generic" then
+		query = query..'\n';
+	end
 	
 	local response = send_query(query);
-	if response == "\0\2\0\0" then
-		return nil, "not-authorized";
-	elseif response == "\0\2\0\1" then
-		return true;
+	if (script_type == "ejabberd" and response == "\0\2\0\0") or
+		(script_type == "generic" and response == "0") then
+			return nil, "not-authorized";
+	elseif (script_type == "ejabberd" and response == "\0\2\0\1") or
+		(script_type == "generic" and response == "1") then
+			return true;
 	else
-		proc = nil; -- TODO kill proc
+		log("debug", "EXTAUTH: Nonsense back");
+		--proc:close();
+		--proc = nil;
 		return nil, "internal-server-error";
 	end
 end
 
-local provider = { name = "extauth" };
+function new_extauth_provider(host)
+	local provider = { name = "extauth" };
 
-function provider.test_password(username, password)
-	return do_query("auth", username, password);
-end
-
-function provider.set_password(username, password)
-	return do_query("setpass", username, password);
-end
-
-function provider.user_exists(username)
-	return do_query("isuser", username);
-end
-
-function provider.get_password() return nil, "Passwords not available."; end
-function provider.create_user(username, password) return nil, "Account creation/modification not available."; end
-function provider.get_supported_methods() return {["PLAIN"] = true}; end
-local config = require "core.configmanager";
-local usermanager = require "core.usermanager";
-local jid_bare = require "util.jid".bare;
-function provider.is_admin(jid)
-	local admins = config.get(host, "core", "admins");
-	if admins ~= config.get("*", "core", "admins") then
-		if type(admins) == "table" then
-			jid = jid_bare(jid);
-			for _,admin in ipairs(admins) do
-				if admin == jid then return true; end
-			end
-		elseif admins then
-			log("error", "Option 'admins' for host '%s' is not a table", host);
-		end
+	function provider.test_password(username, password)
+		return do_query("auth", username, password);
 	end
-	return usermanager.is_admin(jid); -- Test whether it's a global admin instead
+
+	function provider.set_password(username, password)
+		return do_query("setpass", username, password);
+	end
+
+	function provider.user_exists(username)
+		return do_query("isuser", username);
+	end
+
+	function provider.create_user(username, password) return nil, "Account creation/modification not available."; end
+	
+	function provider.get_supported_methods() return {["PLAIN"] = true}; end
+
+	function provider.is_admin(jid)
+		local admins = config.get(host, "core", "admins");
+		if admins ~= config.get("*", "core", "admins") then
+			if type(admins) == "table" then
+				jid = jid_bare(jid);
+				for _,admin in ipairs(admins) do
+					if admin == jid then return true; end
+				end
+			elseif admins then
+				log("error", "Option 'admins' for host '%s' is not a table", host);
+			end
+		end
+		return usermanager.is_admin(jid); -- Test whether it's a global admin instead
+	end
+
+	return provider;
 end
 
-
-module:add_item("auth-provider", provider);
+module:add_item("auth-provider", new_extauth_provider(module.host));
