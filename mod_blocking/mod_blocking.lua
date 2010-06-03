@@ -41,7 +41,7 @@ function remove_blocked_jid(username, host, jid)
 	local item;
 	for i=1,#items do -- order must be unique
 		item = items[i];
-		if item.type == "jid" and item.value == jid then
+		if item.type == "jid" and item.action == "deny" and item.value == jid then
 			table.remove(items, i);
 			return true;
 		end
@@ -60,7 +60,7 @@ function get_blocked_jids(username, host)
 	local jid_list = {};
 	for i=1,#items do -- order must be unique
 		item = items[i];
-		if item.type == "jid" then
+		if item.type == "jid" and item.action == "deny" then
 			jid_list[#jid_list+1] = item.value;
 		end
 	end
