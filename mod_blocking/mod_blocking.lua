@@ -46,6 +46,24 @@ function remove_blocked_jid(username, host, jid)
 			return true;
 		end
 	end
+	datamanager.store(username, host, "privacy", privacy_lists);
+end
+
+function remove_all_blocked_jids(username, host)
+	local privacy_lists = datamanager.load(username, host, "privacy") or {};
+	local default_list_name = privacy_lists.default;
+	if not default_list_name then return; end
+	local default_list = privacy_lists.list[default_list_name];
+	if not default_list then return; end
+	local items = default_list.items;
+	local item;
+	for i=#items,1 do -- order must be unique
+		item = items[i];
+		if item.type == "jid" and item.action == "deny" then
+			table.remove(items, i);
+		end
+	end
+	datamanager.store(username, host, "privacy", privacy_lists);
 end
 
 function get_blocked_jids(username, host)
@@ -69,18 +87,23 @@ end
 
 function handle_blocking_command(session, stanza)
 	local username, host = jid_split(stanza.attr.from);
-	if stanza.attr.type == "set" and stanza.tags[1].name == "block" then
-		local block = stanza.tags[1]:get_child("block");
-		local block_jid_list = {};
-		for item in block:childtags() do
-			block_jid_list[#block_jid_list+1] = item.attr.jid;
-		end
-		if #block_jid_list == 0 then
-			--FIXME: Reply bad-request
-		else
-			for _, jid in ipairs(block_jid_list) do
-				add_blocked_jid(username, host, jid);
+	if stanza.attr.type == "set" then
+		if stanza.tags[1].name == "block" then
+			local block = stanza.tags[1]:get_child("block");
+			local block_jid_list = {};
+			for item in block:childtags() do
+				block_jid_list[#block_jid_list+1] = item.attr.jid;
 			end
+			if #block_jid_list == 0 then
+				--FIXME: Reply bad-request
+			else
+				for _, jid in ipairs(block_jid_list) do
+					add_blocked_jid(username, host, jid);
+				end
+				session.send(st.reply(stanza));
+			end
+		elseif stanza.tags[1].name == "unblock" then
+			remove_all_blocked_jids(username, host);
 			session.send(st.reply(stanza));
 		end
 	elseif stanza.attr.type == "get" and stanza.tags[1].name == "blocklist" then
