@@ -24,6 +24,7 @@ assert(type(command) == "string");
 assert(not host:find(":"));
 local usermanager = require "core.usermanager";
 local jid_bare = require "util.jid".bare;
+local new_sasl = require "util.sasl".new;
 
 --local proc;
 local pid;
@@ -104,7 +105,20 @@ function new_extauth_provider(host)
 
 	function provider.create_user(username, password) return nil, "Account creation/modification not available."; end
 	
-	function provider.get_supported_methods() return {["PLAIN"] = true}; end
+	function provider.get_sasl_handler()
+		local realm = module:get_option("sasl_realm") or module.host;
+		local testpass_authentication_profile = {
+			plain_test = function(username, password, realm)
+				local prepped_username = nodeprep(username);
+				if not prepped_username then
+					log("debug", "NODEprep failed on username: %s", username);
+					return "", nil;
+				end
+				return usermanager.test_password(prepped_username, password, realm), true;
+			end,
+		};
+		return new_sasl(realm, testpass_authentication_profile);
+	end
 
 	function provider.is_admin(jid)
 		local admins = config.get(host, "core", "admins");
