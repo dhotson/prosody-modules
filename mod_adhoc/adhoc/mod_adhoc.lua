@@ -1,5 +1,6 @@
 -- Copyright (C) 2009 Thilo Cestonaro
--- 
+-- Copyright (C) 2009-2010 Florian Zeitz
+--
 -- This file is MIT/X11 licensed. Please see the
 -- COPYING file in the source package for more information.
 --

@@ -1,3 +1,9 @@
+-- Copyright (C) 2009-2010 Florian Zeitz
+--
+-- This file is MIT/X11 licensed. Please see the
+-- COPYING file in the source package for more information.
+--
+
 local st, uuid = require "util.stanza", require "util.uuid";
 
 local xmlns_cmd = "http://jabber.org/protocol/commands";
@@ -38,7 +44,8 @@ function _M.handle_cmd(command, origin, stanza)
 	elseif data.status == "error" then
 		states[sessionid] = nil;
 		stanza = st.error_reply(stanza, data.error.type, data.error.condition, data.error.message);
-		cmdtag = command:cmdtag("canceled", sessionid);
+		origin.send(stanza);
+		return true;
 	else 
 		cmdtag = command:cmdtag("executing", sessionid);
 	end

@@ -1,4 +1,4 @@
--- Copyright (C) 2009 Florian Zeitz
+-- Copyright (C) 2009-2010 Florian Zeitz
 -- 
 -- This file is MIT/X11 licensed. Please see the
 -- COPYING file in the source package for more information.
@@ -151,20 +151,19 @@ function add_user_command_handler(self, data, state)
 		local username, host, resource = jid.split(fields.accountjid);
 		if (fields["password"] == fields["password-verify"]) and username and host and host == data.to then
 			if usermanager_user_exists(username, host) then
-				return { status = "error", error = { type = "cancel", condition = "conflict", message = "Account already exists" } };
+				return { status = "completed", error = { message = "Account already exists" } };
 			else
 				if usermanager_create_user(username, fields.password, host) then
 					module:log("info", "Created new account " .. username.."@"..host);
 					return { status = "completed", info = "Account successfully created" };
 				else
-					return { status = "error", error = { type = "wait", condition = "internal-server-error",
-						 message = "Failed to write data to disk" } };
+					return { status = "completed", error = { message = "Failed to write data to disk" } };
 				end
 			end
 		else
-			module:log("debug", fields.accountjid .. " " .. fields.password .. " " .. fields["password-verify"]);
-			return { status = "error", error = { type = "cancel", condition = "conflict",
-				 message = "Invalid data.\nPassword mismatch, or empty username" } };
+			module:log("debug", (fields.accountjid or "<nil>") .. " " .. (fields.password or "<nil>") .. " "
+				.. (fields["password-verify"] or "<nil>"));
+			return { status = "completed", error = { message = "Invalid data.\nPassword mismatch, or empty username" } };
 		end
 	else
 		return { status = "executing", form = add_user_layout }, "executing";
@@ -181,7 +180,7 @@ function change_user_password_command_handler(self, data, state)
 		if usermanager_user_exists(username, host) and usermanager_set_password(username, host, fields.password) then
 			return { status = "completed", info = "Password successfully changed" };
 		else
-			return { status = "error", error = { type = "cancel", condition = "item-not-found", message = "User does not exist" } };
+			return { status = "completed", error = { message = "User does not exist" } };
 		end
 	else
 		return { status = "executing", form = change_user_password_layout }, "executing";
@@ -258,7 +257,7 @@ function get_user_password_handler(self, data, state)
 			accountjid = fields.accountjid;
 			password = usermanager_get_password(user, host);
 		else
-			return { status = "error", error = { type = "cancel", condition = "item-not-found", message = "User does not exist" } };
+			return { status = "completed", error = { message = "User does not exist" } };
 		end
 		return { status = "completed", result = { layout = get_user_password_result_layout, data = {accountjid = accountjid, password = password} } };
 	else
@@ -276,7 +275,7 @@ function get_user_roster_handler(self, data, state)
 
 		local user, host, resource = jid.split(fields.accountjid);
 		if not usermanager_user_exists(user, host) then
-			return { status = "error", error = { type = "cancel", condition = "item-not-found", message = "User does not exist" } };
+			return { status = "completed", error = { message = "User does not exist" } };
 		end
 		local roster = rm_load_roster(user, host);
 
@@ -317,7 +316,7 @@ function get_user_stats_handler(self, data, state)
 
 		local user, host, resource = jid.split(fields.accountjid);
 		if not usermanager_user_exists(user, host) then
-			return { status = "error", error = { type = "cancel", condition = "item-not-found", message = "User does not exist" } };
+			return { status = "completed", error = { message = "User does not exist" } };
 		end
 		local roster = rm_load_roster(user, host);
 		local rostersize = 0;
