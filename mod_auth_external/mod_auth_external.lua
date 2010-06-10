@@ -15,11 +15,11 @@ local nodeprep = require "util.encodings".stringprep.nodeprep;
 local lpc = require "lpc";
 
 local config = require "core.configmanager";
-local log = require "util.logger".init("usermanager");
+local log = module._log;
 local host = module.host;
-local script_type = config.get(host, "core", "extauth_type") or "generic";
+local script_type = config.get(host, "core", "external_auth_protocol") or "generic";
 assert(script_type == "ejabberd" or script_type == "generic");
-local command = config.get(host, "core", "extauth_command") or "";
+local command = config.get(host, "core", "external_auth_command") or "";
 assert(type(command) == "string");
 assert(not host:find(":"));
 local usermanager = require "core.usermanager";
@@ -33,13 +33,13 @@ local writefile;
 local function send_query(text)
 	-- if not proc then
 	if not pid then
-		log("debug", "EXTAUTH: Opening process");
+		log("debug", "Opening process");
 		-- proc = process.popen(command);
 		pid, writefile, readfile = lpc.run(command);
 	end
 	-- if not proc then
 	if not pid then
-		log("debug", "EXTAUTH: Process failed to open");
+		log("debug", "Process failed to open");
 		return nil;
 	end
 	-- proc:write(text);
@@ -81,15 +81,15 @@ function do_query(kind, username, password)
 		(script_type == "generic" and response == "1") then
 			return true;
 	else
-		log("debug", "EXTAUTH: Nonsense back");
+		log("debug", "Nonsense back");
 		--proc:close();
 		--proc = nil;
 		return nil, "internal-server-error";
 	end
 end
 
-function new_extauth_provider(host)
-	local provider = { name = "extauth" };
+function new_external_provider(host)
+	local provider = { name = "external" };
 
 	function provider.test_password(username, password)
 		return do_query("auth", username, password);
@@ -138,4 +138,4 @@ function new_extauth_provider(host)
 	return provider;
 end
 
-module:add_item("auth-provider", new_extauth_provider(module.host));
+module:add_item("auth-provider", new_external_provider(module.host));
