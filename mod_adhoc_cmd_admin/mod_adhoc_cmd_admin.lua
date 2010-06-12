@@ -15,7 +15,7 @@ local usermanager_user_exists = require "core.usermanager".user_exists;
 local usermanager_create_user = require "core.usermanager".create_user;
 local usermanager_get_password = require "core.usermanager".get_password;
 local usermanager_set_password = require "core.usermanager".set_password or
-	function (username, host, password) return usermanager_create_user(username, password, host) end;
+	function (username, password, host) return usermanager_create_user(username, password, host) end;
 local is_admin = require "core.usermanager".is_admin;
 
 local rm_load_roster = require "core.rostermanager".load_roster;
@@ -149,7 +149,10 @@ function add_user_command_handler(self, data, state)
 		end
 		local fields = add_user_layout:data(data.form);
 		local username, host, resource = jid.split(fields.accountjid);
-		if (fields["password"] == fields["password-verify"]) and username and host and host == data.to then
+		if data.to ~= host then
+			return { status = "completed", error = { message = "Trying to add a user on " .. host .. " but command was sent to " .. data.to}};
+		end
+		if (fields["password"] == fields["password-verify"]) and username and host then
 			if usermanager_user_exists(username, host) then
 				return { status = "completed", error = { message = "Account already exists" } };
 			else
@@ -177,7 +180,10 @@ function change_user_password_command_handler(self, data, state)
 		end
 		local fields = change_user_password_layout:data(data.form);
 		local username, host, resource = jid.split(fields.accountjid);
-		if usermanager_user_exists(username, host) and usermanager_set_password(username, host, fields.password) then
+		if data.to ~= host then
+			return { status = "completed", error = { message = "Trying to change the password of a user on " .. host .. " but command was sent to " .. data.to}};
+		end
+		if usermanager_user_exists(username, host) and usermanager_set_password(username, fields.password, host) then
 			return { status = "completed", info = "Password successfully changed" };
 		else
 			return { status = "completed", error = { message = "User does not exist" } };
@@ -210,7 +216,7 @@ function delete_user_command_handler(self, data, state)
 		local succeeded = {};
 		for _, aJID in ipairs(fields.accountjids) do
 			local username, host, resource = jid.split(aJID);
-			if usermanager_user_exists(username, host) and disconnect_user(aJID) and usermanager_create_user(username, nil, host) then
+			if (host == data.to) and  usermanager_user_exists(username, host) and disconnect_user(aJID) and usermanager_create_user(username, nil, host) then
 				module:log("debug", "User " .. aJID .. " has been deleted");
 				succeeded[#succeeded+1] = aJID;
 			else
@@ -234,11 +240,20 @@ function end_user_session_handler(self, data, state)
 		end
 
 		local fields = end_user_session_layout:data(data.form);
-
+		local failed = {};
+		local succeeded = {};
 		for _, aJID in ipairs(fields.accountjids) do
-			disconnect_user(aJID);
+			local username, host, resource = jid.split(aJID);
+			if (host == data.to) and  usermanager_user_exists(username, host) and disconnect_user(aJID) then
+				succeeded[#succeeded+1] = aJID;
+			else
+				failed[#failed+1] = aJID;
+			end
 		end
-		return { status = "completed", info = "User(s) have been disconnected" };
+		return {status = "completed", info = (#succeeded ~= 0 and
+				"The following accounts were successfully disconnected:\n"..t_concat(succeeded, "\n").."\n" or "")..
+				(#failed ~= 0 and
+				"The following accounts could not be disconnected:\n"..t_concat(failed, "\n") or "") };
 	else
 		return { status = "executing", form = end_user_session_layout }, "executing";
 	end
@@ -253,7 +268,9 @@ function get_user_password_handler(self, data, state)
 		local user, host, resource = jid.split(fields.accountjid);
 		local accountjid = "";
 		local password = "";
-		if usermanager_user_exists(user, host) then
+		if host ~= data.to then
+			return { status = "completed", error = { message = "Tried to get password for a user on " .. host .. " but command was sent to " .. data.to } };
+		elseif usermanager_user_exists(user, host) then
 			accountjid = fields.accountjid;
 			password = usermanager_get_password(user, host);
 		else
@@ -274,7 +291,9 @@ function get_user_roster_handler(self, data, state)
 		local fields = add_user_layout:data(data.form);
 
 		local user, host, resource = jid.split(fields.accountjid);
-		if not usermanager_user_exists(user, host) then
+		if host ~= data.to then
+			return { status = "completed", error = { message = "Tried to get roster for a user on " .. host .. " but command was sent to " .. data.to } };
+		elseif not usermanager_user_exists(user, host) then
 			return { status = "completed", error = { message = "User does not exist" } };
 		end
 		local roster = rm_load_roster(user, host);
@@ -315,7 +334,9 @@ function get_user_stats_handler(self, data, state)
 		local fields = get_user_stats_layout:data(data.form);
 
 		local user, host, resource = jid.split(fields.accountjid);
-		if not usermanager_user_exists(user, host) then
+		if host ~= data.to then
+			return { status = "completed", error = { message = "Tried to get stats for a user on " .. host .. " but command was sent to " .. data.to } };
+		elseif not usermanager_user_exists(user, host) then
 			return { status = "completed", error = { message = "User does not exist" } };
 		end
 		local roster = rm_load_roster(user, host);
