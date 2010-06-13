@@ -26,7 +26,7 @@ function add_blocked_jid(username, host, jid)
 		, ["presence-in"] = false
 		, iq = false
 		, order = order
-	};
+	});
 	datamanager.store(username, host, "privacy", privacy_lists);
 end
 
