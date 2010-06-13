@@ -1,3 +1,8 @@
+local jid_split = require "util.jid".split;
+local st = require "util.stanza";
+
+local xmlns_blocking = "urn:xmpp:blocking";
+
 module:add_feature("urn:xmpp:blocking");
 
 -- Add JID to default privacy list
@@ -8,13 +13,13 @@ function add_blocked_jid(username, host, jid)
 		default_list_name = "blocklist";
 		privacy_lists.default = default_list_name;
 	end
-	local default_list = privacy_lists.list[default_list_name];
+	local default_list = privacy_lists.lists[default_list_name];
 	if not default_list then
 		default_list = { name = default_list_name, items = {} };
 		privacy_lists.lists[default_list_name] = default_list;
 	end
 	local items = default_list.items;
-	local order = items[1].order; -- Must come first
+	local order = items[1] and items[1].order or 0; -- Must come first
 	for i=1,#items do -- order must be unique
 		items[i].order = items[i].order + 1;
 	end
@@ -35,7 +40,7 @@ function remove_blocked_jid(username, host, jid)
 	local privacy_lists = datamanager.load(username, host, "privacy") or {};
 	local default_list_name = privacy_lists.default;
 	if not default_list_name then return; end
-	local default_list = privacy_lists.list[default_list_name];
+	local default_list = privacy_lists.lists[default_list_name];
 	if not default_list then return; end
 	local items = default_list.items;
 	local item;
@@ -53,7 +58,7 @@ function remove_all_blocked_jids(username, host)
 	local privacy_lists = datamanager.load(username, host, "privacy") or {};
 	local default_list_name = privacy_lists.default;
 	if not default_list_name then return; end
-	local default_list = privacy_lists.list[default_list_name];
+	local default_list = privacy_lists.lists[default_list_name];
 	if not default_list then return; end
 	local items = default_list.items;
 	local item;
@@ -71,7 +76,7 @@ function get_blocked_jids(username, host)
 	local privacy_lists = datamanager.load(username, host, "privacy") or {};
 	local default_list_name = privacy_lists.default;
 	if not default_list_name then return {}; end
-	local default_list = privacy_lists.list[default_list_name];
+	local default_list = privacy_lists.lists[default_list_name];
 	if not default_list then return {}; end
 	local items = default_list.items;
 	local item;
@@ -89,7 +94,7 @@ function handle_blocking_command(session, stanza)
 	local username, host = jid_split(stanza.attr.from);
 	if stanza.attr.type == "set" then
 		if stanza.tags[1].name == "block" then
-			local block = stanza.tags[1]:get_child("block");
+			local block = stanza.tags[1];
 			local block_jid_list = {};
 			for item in block:childtags() do
 				block_jid_list[#block_jid_list+1] = item.attr.jid;
