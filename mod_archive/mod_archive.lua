@@ -133,7 +133,7 @@ local function preferences_handler(event)
         push = push:up();
         for _, res in pairs(user and user.sessions or NULL) do -- broadcast to all resources
             if res.presence then -- to resource
-                push.attr.to = res.full_jid; -- TODO how to gen the message that new modes're set?
+                push.attr.to = res.full_jid;
                 res.send(push);
             end
         end
@@ -204,7 +204,9 @@ local function auto_handler(event)
         return false;
     end
     local setting = data:child_with_name(elem.name)
-    setting.attr["save"] = elem.attr["save"];
+    for k, v in pairs(elem.attr) do
+        setting.attr[k] = v;
+    end
     store_prefs(data, node, host);
     origin.send(st.reply(stanza));
     return true;
@@ -240,6 +242,13 @@ local function save_handler(event)
     return true;
 end
 
+local function msg_handler(data)
+    module:log("debug", "-- Enter msg_handler()");
+    local origin, stanza = data.origin, data.stanza;
+    module:log("debug", "-- msg:\n%s", tostring(stanza));
+    return nil;
+end
+
 module:hook("iq/self/urn:xmpp:archive:pref", preferences_handler);
 module:hook("iq/self/urn:xmpp:archive:itemremove", itemremove_handler);
 module:hook("iq/self/urn:xmpp:archive:sessionremove", sessionremove_handler);
@@ -250,4 +259,7 @@ module:hook("iq/self/urn:xmpp:archive:modified", modified_handler);
 module:hook("iq/self/urn:xmpp:archive:remove", remove_handler);
 module:hook("iq/self/urn:xmpp:archive:retrieve", retrieve_handler);
 module:hook("iq/self/urn:xmpp:archive:save", save_handler);
+
+module:hook("message/full", msg_handler, 10);
+module:hook("message/bare", msg_handler, 10);
 
