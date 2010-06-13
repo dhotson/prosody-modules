@@ -112,7 +112,7 @@ function handle_blocking_command(session, stanza)
 			session.send(st.reply(stanza));
 		end
 	elseif stanza.attr.type == "get" and stanza.tags[1].name == "blocklist" then
-		local reply = st.reply(stanza):tag("blocklist", { xmlns = xmlns_block });
+		local reply = st.reply(stanza):tag("blocklist", { xmlns = xmlns_blocking });
 		local blocked_jids = get_blocked_jids(username, host);
 		for _, jid in ipairs(blocked_jids) do
 			reply:tag("item", { jid = jid }):up();
