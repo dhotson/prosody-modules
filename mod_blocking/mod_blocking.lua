@@ -71,7 +71,7 @@ function remove_all_blocked_jids(username, host)
 	if not default_list then return; end
 	local items = default_list.items;
 	local item;
-	for i=#items,1 do -- order must be unique
+	for i=#items,1,-1 do -- order must be unique
 		item = items[i];
 		if item.type == "jid" and item.action == "deny" then
 			table.remove(items, i);
