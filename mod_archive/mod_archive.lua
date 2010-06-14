@@ -7,6 +7,7 @@
 
 local st = require "util.stanza";
 local dm = require "util.datamanager";
+local jid = require "util.jid";
 
 local PREFS_DIR = "archive_prefs";
 local ARCHIVE_DIR = "archive";
@@ -26,6 +27,10 @@ end
 
 local function store_prefs(data, node, host, dir)
     dm.store(node, host, dir or PREFS_DIR, st.preserialize(data));
+end
+
+local function store_msg(data, node, host, dir)
+    dm.list_append(node, host, dir or ARCHIVE_DIR, st.preserialize(data));
 end
 
 ------------------------------------------------------------
@@ -242,10 +247,27 @@ local function save_handler(event)
     return true;
 end
 
+------------------------------------------------------------
+-- Message Handler
+------------------------------------------------------------
 local function msg_handler(data)
     module:log("debug", "-- Enter msg_handler()");
     local origin, stanza = data.origin, data.stanza;
+    local body = stanza:child_with_name("body");
     module:log("debug", "-- msg:\n%s", tostring(stanza));
+    if body then
+        module:log("debug", "-- msg body:\n%s", tostring(body));
+        -- module:log("debug", "-- msg body text:\n%s", body:get_text());
+        local from_node, from_host = jid.split(stanza.attr.from);
+        local to_node, to_host = jid.split(stanza.attr.to);
+        -- FIXME the format of collections
+        if from_host == "localhost" then -- FIXME only archive messages of users on this host
+            store_msg(stanza, from_node, from_host);
+        end
+        if to_host == "localhost" then
+            store_msg(stanza, to_node, to_host);
+        end
+    end
     return nil;
 end
 
