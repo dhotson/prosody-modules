@@ -21,7 +21,11 @@ function add_blocked_jid(username, host, jid)
 	local items = default_list.items;
 	local order = items[1] and items[1].order or 0; -- Must come first
 	for i=1,#items do -- order must be unique
-		items[i].order = items[i].order + 1;
+		local item = items[i];
+		item.order = item.order + 1;
+		if item.type == "jid" and item.action == "deny" and item.value == jid then
+			return false;
+		end
 	end
 	table.insert(items, 1, { type = "jid"
 		, action = "deny"
@@ -33,6 +37,7 @@ function add_blocked_jid(username, host, jid)
 		, order = order
 	});
 	datamanager.store(username, host, "privacy", privacy_lists);
+	return true;
 end
 
 -- Remove JID from default privacy list
@@ -43,15 +48,19 @@ function remove_blocked_jid(username, host, jid)
 	local default_list = privacy_lists.lists[default_list_name];
 	if not default_list then return; end
 	local items = default_list.items;
-	local item;
+	local item, removed = nil, false;
 	for i=1,#items do -- order must be unique
 		item = items[i];
 		if item.type == "jid" and item.action == "deny" and item.value == jid then
 			table.remove(items, i);
-			return true;
+			removed = true;
+			break;
 		end
 	end
-	datamanager.store(username, host, "privacy", privacy_lists);
+	if removed then
+		datamanager.store(username, host, "privacy", privacy_lists);
+	end
+	return removed;
 end
 
 function remove_all_blocked_jids(username, host)
@@ -69,6 +78,7 @@ function remove_all_blocked_jids(username, host)
 		end
 	end
 	datamanager.store(username, host, "privacy", privacy_lists);
+	return true;
 end
 
 function get_blocked_jids(username, host)
