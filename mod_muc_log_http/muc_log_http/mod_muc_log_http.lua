@@ -39,7 +39,7 @@ local lfs = require "lfs";
 * Default templates for the html output.
 ]]--
 local html = {};
-local theme = "default";
+local theme = "prosody";
 
 local function checkDatastorePathExists(node, host, today, create)
 	create = create or false;

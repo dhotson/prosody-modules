@@ -4,6 +4,31 @@
 	<title>muc_log</title>
 </head>
 <script type="text/javascript"><!--
+var utc = true;
+var timezoneOffset = (parseInt((new Date()).getTimezoneOffset()) * 60) * (-1);
+function changeTimeDisplay() {
+    var eles = document.getElementsByName("time");
+    utc = !utc;
+    for (var i = 0; i < eles.length; i++) {
+        var tmp = eles[i].id.split(":");
+        var d;
+        if(tmp.length == 3) {
+            if(!utc)
+                tmp[2] = Number(tmp[2]) + timezoneOffset;
+            d = new Date(0, 0, 0, Number(tmp[0]), Number(tmp[1]), Number(tmp[2]));
+        }
+        else {
+            if(!utc)
+                tmp[0] = Number(tmp[0]) + timezoneOffset;
+            d = new Date(0, 0, 0, 0, 0, Number(tmp[0]));
+        }
+        
+        eles[i].innerHTML = (d.getHours() <= 9 ? "0" + d.getHours() : d.getHours()) + ":";
+        eles[i].innerHTML += (d.getMinutes() <= 9 ? "0" + d.getMinutes() : d.getMinutes()) + ":";
+        eles[i].innerHTML += (d.getSeconds() <= 9 ? "0" + d.getSeconds() : d.getSeconds());
+    }
+}
+
 function showHide(name) {
 	var eles = document.getElementsByName(name);
 	for (var i = 0; i < eles.length; i++) {
