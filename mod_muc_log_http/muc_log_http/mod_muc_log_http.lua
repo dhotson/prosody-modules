@@ -214,7 +214,7 @@ local function createMonth(month, year, dayCallback)
         if i < days + 1 then
             local tmp = tostring("<span style='color:#DDDDDD'>"..tostring(i).."</span>");
             if dayCallback ~= nil and dayCallback.callback ~= nil then
-                tmp = dayCallback.callback(dayCallback.path, i, month, year, dayCallback.room);
+                tmp = dayCallback.callback(dayCallback.path, i, month, year, dayCallback.room, dayCallback.webPath);
             end
 			if tmp == nil then
             	tmp = tostring("<span style='color:#DDDDDD'>"..tostring(i).."</span>");
@@ -279,7 +279,8 @@ local function createYear(year, dayCallback)
 	return "";
 end
 
-local function perDayCallback(path, day, month, year, room)
+local function perDayCallback(path, day, month, year, room, webPath)
+	local webPath = webPath or ""
 	local year = year;
 	if year > 2000 then
 		year = year - 2000;
@@ -288,7 +289,7 @@ local function perDayCallback(path, day, month, year, room)
 	local attributes, err = lfs.attributes(path.."/"..bareDay.."/"..room..".dat")
 	if attributes ~= nil and attributes.mode == "file" then
 		local s = html.days.bit;
-		s = s:gsub("###BARE_DAY###", bareDay);
+		s = s:gsub("###BARE_DAY###", webPath .. bareDay);
 		s = s:gsub("###DAY###", day);
 		return s;
 	end
@@ -302,21 +303,61 @@ local function generateDayListSiteContentByRoom(bareRoomJid)
 	local node, host, resource = splitJid(bareRoomJid);
 	local path = data_getpath(node, host, datastore);
 	local room = nil;
+	local nextRoom = "";
+	local previousRoom = "";
+	local rooms = "";
 	local attributes = nil;
+	local since = "";
+	local to = "";
+	local topic = "";
 	
 	path = path:gsub("/[^/]*$", "");
 	attributes = lfs.attributes(path);
 	if muc_hosts ~= nil and muc_hosts[host] and prosody.hosts[host] ~= nil and prosody.hosts[host].muc ~= nil and prosody.hosts[host].muc.rooms[bareRoomJid] ~= nil then
+		local found = 0;
+		for jid, room in pairs(prosody.hosts[host].muc.rooms) do
+			local node = splitJid(jid)
+			if not room._data.hidden and node then
+				if found == 0 then
+					previousRoom = node
+				elseif found == 1 then
+					nextRoom = node
+					found = -1
+				end
+				if jid == bareRoomJid then
+					found = 1
+				end
+
+				rooms = rooms .. html.days.rooms.bit:gsub("###ROOM###", node);
+			end
+		end
+
 		room = prosody.hosts[host].muc.rooms[bareRoomJid];
 		if room._data.hidden then
 			room = nil
 		end
 	end
 	if attributes ~= nil and room ~= nil then
+		local first = 1;
 		local alreadyDoneYears = {};
+		local temptime = {day=0, month=0, year=0};
+		topic = room._data.subject
+		if topic:len() > 60 then
+			topic = topic:sub(1, topic:find(" ", 50)) .. " ..."
+		end
 		for folder in lfs.dir(path) do
 			local year, month, day = folder:match("^(%d%d)(%d%d)(%d%d)");
 			if year ~= nil and alreadyDoneYears[year] == nil then
+				temptime.day = tonumber(day)
+				temptime.month = tonumber(month)
+				temptime.year = 2000 + tonumber(year)
+				if first == 1 then
+					to = tostring(os_date("%B %Y", os_time(temptime)))
+					first = 0
+				end
+
+				since = tostring(os_date("%B %Y", os_time(temptime)))
+				module:log("debug", "creating overview for: " .. tostring(since))
 				days = createYear(year, {callback=perDayCallback, path=path, room=node}) .. days;
 				alreadyDoneYears[year] = true;
 			end
@@ -325,6 +366,12 @@ local function generateDayListSiteContentByRoom(bareRoomJid)
 	
 	if days ~= "" then
 		tmp = html.days.body:gsub("###DAYS_STUFF###", days);
+		tmp = tmp:gsub("###PREVIOUS_ROOM###", previousRoom == "" and node or previousRoom);
+		tmp = tmp:gsub("###NEXT_ROOM###", nextRoom == "" and node or nextRoom);
+		tmp = tmp:gsub("###ROOMS###", rooms);
+		tmp = tmp:gsub("###ROOMTOPIC###", topic);
+		tmp = tmp:gsub("###SINCE###", since);
+		tmp = tmp:gsub("###TO###", to);
 		return tmp:gsub("###JID###", bareRoomJid);
 	end
 end
@@ -571,6 +618,19 @@ local function parseDay(bareRoomJid, roomSubject, bare_day)
 	local year, month, day = bare_day:match("^(%d%d)(%d%d)(%d%d)");
 	local previousDay = findPreviousDay(bareRoomJid, bare_day);
 	local nextDay = findNextDay(bareRoomJid, bare_day);
+	local temptime = {day=0, month=0, year=0};
+	local path = data_getpath(node, host, datastore);
+	path = path:gsub("/[^/]*$", "");
+	local calendar = ""
+
+	if tonumber(year) <= 99 then
+		year = year + 2000;
+	end
+
+	temptime.day = tonumber(day)
+	temptime.month = tonumber(month)
+	temptime.year = tonumber(year)
+	calendar = createMonth(temptime.month, temptime.year, {callback=perDayCallback, path=path, room=node, webPath="../"}) or ""
 	
 	if bare_day ~= nil then
 		local data = data_load(node, host, datastore .. "/" .. bare_day);
@@ -609,14 +669,15 @@ local function parseDay(bareRoomJid, roomSubject, bare_day)
 		end
 		if ret ~= "" then
 			if nextDay then
-				nextDay = html.day.dayLink:gsub("###DAY###", nextDay):gsub("###TEXT###", "next day &gt;&gt;")
+				nextDay = html.day.dayLink:gsub("###DAY###", nextDay):gsub("###TEXT###", "&gt;")
 			end
 			if previousDay then
-				previousDay = html.day.dayLink:gsub("###DAY###", previousDay):gsub("###TEXT###", "&lt;&lt; previous day");
+				previousDay = html.day.dayLink:gsub("###DAY###", previousDay):gsub("###TEXT###", "&lt;");
 			end
 			ret = ret:gsub("%%", "%%%%");
 			tmp = html.day.body:gsub("###DAY_STUFF###", ret):gsub("###JID###", bareRoomJid);
-			tmp = tmp:gsub("###YEAR###", year):gsub("###MONTH###", month):gsub("###DAY###", day);
+			tmp = tmp:gsub("###CALENDAR###", calendar);
+			tmp = tmp:gsub("###DATE###", tostring(os_date("%A, %B %d, %Y", os_time(temptime)))); 
 			tmp = tmp:gsub("###TITLE_STUFF###", html.day.title:gsub("###TITLE###", roomSubject));
 			tmp = tmp:gsub("###STATUS_CHECKED###", config.showStatus and "checked='checked'" or "");
 			tmp = tmp:gsub("###JOIN_CHECKED###", config.showJoin and "checked='checked'" or "");
