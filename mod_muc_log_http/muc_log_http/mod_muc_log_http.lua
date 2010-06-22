@@ -39,7 +39,7 @@ local lfs = require "lfs";
 * Default templates for the html output.
 ]]--
 local html = {};
-local theme = "prosody";
+local theme;
 
 local function checkDatastorePathExists(node, host, today, create)
 	create = create or false;
@@ -786,7 +786,7 @@ function module.load()
 		config.showJoin = true;
 	end
 
-	theme = config.theme or "default";
+	theme = config.theme or "prosody";
 	local themePath = themesParent .. "/" .. tostring(theme);
 	local attributes, err = lfs.attributes(themePath);
 	if attributes == nil or attributes.mode ~= "directory" then
