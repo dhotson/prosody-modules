@@ -692,7 +692,7 @@ end
 function handle_request(method, body, request)
 	local node, host, day = splitUrl(request.url.path);
 	
-	if muc_hosts ~= nil then
+	if muc_hosts ~= nil and html.doc ~= nil then
 	 	if node ~= nil and host ~= nil then
 			local bare = node .. "@" .. host;
 			if prosody.hosts[host] ~= nil and prosody.hosts[host].muc ~= nil then
