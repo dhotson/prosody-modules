@@ -1,47 +1,104 @@
 <html>
-	<head>
-		<meta content="text/html; charset=ISO-8859-1"	http-equiv="content-type">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" >
+<head>
+	<title>muc_log</title>
+</head>
+<script type="text/javascript"><!--
+var utc = true;
+var timezoneOffset = (parseInt((new Date()).getTimezoneOffset()) * 60) * (-1);
+function changeTimeDisplay() {
+    var eles = document.getElementsByName("time");
+    utc = !utc;
+    for (var i = 0; i < eles.length; i++) {
+        var tmp = eles[i].id.split(":");
+        var d;
+        if(tmp.length == 3) {
+            if(!utc)
+                tmp[2] = Number(tmp[2]) + timezoneOffset;
+            d = new Date(0, 0, 0, Number(tmp[0]), Number(tmp[1]), Number(tmp[2]));
+        }
+        else {
+            if(!utc)
+                tmp[0] = Number(tmp[0]) + timezoneOffset;
+            d = new Date(0, 0, 0, 0, 0, Number(tmp[0]));
+        }
+        
+        eles[i].innerHTML = (d.getHours() <= 9 ? "0" + d.getHours() : d.getHours()) + ":";
+        eles[i].innerHTML += (d.getMinutes() <= 9 ? "0" + d.getMinutes() : d.getMinutes()) + ":";
+        eles[i].innerHTML += (d.getSeconds() <= 9 ? "0" + d.getSeconds() : d.getSeconds());
+    }
+}
 
-		<title>###TITLE###</title>
+function showHide(name) {
+	var eles = document.getElementsByName(name);
+	for (var i = 0; i < eles.length; i++) {
+		eles[i].style.display = eles[i].style.display != "none" ? "none" : "";
+	}
+}
+--></script>
+<style type="text/css">
+<!--
+.title {
+	border-bottom: #f29b00 solid 3pt; padding-bottom: 3px; width: 100%;
+	color: #000000; font-size: 24px; font-weight: bold; font-family: sans-serif; letter-spacing: 3px; text-decoration: none; margin-bottom: 3pt;
+}
+.title .date {
+	float: right;
+}
+.title .links {
+	font-size: 9px; font-family: Verdana; letter-spacing: 1px;
+}
+.topic {
+	color: #000000; font-size: 18px; font-family: sans-serif;
+}
+.calendar {float: right; margin-left: 10pt;}
+a {color: #6197df; text-decoration: none;}
 
-		<style type="text/css">
-			<!--
-				body, html {background-color: #FFFFFF;}
-				div.border {margin-left: 20pt; margin-right: 20pt;}
-				div.title {border-bottom: #f29b00 solid 3pt; padding-bottom: 3px; width: 100%;}
-				div.title {color: #000000; font-size: 24px; font-weight: bold; font-family: sans-serif; letter-spacing: 3px; text-decoration: none; margin-bottom: 3pt; }
-			
-				div.title .date {float:right; }
-			
-				div.footer {margin-top: 20pt; text-align: center;}
-			
-				.clear {clear: both;}
+a.nav {color: #6197df; font-family: monospace; letter-spacing: 7px; font-size: 24px; text-decoration: none;}
+a.log {color: #6197df; text-decoration: none;}
+a.log_today {color: #f29b00; text-decoration: none;}
 
-				span.room_topic {color: #000000; font-size: 18px; font-family: sans-serif;}
-				span.room_jid {text-decoration: none;}
-				span.calendar {float: right; margin-left: 10pt;}
-				span.join_links {font-size: 9px; font-family: Verdana; letter-spacing: 1px;}
-				span.settings {}
-
-				div.logs {}
-				div.muc_settings {}
-
-				a {color: #6197df; text-decoration: none;}
-
-				a.nav {color: #6197df; font-family: monospace; letter-spacing: 7px; font-size: 24px; text-decoration: none;}
-				a.log {color: #6197df; text-decoration: none;}
-				a.log_today {color: #f29b00; text-decoration: none;}
-
-				.day {color: #DDDDDD; font: 12px Verdana; height: 17px; text-align: center; valign: middle;}
-				.weekday {font: 10px Verdana; height: 17px; color: #FFFFFF; background-color: #000000;}
-			//-->
-		</style>
-	</head>
-
-	<body>
-		<div class="border">
+.day { font: 12px Verdana; height: 17px; }
+.weekday { font: 10px Verdana; height: 17px; color: #FFFFFF; background-color: #000000; }
+.timestuff {color: #AAAAAA; text-decoration: none;}
+.muc_join {color: #009900; font-style: italic;}
+.muc_leave {color: #009900; font-style: italic;}
+.muc_statusChange {color: #009900; font-style: italic;}
+.muc_title {color: #BBBBBB; font-size: 32px;}
+.muc_titleChange {color: #009900; font-style: italic;}
+.muc_kick {color: #009900; font-style: italic;}
+.muc_bann {color: #009900; font-style: italic;}
+.muc_msg_nick {color: #0000AA;}
+.muc_msg_me {color: #0000AA;}
+.join_link {font-height: 9px;}
+.month_title {font: 10pt Verdana;}
+.year_title {font: bold 16px Verdana;}
+.footer {margin-top: 20pt; text-align: center;}
+//-->
+</style>
+<body style="margin-left: 20pt; margin-right: 20pt;">
 ###BODY_STUFF###
-		</div><!-- /border -->
-	</body>
-</html>
+<div class="footer"><a href="http://prosody.im"><img alt="Powered by Prosody" src="http://prosody.im/files/powered_by_prosody_80x30.png" border="0"></a></div>
+</body>
+<script><!--
+window.captureEvents(Event.RESIZE | Event.LOAD);
+window.onresize = resize;
+window.onload = load;
+function load(e) {
+	resize(e);
+}
 
+function resize(e) {
+	var ele = document.getElementById("main");
+	ele.style.height = window.innerHeight - ele.offsetTop - 100;
+	
+	var yearDivs = document.getElemetsByName("yearDiv");
+	if(yearDivs) {
+		for each (var year in yearDivs) {
+			year.style.width = window.innerWidth - year.style.padding;
+		}
+	}
+}
+
+--></script>
+</html>

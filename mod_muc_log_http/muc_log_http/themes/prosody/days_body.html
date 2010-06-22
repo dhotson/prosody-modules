@@ -1,42 +1,18 @@
-
-			<div class="title">	
-				<span class="date" />
-				<span class="room_jid">###ROOM###@<a class="component" href="###COMPONENT###/">###COMPONENT###</a></span><br />
-				<span class="join_links">(join via <a href="###xmpp-link###">client</a> / <a href="###speeqe-link###">speeqe</a>)</span>
-
-			</div>
-
-			<div>
-				<span class="calendar">
-					<table rules="groups" cellpadding="5">
-						<thead>
-							<tr>
-								<td colspan="7">
-									<center>
-
-										<a class="nav" href="###previous_room###">&lt;</a>
-										<a class="nav" href="###rooms_on_component###">^</a>
-										<a class="nav" href="###next_room###">&gt;</a>
-									</center>
-								</td>
-							</tr>
-						</thead>
-						<tbody style="border: solid black 1px;">
-
-							<tr>
-								<th class="weekday">List of rooms for this component</th>
-							</tr>
-						</tbody>
-					</table>
-				</span>
-				<span class="room_topic"> <!-- Topic sollte auf X Zeichen begrenzt und dann durch "..." Punkt beenedet werden.  -->
-					http://spectrum.im | Welcome to the Spectrum support channel! | We are looking for package maintainers. | Logs: http://logs.spectrum.im/spectrum/
-				</span><br /><br />
-
-			</div>
-			
-			<div class="clear"></div>
-			
-			<div class="logs">###DAYS_STUFF###</div>
-			
-			<div class="footer"><img alt="Powered by Prosody" src="http://prosody.im/files/powered_by_prosody_80x30.png"></div>
+<div class="title">
+	<div class="date">###SINCE### - ###TO###</div>
+	<div class="roomjid">###JID###</div>
+	<div class="links">(join via <a class="component" href="xmpp:###JID###?join">client</a> / <a class="component" href="http://speeqe.com/room/###JID###/">speeqe</a>)</div>
+</div>
+<div class="calendar">
+	<div style="text-align: center">
+		<a class="nav" href="../###PREVIOUS_ROOM###">&lt;</a>
+		<a class="nav" href="..">^</a>
+		<a class="nav" href="../###NEXT_ROOM###">&gt;</a>
+	</div>
+	<div class="weekday" style="margin-top: 50px; padding-left: 5px; padding-right: 5px; padding-top: 3px; text-align: center;">List of rooms for this component</div>
+	<div style="padding-left: 5px; padding-right: 5px; border: 1px solid black;">###ROOMS###</div>
+</div>
+<div class="topic">###ROOMTOPIC###</div>
+<div id="calender" style="overflow: auto;">
+###DAYS_STUFF###
+</div>

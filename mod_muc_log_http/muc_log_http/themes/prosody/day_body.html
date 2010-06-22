@@ -1,9 +1,17 @@
-<h2>Logs for ###JID### on 20###YEAR###/###MONTH###/###DAY###</h2>
-<p>###TITLE_STUFF###</p>
-<font class="join_link"><a href="http://speeqe.com/room/###JID###/" target="_blank">Join room via speeqe.com</a></font><br />
-###PREVIOUS_LINK###   ###NEXT_LINK###<br />
-<input type="checkbox" onclick="showHide('joinLeave')" ###JOIN_CHECKED###/>show/hide joins and leaves</button>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-<input type="checkbox" onclick="showHide('status')" ###STATUS_CHECKED###/>show/hide status changes</button>
-<hr /><div id="main" style="overflow: auto;">
-###DAY_STUFF###
-</div><hr />
+<div class="title">
+	<div class="date">###DATE###</div>
+	<div class="roomjid">###JID###</div>
+	<div class="links">(join via <a class="component" href="xmpp:###JID###?join">client</a> / <a class="component" href="http://speeqe.com/room/###JID###/">speeqe</a>)</div>
+</div>
+<div class="calendar">
+	<div style="text-align: center">
+		###PREVIOUS_LINK### <a class="nav" href="../">^</a>###NEXT_LINK###
+	</div>
+	###CALENDAR###
+</div>
+<div class="topic">###TITLE_STUFF###</div>
+<br />
+<input type="checkbox" onclick="showHide('joinLeave')" ###JOIN_CHECKED###/>show/hide joins and leaves</input>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<input type="checkbox" onclick="showHide('status')" ###STATUS_CHECKED###/>show/hide status changes</input>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<input type="checkbox" onclick="javascript:changeTimeDisplay()" />show time in local time, rather than in UTC</input>
+<div id="main" style="overflow: auto; border: 2px solid gray; padding: 3px;">###DAY_STUFF###</div>
