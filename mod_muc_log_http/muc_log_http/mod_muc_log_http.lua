@@ -39,7 +39,7 @@ local lfs = require "lfs";
 * Default templates for the html output.
 ]]--
 local html = {};
-local theme = "prosody";
+local theme;
 
 local function checkDatastorePathExists(node, host, today, create)
 	create = create or false;
@@ -692,7 +692,7 @@ end
 function handle_request(method, body, request)
 	local node, host, day = splitUrl(request.url.path);
 	
-	if muc_hosts ~= nil then
+	if muc_hosts ~= nil and html.doc ~= nil then
 	 	if node ~= nil and host ~= nil then
 			local bare = node .. "@" .. host;
 			if prosody.hosts[host] ~= nil and prosody.hosts[host].muc ~= nil then
@@ -786,7 +786,7 @@ function module.load()
 		config.showJoin = true;
 	end
 
-	theme = config.theme or "default";
+	theme = config.theme or "prosody";
 	local themePath = themesParent .. "/" .. tostring(theme);
 	local attributes, err = lfs.attributes(themePath);
 	if attributes == nil or attributes.mode ~= "directory" then
