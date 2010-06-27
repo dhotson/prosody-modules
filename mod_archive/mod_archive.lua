@@ -65,6 +65,13 @@ local function store_msg(msg, node, host, isfrom)
     dm.list_append(node, host, ARCHIVE_DIR, st.preserialize(collection));
 end
 
+local function save_result(collection)
+    local save = st.stanza('save', {xmlns='urn:xmpp:archive'});
+    local chat = st.stanza('chat', collection.attr);
+    save:add_child(chat);
+    return save;
+end 
+
 ------------------------------------------------------------
 -- Preferences
 ------------------------------------------------------------
@@ -178,6 +185,8 @@ local function preferences_handler(event)
 end
 
 local function itemremove_handler(event)
+    -- TODO use 'assert' to check imcoming stanza?
+    -- or use pcall() to catch exceptions?
     local origin, stanza = event.origin, event.stanza;
     if stanza.attr.type ~= "set" then
         return false;
@@ -274,7 +283,42 @@ local function retrieve_handler(event)
 end
 
 local function save_handler(event)
-    module:log("debug", "-- stanza:\n%s", tostring(event.stanza));
+    local origin, stanza = event.origin, event.stanza;
+    if stanza.attr.type ~= "set" then
+        return false;
+    end
+    local elem = stanza.tags[1].tags[1];
+    if not elem or elem.name ~= "chat" then
+        return false;
+    end
+    local node, host = origin.username, origin.host;
+	local data = dm.list_load(node, host, ARCHIVE_DIR);
+    if data then
+        for k, v in ipairs(data) do
+            local collection = st.deserialize(v);
+            if collection.attr["with"] == elem.attr["with"]
+                and collection.attr["start"] == elem.attr["start"] then
+                -- TODO check if there're duplicates
+                for newchild in elem:children() do
+                    if type(newchild) == "table" then
+                        collection:add_child(newchild)
+                    end
+                end
+                local ver = tonumber(collection.attr["version"]) + 1;
+                collection.attr["version"] = tostring(ver);
+                collection.attr["subject"] = elem.attr["subject"];
+                origin.send(st.reply(stanza):add_child(save_result(collection)));
+                data[k] = collection;
+                dm.list_store(node, host, ARCHIVE_DIR, st.preserialize(data));
+                return true;
+            end
+        end
+    end
+    -- not found, create new collection
+    elem.attr["version"] = "0";
+    origin.send(st.reply(stanza):add_child(save_result(elem)));
+    dm.list_append(node, host, ARCHIVE_DIR, st.preserialize(elem));
+    -- TODO unsuccessful reply
     return true;
 end
 
