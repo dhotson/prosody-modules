@@ -301,7 +301,21 @@ local function save_handler(event)
                 -- TODO check if there're duplicates
                 for newchild in elem:children() do
                     if type(newchild) == "table" then
-                        collection:add_child(newchild)
+                        if newchild.name == "from" or newchild.name == "to" then
+                            collection:add_child(newchild);
+                        elseif newchild.name == "note" or newchild.name == "previous" or newchild.name == "next" or newchild.name == "x" then
+                            local found = false;
+                            for i, c in ipairs(collection) do
+                                if c.name == newchild.name then
+                                    found = true;
+                                    collection[i] = newchild;
+                                    break;
+                                end
+                            end
+                            if not found then
+                                collection:add_child(newchild);
+                            end
+                        end
                     end
                 end
                 local ver = tonumber(collection.attr["version"]) + 1;
@@ -317,6 +331,7 @@ local function save_handler(event)
     -- not found, create new collection
     elem.attr["version"] = "0";
     origin.send(st.reply(stanza):add_child(save_result(elem)));
+    -- TODO check if elem is valid(?)
     dm.list_append(node, host, ARCHIVE_DIR, st.preserialize(elem));
     -- TODO unsuccessful reply
     return true;
