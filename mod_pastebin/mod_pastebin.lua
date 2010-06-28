@@ -6,6 +6,18 @@ local os_time = os.time;
 local t_insert, t_remove = table.insert, table.remove;
 local add_task = require "util.timer".add_task;
 
+local function drop_invalid_utf8(seq)
+	local start = seq:byte();
+	module:log("utf8: %d, %d", start, #seq);
+	if (start <= 223 and #seq < 2)
+	or (start >= 224 and start <= 239 and #seq < 3)
+	or (start >= 240 and start <= 244 and #seq < 4)
+	or (start > 244) then
+		return "";
+	end
+	return seq;
+end
+
 local length_threshold = config.get(module.host, "core", "pastebin_threshold") or 500;
 local line_threshold = config.get(module.host, "core", "pastebin_line_threshold") or 4;
 
@@ -74,7 +86,7 @@ function check_message(data)
 		--module:log("debug", " stanza[bodyindex] = %q", tostring( stanza[bodyindex]));
 		stanza[bodyindex][1] = url;
 		local html = st.stanza("html", { xmlns = xmlns_xhtmlim }):tag("body", { xmlns = xmlns_xhtml });
-		html:tag("p"):text(body:sub(1,150):gsub("[\128-\255]+$", "")):up();
+		html:tag("p"):text(body:sub(1,150):gsub("[\194-\244][\128-\191]*$", drop_invalid_utf8)):up();
 		html:tag("a", { href = url }):text("[...]"):up();
 		stanza[htmlindex or #stanza+1] = html;
 	end
