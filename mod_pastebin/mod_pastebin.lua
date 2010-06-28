@@ -74,7 +74,7 @@ function check_message(data)
 		--module:log("debug", " stanza[bodyindex] = %q", tostring( stanza[bodyindex]));
 		stanza[bodyindex][1] = url;
 		local html = st.stanza("html", { xmlns = xmlns_xhtmlim }):tag("body", { xmlns = xmlns_xhtml });
-		html:tag("p"):text(body:sub(1,150)):up();
+		html:tag("p"):text(body:sub(1,150):gsub("[\128-\255]+$", "")):up();
 		html:tag("a", { href = url }):text("[...]"):up();
 		stanza[htmlindex or #stanza+1] = html;
 	end
