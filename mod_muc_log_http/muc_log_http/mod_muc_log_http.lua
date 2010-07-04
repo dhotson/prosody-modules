@@ -341,7 +341,7 @@ local function generateDayListSiteContentByRoom(bareRoomJid)
 		local first = 1;
 		local alreadyDoneYears = {};
 		local temptime = {day=0, month=0, year=0};
-		topic = room._data.subject
+		topic = room._data.subject or "(no subject)"
 		if topic:len() > 60 then
 			topic = topic:sub(1, topic:find(" ", 50)) .. " ..."
 		end
