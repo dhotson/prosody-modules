@@ -8,6 +8,7 @@
 local st = require "util.stanza";
 local dm = require "util.datamanager";
 local jid = require "util.jid";
+local datetime = require "util.datetime";
 
 local PREFS_DIR = "archive_prefs";
 local ARCHIVE_DIR = "archive";
@@ -29,6 +30,16 @@ local function store_prefs(data, node, host)
     dm.store(node, host, PREFS_DIR, st.preserialize(data));
 end
 
+local function os_time()
+    -- return tostring(os.time(os.date('!*t')));
+    return datetime.datetime();
+end
+
+local function date_parse(s)
+	local year, month, day, hour, min, sec = s:match("(....)-?(..)-?(..)T(..):(..):(..)Z");
+	return os.time({year=year, month=month, day=day, hour=hour, min=min, sec=sec});
+end
+
 local function store_msg(msg, node, host, isfrom)
     local body = msg:child_with_name("body");
     local thread = msg:child_with_name("thread");
@@ -36,20 +47,10 @@ local function store_msg(msg, node, host, isfrom)
     local tag = (isfrom and "from") or "to";
     if data then
         for k, v in ipairs(data) do
-            -- <chat with='juliet@capulet.com/chamber'
-            --       start='1469-07-21T02:56:15Z'
-            --       thread='damduoeg08'
-            --       subject='She speaks!'
-            --       version='1'>
-            --   <from secs='0'><body>Art thou not Romeo, and a Montague?</body></from>
-            --   <to secs='11'><body>Neither, fair saint, if either thee dislike.</body></to>
-            --   <from secs='7'><body>How cam'st thou hither, tell me, and wherefore?</body></from>
-            --   <note utc='1469-07-21T03:04:35Z'>I think she might fancy me.</note>
-            -- </chat>
             local collection = st.deserialize(v);
             if collection.attr["thread"] == thread:get_text() then
                 -- TODO figure out secs
-                collection:tag(tag, {secs='1'}):add_child(body);
+                collection:tag(tag, {secs='1', utc=os_time()}):add_child(body);
                 local ver = tonumber(collection.attr["version"]) + 1;
                 collection.attr["version"] = tostring(ver);
                 data[k] = collection;
@@ -59,9 +60,9 @@ local function store_msg(msg, node, host, isfrom)
         end
     end
     -- not found, create new collection
-    -- TODO figure out start time
-    local collection = st.stanza('chat', {with = isfrom and msg.attr.to or msg.attr.from, start='2010-06-01T09:56:15Z', thread=thread:get_text(), version='0'});
-    collection:tag(tag, {secs='0'}):add_child(body);
+    local utc = os_time();
+    local collection = st.stanza('chat', {with = isfrom and msg.attr.to or msg.attr.from, start=utc, thread=thread:get_text(), version='0'});
+    collection:tag(tag, {secs='0', utc=utc}):add_child(body);
     dm.list_append(node, host, ARCHIVE_DIR, st.preserialize(collection));
 end
 
@@ -185,7 +186,7 @@ local function preferences_handler(event)
 end
 
 local function itemremove_handler(event)
-    -- TODO use 'assert' to check imcoming stanza?
+    -- TODO use 'assert' to check incoming stanza?
     -- or use pcall() to catch exceptions?
     local origin, stanza = event.origin, event.stanza;
     if stanza.attr.type ~= "set" then
@@ -257,31 +258,9 @@ local function auto_handler(event)
     return true;
 end
 
-local function chat_handler(event)
-    module:log("debug", "-- stanza:\n%s", tostring(event.stanza));
-    return true;
-end
-
-local function list_handler(event)
-    module:log("debug", "-- stanza:\n%s", tostring(event.stanza));
-    return true;
-end
-
-local function modified_handler(event)
-    module:log("debug", "-- stanza:\n%s", tostring(event.stanza));
-    return true;
-end
-
-local function remove_handler(event)
-    module:log("debug", "-- stanza:\n%s", tostring(event.stanza));
-    return true;
-end
-
-local function retrieve_handler(event)
-    module:log("debug", "-- stanza:\n%s", tostring(event.stanza));
-    return true;
-end
-
+------------------------------------------------------------
+-- Manual Archiving
+------------------------------------------------------------
 local function save_handler(event)
     local origin, stanza = event.origin, event.stanza;
     if stanza.attr.type ~= "set" then
@@ -303,7 +282,8 @@ local function save_handler(event)
                     if type(newchild) == "table" then
                         if newchild.name == "from" or newchild.name == "to" then
                             collection:add_child(newchild);
-                        elseif newchild.name == "note" or newchild.name == "previous" or newchild.name == "next" or newchild.name == "x" then
+                        elseif newchild.name == "note" or newchild.name == "previous"
+                            or newchild.name == "next" or newchild.name == "x" then
                             local found = false;
                             for i, c in ipairs(collection) do
                                 if c.name == newchild.name then
@@ -338,6 +318,71 @@ local function save_handler(event)
 end
 
 ------------------------------------------------------------
+-- Archive Management
+------------------------------------------------------------
+local function filter_with(with, coll_with)
+    return not with or coll_with:find(with);
+end
+
+local function filter_start(start, coll_start)
+    return not start or start <= coll_start;
+end
+
+local function filter_end(endtime, coll_start)
+    return not endtime or endtime >= coll_start;
+end
+
+local function list_handler(event)
+    local origin, stanza = event.origin, event.stanza;
+    local node, host = origin.username, origin.host;
+	local data = dm.list_load(node, host, ARCHIVE_DIR);
+    local elem = stanza.tags[1];
+    local resset = {}
+    if data then
+        for k, v in ipairs(data) do
+            local collection = st.deserialize(v);
+            local res = filter_with(elem.attr["with"], collection.attr["with"]);
+            res = res and filter_start(elem.attr["start"], collection.attr["start"]);
+            res = res and filter_end(elem.attr["end"], collection.attr["start"]);
+            if res then
+                table.insert(resset, collection);
+            end
+        end
+    end
+    local reply = st.reply(stanza):tag('list', {xmlns='urn:xmpp:archive'});
+    if table.getn(resset) > 0 then
+        local max = tonumber(elem.tags[1].tags[1]:get_text());
+        -- Assuming result set is sorted.
+        for i, c in ipairs(resset) do
+            if i <= max then
+                local chat = st.stanza('chat', c.attr);
+                reply:add_child(chat);
+            else break; end
+        end
+    end
+    origin.send(reply);
+    return true;
+end
+
+local function retrieve_handler(event)
+    module:log("debug", "-- stanza:\n%s", tostring(event.stanza));
+    return true;
+end
+
+local function remove_handler(event)
+    module:log("debug", "-- stanza:\n%s", tostring(event.stanza));
+    return true;
+end
+
+------------------------------------------------------------
+-- Replication
+------------------------------------------------------------
+local function modified_handler(event)
+    module:log("debug", "-- stanza:\n%s", tostring(event.stanza));
+    return true;
+end
+
+------------------------------------------------------------
 -- Message Handler
 ------------------------------------------------------------
 local function msg_handler(data)
@@ -367,17 +412,22 @@ local function msg_handler(data)
     return nil;
 end
 
+-- Preferences
 module:hook("iq/self/urn:xmpp:archive:pref", preferences_handler);
 module:hook("iq/self/urn:xmpp:archive:itemremove", itemremove_handler);
 module:hook("iq/self/urn:xmpp:archive:sessionremove", sessionremove_handler);
 module:hook("iq/self/urn:xmpp:archive:auto", auto_handler);
--- module:hook("iq/self/urn:xmpp:archive:chat", chat_handler);
-module:hook("iq/self/urn:xmpp:archive:list", list_handler);
-module:hook("iq/self/urn:xmpp:archive:modified", modified_handler);
-module:hook("iq/self/urn:xmpp:archive:remove", remove_handler);
-module:hook("iq/self/urn:xmpp:archive:retrieve", retrieve_handler);
+-- Manual archiving
 module:hook("iq/self/urn:xmpp:archive:save", save_handler);
+-- Archive management
+module:hook("iq/self/urn:xmpp:archive:list", list_handler);
+module:hook("iq/self/urn:xmpp:archive:retrieve", retrieve_handler);
+module:hook("iq/self/urn:xmpp:archive:remove", remove_handler);
+-- Replication
+module:hook("iq/self/urn:xmpp:archive:modified", modified_handler);
 
 module:hook("message/full", msg_handler, 10);
 module:hook("message/bare", msg_handler, 10);
+
+-- FIXME sort collections
 
