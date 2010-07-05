@@ -18,6 +18,7 @@ module:add_feature("urn:xmpp:archive:auto");
 module:add_feature("urn:xmpp:archive:manage");
 module:add_feature("urn:xmpp:archive:manual");
 module:add_feature("urn:xmpp:archive:pref");
+module:add_feature("http://jabber.org/protocol/rsm");
 
 ------------------------------------------------------------
 -- Utils
@@ -72,6 +73,10 @@ local function save_result(collection)
     save:add_child(chat);
     return save;
 end 
+
+local function gen_uid(c)
+    return c.attr["start"] .. c.attr["with"];
+end
 
 ------------------------------------------------------------
 -- Preferences
@@ -351,14 +356,37 @@ local function list_handler(event)
     end
     local reply = st.reply(stanza):tag('list', {xmlns='urn:xmpp:archive'});
     if table.getn(resset) > 0 then
-        local max = tonumber(elem.tags[1].tags[1]:get_text());
+        local max = elem.tags[1]:child_with_name("max");
+        if max then
+            max = tonumber(max:get_text());
+        else max = 100; end
+        local after = elem.tags[1]:child_with_name("after");
+        -- local before = elem.tags[1]:child_with_name("before");
+        -- local index = elem.tags[1]:child_with_name("index");
+        if after then after = after:get_text(); end
+        local found = false;
+        local first, last = nil, nil;
         -- Assuming result set is sorted.
         for i, c in ipairs(resset) do
-            if i <= max then
+            if after and not found then
+                if gen_uid(c) == after then
+                    found = true;
+                end
+            elseif max > 0 then
+                if not first then first = i; end
+                last = i;
                 local chat = st.stanza('chat', c.attr);
                 reply:add_child(chat);
+                max = max - 1;
             else break; end
         end
+        local set = st.stanza('set', {xmlns='http://jabber.org/protocol/rsm'});
+        if first then
+            set:tag('first', {index=first-1}):text(gen_uid(resset[first])):up()
+               :tag('last'):text(gen_uid(resset[last])):up();
+        end
+        set:tag('count'):text(tostring(table.getn(resset))):up();
+        reply:add_child(set);
     end
     origin.send(reply);
     return true;
