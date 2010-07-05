@@ -342,8 +342,8 @@ local function generateDayListSiteContentByRoom(bareRoomJid)
 		local alreadyDoneYears = {};
 		local temptime = {day=0, month=0, year=0};
 		topic = room._data.subject or "(no subject)"
-		if topic:len() > 60 then
-			topic = topic:sub(1, topic:find(" ", 50)) .. " ..."
+		if topic:len() > 135 then
+			topic = topic:sub(1, topic:find(" ", 120)) .. " ..."
 		end
 		for folder in lfs.dir(path) do
 			local year, month, day = folder:match("^(%d%d)(%d%d)(%d%d)");
