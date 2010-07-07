@@ -12,6 +12,7 @@ local datetime = require "util.datetime";
 
 local PREFS_DIR = "archive_prefs";
 local ARCHIVE_DIR = "archive";
+local xmlns_rsm = "http://jabber.org/protocol/rsm";
 
 module:add_feature("urn:xmpp:archive");
 module:add_feature("urn:xmpp:archive:auto");
@@ -368,7 +369,7 @@ local function list_handler(event)
     if count > 0 then
         local max = elem.tags[1]:child_with_name("max");
         if max then
-            max = tonumber(max:get_text());
+            max = tonumber(max:get_text()) or 100;
         else max = 100; end
         local after = elem.tags[1]:child_with_name("after");
         local before = elem.tags[1]:child_with_name("before");
@@ -406,7 +407,7 @@ local function list_handler(event)
         for i = s, e-1 do
             reply:add_child(st.stanza('chat', resset[i].attr));
         end
-        local set = st.stanza('set', {xmlns='http://jabber.org/protocol/rsm'});
+        local set = st.stanza('set', {xmlns = xmlns_rsm});
         if s <= e-1 then
             set:tag('first', {index=s-1}):text(gen_uid(resset[s])):up()
                :tag('last'):text(gen_uid(resset[e-1])):up();
@@ -419,7 +420,83 @@ local function list_handler(event)
 end
 
 local function retrieve_handler(event)
-    module:log("debug", "-- stanza:\n%s", tostring(event.stanza));
+    local origin, stanza = event.origin, event.stanza;
+    local node, host = origin.username, origin.host;
+	local data = dm.list_load(node, host, ARCHIVE_DIR);
+    local elem = stanza.tags[1];
+    local collection = nil;
+    if data then
+        for k, v in ipairs(data) do
+            local c = st.deserialize(v);
+            if c.attr["with"] == elem.attr["with"]
+                and c.attr["start"] == elem.attr["start"] then
+                collection = c;
+                break;
+            end
+        end
+    end
+    if not collection then
+        -- TODO code=404
+        origin.send(st.error_reply(stanza, "cancel", "item-not-found"));
+        return true;
+    end
+    local resset = {}
+    for i, e in ipairs(collection) do
+        if e.name == "from" or e.name == "to" then
+            table.insert(resset, e);
+        end
+    end
+    collection.attr['xmlns'] = 'urn:xmpp:archive';
+    local reply = st.reply(stanza):tag('chat', collection.attr);
+    local count = table.getn(resset);
+    if count > 0 then
+        local max = elem.tags[1]:child_with_name("max");
+        if max then
+            max = tonumber(max:get_text()) or 100;
+        else max = 100; end
+        local after = elem.tags[1]:child_with_name("after");
+        local before = elem.tags[1]:child_with_name("before");
+        local index = elem.tags[1]:child_with_name("index");
+        local s, e = 1, 1+max;
+        if after then
+            after = tonumber(after:get_text());
+            if not after or after < 1 or after > count then -- not found
+                origin.send(st.error_reply(stanza, "cancel", "item-not-found"));
+                return true;
+            end
+            s = after + 1;
+            e = s + max;
+        elseif before then
+            before = tonumber(before:get_text());
+            if not before then -- the last page
+                e = count + 1;
+                s = e - max;
+            elseif before < 1 or before > count then
+                origin.send(st.error_reply(stanza, "cancel", "item-not-found"));
+                return true;
+            else
+                e = before;
+                s = e - max;
+            end
+        elseif index then
+            s = tonumber(index:get_text()) + 1; -- 0-based
+            e = s + max;
+        end
+        if s < 1 then s = 1; end
+        if e > count + 1 then e = count + 1; end
+        -- Assuming result set is sorted.
+        for i = s, e-1 do
+            reply:add_child(resset[i]);
+        end
+        local set = st.stanza('set', {xmlns = xmlns_rsm});
+        if s <= e-1 then
+            set:tag('first', {index=s-1}):text(tostring(s)):up()
+               :tag('last'):text(tostring(e-1)):up();
+        end
+        set:tag('count'):text(tostring(count)):up();
+        reply:add_child(set);
+    end
+    origin.send(reply);
     return true;
 end
 
@@ -484,4 +561,4 @@ module:hook("message/full", msg_handler, 10);
 module:hook("message/bare", msg_handler, 10);
 
 -- FIXME sort collections
-
+-- TODO exactmatch
