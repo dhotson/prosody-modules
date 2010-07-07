@@ -30,10 +30,14 @@ local new_sasl = require "util.sasl".new;
 local pid;
 local readfile;
 local writefile;
+
 local function send_query(text)
-	-- if not proc then
+	if pid and lpc.wait(pid,1) ~= nil then
+    	    log("debug","error, process died, force reopen");
+	    pid=nil;
+	end
 	if not pid then
-		log("debug", "Opening process");
+		log("debug", "Opening process " .. command);
 		-- proc = process.popen(command);
 		pid, writefile, readfile = lpc.run(command);
 	end
@@ -44,6 +48,7 @@ local function send_query(text)
 	end
 	-- proc:write(text);
 	-- proc:flush();
+
 	writefile:write(text);
 	writefile:flush();
 	if script_type == "ejabberd" then
