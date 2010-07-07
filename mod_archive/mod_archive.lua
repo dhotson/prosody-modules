@@ -337,6 +337,15 @@ local function filter_end(endtime, coll_start)
     return not endtime or endtime >= coll_start;
 end
 
+local function find_coll(resset, uid)
+    for i, c in ipairs(resset) do
+        if gen_uid(c) == uid then
+            return i;
+        end
+    end
+    return nil;
+end
+
 local function list_handler(event)
     local origin, stanza = event.origin, event.stanza;
     local node, host = origin.username, origin.host;
@@ -355,37 +364,54 @@ local function list_handler(event)
         end
     end
     local reply = st.reply(stanza):tag('list', {xmlns='urn:xmpp:archive'});
-    if table.getn(resset) > 0 then
+    local count = table.getn(resset);
+    if count > 0 then
         local max = elem.tags[1]:child_with_name("max");
         if max then
             max = tonumber(max:get_text());
         else max = 100; end
         local after = elem.tags[1]:child_with_name("after");
-        -- local before = elem.tags[1]:child_with_name("before");
-        -- local index = elem.tags[1]:child_with_name("index");
-        if after then after = after:get_text(); end
-        local found = false;
-        local first, last = nil, nil;
-        -- Assuming result set is sorted.
-        for i, c in ipairs(resset) do
-            if after and not found then
-                if gen_uid(c) == after then
-                    found = true;
+        local before = elem.tags[1]:child_with_name("before");
+        local index = elem.tags[1]:child_with_name("index");
+        local s, e = 1, 1+max;
+        if after then
+            after = after:get_text();
+            s = find_coll(resset, after);
+            if not s then -- not found
+                origin.send(st.error_reply(stanza, "cancel", "item-not-found"));
+                return true;
+            end
+            s = s + 1;
+            e = s + max;
+        elseif before then
+            before = before:get_text();
+            if not before or before == '' then -- the last page
+                e = count + 1;
+                s = e - max;
+            else
+                e = find_coll(resset, before);
+                if not e then -- not found
+                    origin.send(st.error_reply(stanza, "cancel", "item-not-found"));
+                    return true;
                 end
-            elseif max > 0 then
-                if not first then first = i; end
-                last = i;
-                local chat = st.stanza('chat', c.attr);
-                reply:add_child(chat);
-                max = max - 1;
-            else break; end
+                s = e - max;
+            end
+        elseif index then
+            s = tonumber(index:get_text()) + 1; -- 0-based
+            e = s + max;
+        end
+        if s < 1 then s = 1; end
+        if e > count + 1 then e = count + 1; end
+        -- Assuming result set is sorted.
+        for i = s, e-1 do
+            reply:add_child(st.stanza('chat', resset[i].attr));
         end
         local set = st.stanza('set', {xmlns='http://jabber.org/protocol/rsm'});
-        if first then
-            set:tag('first', {index=first-1}):text(gen_uid(resset[first])):up()
-               :tag('last'):text(gen_uid(resset[last])):up();
+        if s <= e-1 then
+            set:tag('first', {index=s-1}):text(gen_uid(resset[s])):up()
+               :tag('last'):text(gen_uid(resset[e-1])):up();
         end
-        set:tag('count'):text(tostring(table.getn(resset))):up();
+        set:tag('count'):text(tostring(count)):up();
         reply:add_child(set);
     end
     origin.send(reply);
