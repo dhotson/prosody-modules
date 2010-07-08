@@ -2,6 +2,7 @@ local st = require "util.stanza";
 
 local t_insert, t_remove = table.insert, table.remove;
 local tonumber, tostring = tonumber, tostring;
+local add_filter = require "util.filters".add_filter;
 
 local xmlns_sm = "urn:xmpp:sm:2";
 
@@ -42,9 +43,21 @@ module:hook_stanza(xmlns_sm, "enable",
 				end
 				return ok, err;
 			end
-			_send(st.stanza("enabled", sm_attr));
-			return true;
-		end);
+			
+			session.handled_stanza_count = 0;
+			add_filter(session, "stanzas/in", function (stanza)
+				if not stanza.attr.xmlns then
+					session.handled_stanza_count = session.handled_stanza_count + 1;
+					session.log("debug", "Handled %d incoming stanzas", session.handled_stanza_count);
+				end
+				return stanza;
+			end);
+
+			if not stanza.attr.resume then -- FIXME: Resumption should be a different spec :/
+				_send(st.stanza("enabled", sm_attr));
+				return true;
+			end
+		end, 100);
 
 module:hook_stanza(xmlns_sm, "r", function (origin, stanza)
 	if not origin.smacks then
@@ -72,26 +85,6 @@ end);
 -- function that has a counter as an upvalue (no table indexing for increments,
 -- and won't slow non-198 sessions). We can also then remove the .handled flag
 -- on stanzas
-
-function catch_all_incoming_stanzas(data)
-	local origin, stanza = data.origin, data.stanza;
-	if origin.smacks and not stanza.handled then
-		stanza.handled = true;
-		origin.handled_stanza_count = origin.handled_stanza_count + 1;
-		module:log("debug", "Handled %d stanzas", origin.handled_stanza_count);
-	end
-end
-module:hook("message/bare", catch_all_incoming_stanzas, 1000);
-module:hook("message/full", catch_all_incoming_stanzas, 1000);
-module:hook("message/host", catch_all_incoming_stanzas, 1000);
-
-module:hook("presence/bare", catch_all_incoming_stanzas, 1000);
-module:hook("presence/full", catch_all_incoming_stanzas, 1000);
-module:hook("presence/host", catch_all_incoming_stanzas, 1000);
-
-module:hook("iq/bare", catch_all_incoming_stanzas, 1000);
-module:hook("iq/full", catch_all_incoming_stanzas, 1000);
-module:hook("iq/host", catch_all_incoming_stanzas, 1000);
 
 function handle_unacked_stanzas(session)
 	local queue = session.outgoing_stanza_queue;
