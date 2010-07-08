@@ -7,6 +7,8 @@ local xmlns_sm = "urn:xmpp:sm:2";
 
 local sm_attr = { xmlns = xmlns_sm };
 
+local max_unacked_stanzas = 0;
+
 module:add_event_hook("stream-features",
 		function (session, features)
 			features:tag("sm", sm_attr):tag("optional"):up():up();
@@ -34,7 +36,8 @@ module:hook_stanza(xmlns_sm, "enable",
 					queue[queue_length] = st.reply(stanza);
 				end
 				local ok, err = _send(stanza);
-				if ok then
+				if ok and queue_length > max_unacked_stanzas and not session.awaiting_ack then
+					session.awaiting_ack = true;
 					return _send(st.stanza("r", { xmlns = xmlns_sm }));
 				end
 				return ok, err;
@@ -56,7 +59,7 @@ end);
 
 module:hook_stanza(xmlns_sm, "a", function (origin, stanza)
 	if not origin.smacks then return; end
-	
+	origin.awaiting_ack = nil;
 	-- Remove handled stanzas from outgoing_stanza_queue
 	local handled_stanza_count = tonumber(stanza.attr.h)+1;
 	for i=1,handled_stanza_count do
