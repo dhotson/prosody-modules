@@ -90,6 +90,7 @@ function handle_unacked_stanzas(session)
 	local queue = session.outgoing_stanza_queue;
 	local error_attr = { type = "cancel" };
 	if #queue > 0 then
+		session.outgoing_stanza_queue = {};
 		for i=1,#queue do
 			local reply = queue[i];
 			if reply.attr.to ~= session.full_jid then
@@ -98,7 +99,6 @@ function handle_unacked_stanzas(session)
 					:tag("recipient-unavailable", {xmlns = "urn:ietf:params:xml:ns:xmpp-stanzas"});
 				core_process_stanza(session, queue[i]);
 			end
-			queue[i] = nil;
 		end
 	end
 end
