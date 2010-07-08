@@ -501,7 +501,32 @@ local function retrieve_handler(event)
 end
 
 local function remove_handler(event)
-    module:log("debug", "-- stanza:\n%s", tostring(event.stanza));
+    local origin, stanza = event.origin, event.stanza;
+    local node, host = origin.username, origin.host;
+	local data = dm.list_load(node, host, ARCHIVE_DIR);
+    local elem = stanza.tags[1];
+    if data then
+        local count = table.getn(data);
+        local found = false;
+        for i = count, 1, -1 do
+            local collection = st.deserialize(data[i]);
+            local res = filter_with(elem.attr["with"], collection.attr["with"]);
+            res = res and filter_start(elem.attr["start"], collection.attr["start"]);
+            res = res and filter_end(elem.attr["end"], collection.attr["start"]);
+            if res then
+                module:log("debug", "-- removing:\n%s", tostring(collection));
+                table.remove(data, i);
+                found = true;
+            end
+        end
+        if found then
+            dm.list_store(node, host, ARCHIVE_DIR, st.preserialize(data));
+        else
+            origin.send(st.error_reply(stanza, "cancel", "item-not-found"));
+            return true;
+        end
+    end
+    origin.send(st.reply(stanza));
     return true;
 end
 
@@ -562,3 +587,5 @@ module:hook("message/bare", msg_handler, 10);
 
 -- FIXME sort collections
 -- TODO exactmatch
+-- TODO <item/> JID match
+-- TODO 'open attr' in removing a collection
