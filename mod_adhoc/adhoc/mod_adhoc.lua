@@ -16,7 +16,7 @@ module:add_feature(xmlns_cmd);
 
 module:hook("iq/host/"..xmlns_disco.."#items:query", function (event)
 	local origin, stanza = event.origin, event.stanza;
-	-- TODO: Is this correct, or should is_admin be changed?
+	-- Required for Prosody <= 0.7
 	local privileged = is_admin(stanza.attr.from)
 	    or is_admin(stanza.attr.from, stanza.attr.to); 
 	if stanza.attr.type == "get" and stanza.tags[1].attr.node
@@ -42,7 +42,7 @@ module:hook("iq/host", function (event)
 	if stanza.attr.type == "set" and stanza.tags[1]
 	    and stanza.tags[1].name == "command" then 
 		local node = stanza.tags[1].attr.node
-		-- TODO: Is this correct, or should is_admin be changed?
+		-- Required for Prosody <= 0.7
 		local privileged = is_admin(event.stanza.attr.from)
 		    or is_admin(stanza.attr.from, stanza.attr.to);
 		if commands[node] then

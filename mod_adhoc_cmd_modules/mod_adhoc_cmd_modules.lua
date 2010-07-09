@@ -30,13 +30,12 @@ end
 
 -- TODO: Allow reloading multiple modules (depends on list-multi)
 function reload_modules_handler(self, data, state)
-	local modules = {};
 	local layout = dataforms_new {
 		title = "Reload module";
 		instructions = "Select the module to be reloaded";
 
 		{ name = "FORM_TYPE", type = "hidden", value = "http://prosody.im/protocol/modules#reload" };
-		{ name = "module", type = "list-single", value = modules, label = "Module to be reloaded:"};
+		{ name = "module", type = "list-single", label = "Module to be reloaded:"};
 	};
 	if state then
 		if data.action == "cancel" then
@@ -51,23 +50,19 @@ function reload_modules_handler(self, data, state)
 			'". Error was: "'..tostring(err)..'"' };
 		end
 	else
-		local modules2 = array.collect(keys(hosts[data.to].modules)):sort();
-		for i, val in ipairs(modules2) do
-			modules[i] = val;
-		end
-		return { status = "executing", form = layout }, "executing";
+		local modules = array.collect(keys(hosts[data.to].modules)):sort();
+		return { status = "executing", form = { layout = layout; data = { module = modules } } }, "executing";
 	end
 end
 
 -- TODO: Allow unloading multiple modules (depends on list-multi)
 function unload_modules_handler(self, data, state)
-	local modules = {};
 	local layout = dataforms_new {
 		title = "Unload module";
 		instructions = "Select the module to be unloaded";
 
 		{ name = "FORM_TYPE", type = "hidden", value = "http://prosody.im/protocol/modules#unload" };
-		{ name = "module", type = "list-single", value = modules, label = "Module to be unloaded:"};
+		{ name = "module", type = "list-single", label = "Module to be unloaded:"};
 	};
 	if state then
 		if data.action == "cancel" then
@@ -82,11 +77,8 @@ function unload_modules_handler(self, data, state)
 			'". Error was: "'..tostring(err)..'"' };
 		end
 	else
-		local modules2 = array.collect(keys(hosts[data.to].modules)):sort();
-		for i, val in ipairs(modules2) do
-			modules[i] = val;
-		end
-		return { status = "executing", form = layout }, "executing";
+		local modules = array.collect(keys(hosts[data.to].modules)):sort();
+		return { status = "executing", form = { layout = layout; data = { module = modules } } }, "executing";
 	end
 end
 
