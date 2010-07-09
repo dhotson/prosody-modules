@@ -28,6 +28,35 @@ function list_modules_handler(self, data, state)
 	return { status = "completed", result = { layout = result; data = { modules = modules } } };
 end
 
+function load_module_handler(self, data, state)
+	local layout = dataforms_new {
+		title = "Load module";
+		instructions = "Specify the module to be loaded";
+
+		{ name = "FORM_TYPE", type = "hidden", value = "http://prosody.im/protocol/modules#load" };
+		{ name = "module", type = "text-single", label = "Module to be loaded:"};
+	};
+	if state then
+		if data.action == "cancel" then
+			return { status = "canceled" };
+		end
+		local fields = layout:data(data.form);
+		if modulemanager.is_loaded(data.to, fields.module) then
+			return { status = "completed", info = "Module already loaded" };
+		end
+		local ok, err = modulemanager.load(data.to, fields.module);
+		if ok then
+			return { status = "completed", info = 'Module "'..fields.module..'" successfully loaded on host "'..data.to..'".' };
+		else
+			return { status = "completed", error = { message = 'Failed to load module "'..fields.module..'" on host "'..data.to..
+			'". Error was: "'..tostring(err or "<unspecified>")..'"' } };
+		end
+	else
+		local modules = array.collect(keys(hosts[data.to].modules)):sort();
+		return { status = "executing", form = layout }, "executing";
+	end
+end
+
 -- TODO: Allow reloading multiple modules (depends on list-multi)
 function reload_modules_handler(self, data, state)
 	local layout = dataforms_new {
@@ -41,13 +70,13 @@ function reload_modules_handler(self, data, state)
 		if data.action == "cancel" then
 			return { status = "canceled" };
 		end
-		fields = layout:data(data.form);
+		local fields = layout:data(data.form);
 		local ok, err = modulemanager.reload(data.to, fields.module);
 		if ok then
 			return { status = "completed", info = 'Module "'..fields.module..'" successfully reloaded on host "'..data.to..'".' };
 		else
-			return { status = "completed", error = 'Failed to reload module "'..fields.module..'" on host "'..data.to..
-			'". Error was: "'..tostring(err)..'"' };
+			return { status = "completed", error = { message = 'Failed to reload module "'..fields.module..'" on host "'..data.to..
+			'". Error was: "'..tostring(err)..'"' } };
 		end
 	else
 		local modules = array.collect(keys(hosts[data.to].modules)):sort();
@@ -68,13 +97,13 @@ function unload_modules_handler(self, data, state)
 		if data.action == "cancel" then
 			return { status = "canceled" };
 		end
-		fields = layout:data(data.form);
+		local fields = layout:data(data.form);
 		local ok, err = modulemanager.unload(data.to, fields.module);
 		if ok then
 			return { status = "completed", info = 'Module "'..fields.module..'" successfully unloaded on host "'..data.to..'".' };
 		else
-			return { status = "completed", error = 'Failed to unload module "'..fields.module..'" on host "'..data.to..
-			'". Error was: "'..tostring(err)..'"' };
+			return { status = "completed", error = { message = 'Failed to unload module "'..fields.module..'" on host "'..data.to..
+			'". Error was: "'..tostring(err)..'"' } };
 		end
 	else
 		local modules = array.collect(keys(hosts[data.to].modules)):sort();
@@ -83,9 +112,11 @@ function unload_modules_handler(self, data, state)
 end
 
 local list_modules_desc = adhoc_new("List loaded modules", "http://prosody.im/protocol/modules#list", list_modules_handler, "admin");
+local load_module_desc = adhoc_new("Load module", "http://prosody.im/protocol/modules#load", load_module_handler, "admin");
 local reload_modules_desc = adhoc_new("Reload module", "http://prosody.im/protocol/modules#reload", reload_modules_handler, "admin");
 local unload_modules_desc = adhoc_new("Unload module", "http://prosody.im/protocol/modules#unload", unload_modules_handler, "admin");
 
 module:add_item("adhoc", list_modules_desc);
+module:add_item("adhoc", load_module_desc);
 module:add_item("adhoc", reload_modules_desc);
 module:add_item("adhoc", unload_modules_desc);
