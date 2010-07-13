@@ -55,6 +55,7 @@ local function store_msg(msg, node, host, isfrom)
                 collection:tag(tag, {secs='1', utc=os_time()}):add_child(body);
                 local ver = tonumber(collection.attr["version"]) + 1;
                 collection.attr["version"] = tostring(ver);
+                collection.attr["access"] = os_time();
                 data[k] = collection;
                 dm.list_store(node, host, ARCHIVE_DIR, st.preserialize(data));
                 return;
@@ -63,7 +64,7 @@ local function store_msg(msg, node, host, isfrom)
     end
     -- not found, create new collection
     local utc = os_time();
-    local collection = st.stanza('chat', {with = isfrom and msg.attr.to or msg.attr.from, start=utc, thread=thread:get_text(), version='0'});
+    local collection = st.stanza('chat', {with = isfrom and msg.attr.to or msg.attr.from, start=utc, thread=thread:get_text(), version='0', access=utc});
     collection:tag(tag, {secs='0', utc=utc}):add_child(body);
     dm.list_append(node, host, ARCHIVE_DIR, st.preserialize(collection));
 end
@@ -307,6 +308,7 @@ local function save_handler(event)
                 local ver = tonumber(collection.attr["version"]) + 1;
                 collection.attr["version"] = tostring(ver);
                 collection.attr["subject"] = elem.attr["subject"];
+                collection.attr["access"] = os_time();
                 origin.send(st.reply(stanza):add_child(save_result(collection)));
                 data[k] = collection;
                 dm.list_store(node, host, ARCHIVE_DIR, st.preserialize(data));
@@ -316,6 +318,7 @@ local function save_handler(event)
     end
     -- not found, create new collection
     elem.attr["version"] = "0";
+    elem.attr["access"] = os_time();
     origin.send(st.reply(stanza):add_child(save_result(elem)));
     -- TODO check if elem is valid(?)
     dm.list_append(node, host, ARCHIVE_DIR, st.preserialize(elem));
@@ -356,11 +359,13 @@ local function list_handler(event)
     if data then
         for k, v in ipairs(data) do
             local collection = st.deserialize(v);
-            local res = filter_with(elem.attr["with"], collection.attr["with"]);
-            res = res and filter_start(elem.attr["start"], collection.attr["start"]);
-            res = res and filter_end(elem.attr["end"], collection.attr["start"]);
-            if res then
-                table.insert(resset, collection);
+            if collection[1] then -- has children(not deleted)
+                local res = filter_with(elem.attr["with"], collection.attr["with"]);
+                res = res and filter_start(elem.attr["start"], collection.attr["start"]);
+                res = res and filter_end(elem.attr["end"], collection.attr["start"]);
+                if res then
+                    table.insert(resset, collection);
+                end
             end
         end
     end
@@ -428,7 +433,8 @@ local function retrieve_handler(event)
     if data then
         for k, v in ipairs(data) do
             local c = st.deserialize(v);
-            if c.attr["with"] == elem.attr["with"]
+            if c[1] -- not deleted
+                and c.attr["with"] == elem.attr["with"]
                 and c.attr["start"] == elem.attr["start"] then
                 collection = c;
                 break;
@@ -510,13 +516,17 @@ local function remove_handler(event)
         local found = false;
         for i = count, 1, -1 do
             local collection = st.deserialize(data[i]);
-            local res = filter_with(elem.attr["with"], collection.attr["with"]);
-            res = res and filter_start(elem.attr["start"], collection.attr["start"]);
-            res = res and filter_end(elem.attr["end"], collection.attr["start"]);
-            if res then
-                module:log("debug", "-- removing:\n%s", tostring(collection));
-                table.remove(data, i);
-                found = true;
+            if collection[1] then -- has children(not deleted)
+                local res = filter_with(elem.attr["with"], collection.attr["with"]);
+                res = res and filter_start(elem.attr["start"], collection.attr["start"]);
+                res = res and filter_end(elem.attr["end"], collection.attr["start"]);
+                if res then
+                    -- table.remove(data, i);
+                    local temp = st.stanza('chat', collection.attr);
+                    temp.attr["access"] = os_time();
+                    data[i] = temp;
+                    found = true;
+                end
             end
         end
         if found then
