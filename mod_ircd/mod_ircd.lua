@@ -159,10 +159,10 @@ function irc_component(origin, stanza)
 			body = body and body:get_text() or "";
 			local hasdelay = stanza:get_child("delay", "urn:xmpp:delay");
 			if body ~= "" and nick then
-				for session in pairs(joined_muc.sessions) do
-					if nick ~= session.nick or hasdelay then
-						session.send(":"..nick.." PRIVMSG "..from_node.." :"..body);
-					end
+				local to_nick = jid.split(stanza.attr.to);
+				local session = nicks[to_nick];
+				if nick ~= session.nick or hasdelay then
+				    session.send(":"..nick.." PRIVMSG "..from_node.." :"..body);
 				end
 			end
 			if not nick then
