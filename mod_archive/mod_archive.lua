@@ -13,6 +13,7 @@ local datetime = require "util.datetime";
 local PREFS_DIR = "archive_prefs";
 local ARCHIVE_DIR = "archive";
 local xmlns_rsm = "http://jabber.org/protocol/rsm";
+local DEFAULT_MAX = 100;
 
 module:add_feature("urn:xmpp:archive");
 module:add_feature("urn:xmpp:archive:auto");
@@ -374,8 +375,8 @@ local function list_handler(event)
     if count > 0 then
         local max = elem.tags[1]:child_with_name("max");
         if max then
-            max = tonumber(max:get_text()) or 100;
-        else max = 100; end
+            max = tonumber(max:get_text()) or DEFAULT_MAX;
+        else max = DEFAULT_MAX; end
         local after = elem.tags[1]:child_with_name("after");
         local before = elem.tags[1]:child_with_name("before");
         local index = elem.tags[1]:child_with_name("index");
@@ -458,8 +459,8 @@ local function retrieve_handler(event)
     if count > 0 then
         local max = elem.tags[1]:child_with_name("max");
         if max then
-            max = tonumber(max:get_text()) or 100;
-        else max = 100; end
+            max = tonumber(max:get_text()) or DEFAULT_MAX;
+        else max = DEFAULT_MAX; end
         local after = elem.tags[1]:child_with_name("after");
         local before = elem.tags[1]:child_with_name("before");
         local index = elem.tags[1]:child_with_name("index");
@@ -544,7 +545,76 @@ end
 -- Replication
 ------------------------------------------------------------
 local function modified_handler(event)
-    module:log("debug", "-- stanza:\n%s", tostring(event.stanza));
+    local origin, stanza = event.origin, event.stanza;
+    local node, host = origin.username, origin.host;
+	local data = dm.list_load(node, host, ARCHIVE_DIR);
+    local elem = stanza.tags[1];
+    local resset = {}
+    if data then
+        for k, v in ipairs(data) do
+            local collection = st.deserialize(v);
+            local res = filter_start(elem.attr["start"], collection.attr["access"]);
+            if res then
+                table.insert(resset, collection);
+            end
+        end
+    end
+    local reply = st.reply(stanza):tag('modified', {xmlns='urn:xmpp:archive'});
+    local count = table.getn(resset);
+    if count > 0 then
+        local max = elem.tags[1]:child_with_name("max");
+        if max then
+            max = tonumber(max:get_text()) or DEFAULT_MAX;
+        else max = DEFAULT_MAX; end
+        local after = elem.tags[1]:child_with_name("after");
+        local before = elem.tags[1]:child_with_name("before");
+        local index = elem.tags[1]:child_with_name("index");
+        local s, e = 1, 1+max;
+        if after then
+            after = after:get_text();
+            s = find_coll(resset, after);
+            if not s then -- not found
+                origin.send(st.error_reply(stanza, "cancel", "item-not-found"));
+                return true;
+            end
+            s = s + 1;
+            e = s + max;
+        elseif before then
+            before = before:get_text();
+            if not before or before == '' then -- the last page
+                e = count + 1;
+                s = e - max;
+            else
+                e = find_coll(resset, before);
+                if not e then -- not found
+                    origin.send(st.error_reply(stanza, "cancel", "item-not-found"));
+                    return true;
+                end
+                s = e - max;
+            end
+        elseif index then
+            s = tonumber(index:get_text()) + 1; -- 0-based
+            e = s + max;
+        end
+        if s < 1 then s = 1; end
+        if e > count + 1 then e = count + 1; end
+        -- Assuming result set is sorted.
+        for i = s, e-1 do
+            if resset[i][1] then
+                reply:add_child(st.stanza('changed', resset[i].attr));
+            else
+                reply:add_child(st.stanza('removed', resset[i].attr));
+            end
+        end
+        local set = st.stanza('set', {xmlns = xmlns_rsm});
+        if s <= e-1 then
+            set:tag('first', {index=s-1}):text(gen_uid(resset[s])):up()
+               :tag('last'):text(gen_uid(resset[e-1])):up();
+        end
+        set:tag('count'):text(tostring(count)):up();
+        reply:add_child(set);
+    end
+    origin.send(reply);
     return true;
 end
 
