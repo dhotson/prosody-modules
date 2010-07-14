@@ -75,7 +75,11 @@ function commands.JOIN(session, channel)
 	core_process_stanza(session, join_stanza);
 	session.send(":"..session.nick.." JOIN :"..channel);
 	session.send(":"..session.host.." 332 "..session.nick.." "..channel.." :Connection in progress...");
-	session.send(":"..session.host.." 353 "..session.nick.." = "..channel.." :"..session.nick);
+        local nicks = session.nick;
+        for nick in pairs(joined_mucs[channel].occupants) do
+            nicks = nicks.." "..nick;
+        end
+        session.send(":"..session.host.." 353 "..session.nick.." = "..channel.." :"..nicks);
 	session.send(":"..session.host.." 366 "..session.nick.." "..channel.." :End of /NAMES list.");
 end
 
