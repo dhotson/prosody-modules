@@ -119,7 +119,7 @@ function new_external_provider(host)
 					log("debug", "NODEprep failed on username: %s", username);
 					return "", nil;
 				end
-				return usermanager.test_password(prepped_username, password, realm), true;
+				return usermanager.test_password(prepped_username, realm, password), true;
 			end,
 		};
 		return new_sasl(realm, testpass_authentication_profile);
