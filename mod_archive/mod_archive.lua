@@ -15,6 +15,9 @@ local ARCHIVE_DIR = "archive";
 local xmlns_rsm = "http://jabber.org/protocol/rsm";
 local DEFAULT_MAX = 100;
 
+local FORCE_ARCHIVING = false;
+local AUTO_ARCHIVING_ENABLED = true;
+
 module:add_feature("urn:xmpp:archive");
 module:add_feature("urn:xmpp:archive:auto");
 module:add_feature("urn:xmpp:archive:manage");
@@ -79,6 +82,18 @@ end
 
 local function gen_uid(c)
     return c.attr["start"] .. c.attr["with"];
+end
+
+local function tobool(s)
+    if not s then return nil; end
+    s = s:lower();
+    if s == 'true' or s == '1' then
+        return true;
+    elseif s == 'false' or s == '0' then
+        return false;
+    else
+        return nil;
+    end
 end
 
 ------------------------------------------------------------
@@ -621,30 +636,74 @@ end
 ------------------------------------------------------------
 -- Message Handler
 ------------------------------------------------------------
+local function find_pref(pref, name, k, v, exactmatch)
+    for i, child in ipairs(pref) do
+        if child.name == name then
+            if k and v then
+                if exactmatch and child.attr[k] == v then
+                    return child;
+                elseif not exactmatch then
+                    if tobool(child.attr['exactmatch']) then
+                        if child.attr[k] == v then
+                            return child;
+                        end
+                    elseif filter_with(child.attr[k], v) then
+                        return child;
+                    end
+                end
+            else
+                return child;
+            end
+        end
+    end
+    return nil;
+end
+
+local function apply_pref(node, host, jid, thread)
+    if FORCE_ARCHIVING then return true; end
+
+    local pref = load_prefs(node, host);
+    if not pref then
+        return AUTO_ARCHIVING_ENABLED;
+    end
+    local auto = pref:child_with_name('auto');
+    if not tobool(auto.attr['save']) then
+        return false;
+    end
+    if thread then
+        local child = find_pref(pref, 'session', 'thread', thread, true);
+        if child then
+            return tobool(child.attr['save']) ~= false;
+        end
+    end
+    local child = find_pref(pref, 'item', 'jid', jid, false); -- JID Matching
+    if child then
+        return tobool(child.attr['save']) ~= false;
+    end
+    local default = pref:child_with_name('default');
+    if default then
+        return tobool(default.attr['save']) ~= false;
+    end
+    return AUTO_ARCHIVING_ENABLED;
+end
+
 local function msg_handler(data)
-    -- TODO if not auto_archive_enabled then return nil;
     module:log("debug", "-- Enter msg_handler()");
     local origin, stanza = data.origin, data.stanza;
     local body = stanza:child_with_name("body");
     local thread = stanza:child_with_name("thread");
-    module:log("debug", "-- msg:\n%s", tostring(stanza));
     if body then
-        module:log("debug", "-- msg body:\n%s", tostring(body));
-        -- TODO mapping messages and conversations to collections if no thread
-        if thread then
-            module:log("debug", "-- msg thread:\n%s", tostring(thread));
-            -- module:log("debug", "-- msg body text:\n%s", body:get_text());
-            local from_node, from_host = jid.split(stanza.attr.from);
-            local to_node, to_host = jid.split(stanza.attr.to);
-            -- FIXME only archive messages of users on this host
-            if from_host == "localhost" then
-                store_msg(stanza, from_node, from_host, true);
-            end
-            if to_host == "localhost" then
-                store_msg(stanza, to_node, to_host, false);
-            end
+        local from_node, from_host = jid.split(stanza.attr.from);
+        local to_node, to_host = jid.split(stanza.attr.to);
+        -- FIXME only archive messages of users on this host
+        if from_host == "localhost" and apply_pref(from_node, from_host, stanza.attr.to, thread) then
+            store_msg(stanza, from_node, from_host, true);
+        end
+        if to_host == "localhost" and apply_pref(to_node, to_host, stanza.attr.from, thread) then
+            store_msg(stanza, to_node, to_host, false);
         end
     end
+
     return nil;
 end
 
