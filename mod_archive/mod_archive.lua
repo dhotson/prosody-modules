@@ -53,23 +53,38 @@ local function store_msg(msg, node, host, isfrom)
     local thread = msg:child_with_name("thread");
 	local data = dm.list_load(node, host, ARCHIVE_DIR);
     local tag = (isfrom and "from") or "to";
+    local utc = os_time();
     if data then
-        for k, v in ipairs(data) do
-            local collection = st.deserialize(v);
-            if collection.attr["thread"] == thread:get_text() then
-                -- TODO figure out secs
-                collection:tag(tag, {secs='1', utc=os_time()}):add_child(body);
+        if thread then
+            for k, v in ipairs(data) do
+                local collection = st.deserialize(v);
+                if collection.attr["thread"] == thread:get_text() then
+                    -- TODO figure out secs
+                    collection:tag(tag, {secs='1', utc=utc}):add_child(body);
+                    local ver = tonumber(collection.attr["version"]) + 1;
+                    collection.attr["version"] = tostring(ver);
+                    collection.attr["access"] = utc;
+                    data[k] = collection;
+                    dm.list_store(node, host, ARCHIVE_DIR, st.preserialize(data));
+                    return;
+                end
+            end
+        else -- if the last collection occurs on the same day, then join it
+            -- TODO assuming the collection list are in reverse chronological order 
+            local collection = st.deserialize(data[1]);
+            local difftime = os.difftime(date_parse(utc), date_parse(collection.attr["start"]));
+            if difftime < 86400 then -- 60 * 60 * 24
+                collection:tag(tag, {secs='1', utc=utc}):add_child(body);
                 local ver = tonumber(collection.attr["version"]) + 1;
                 collection.attr["version"] = tostring(ver);
-                collection.attr["access"] = os_time();
-                data[k] = collection;
+                collection.attr["access"] = utc;
+                data[1] = collection;
                 dm.list_store(node, host, ARCHIVE_DIR, st.preserialize(data));
                 return;
             end
         end
     end
     -- not found, create new collection
-    local utc = os_time();
     local collection = st.stanza('chat', {with = isfrom and msg.attr.to or msg.attr.from, start=utc, thread=thread:get_text(), version='0', access=utc});
     collection:tag(tag, {secs='0', utc=utc}):add_child(body);
     dm.list_append(node, host, ARCHIVE_DIR, st.preserialize(collection));
@@ -347,8 +362,8 @@ end
 ------------------------------------------------------------
 -- Archive Management
 ------------------------------------------------------------
-local function filter_with(with, coll_with)
-    return not with or coll_with:find(with);
+local function filter_jid(rule, jid)
+    return not rule or jid.compare(jid, rule);
 end
 
 local function filter_start(start, coll_start)
@@ -378,7 +393,7 @@ local function list_handler(event)
         for k, v in ipairs(data) do
             local collection = st.deserialize(v);
             if collection[1] then -- has children(not deleted)
-                local res = filter_with(elem.attr["with"], collection.attr["with"]);
+                local res = filter_jid(elem.attr["with"], collection.attr["with"]);
                 res = res and filter_start(elem.attr["start"], collection.attr["start"]);
                 res = res and filter_end(elem.attr["end"], collection.attr["start"]);
                 if res then
@@ -535,7 +550,7 @@ local function remove_handler(event)
         for i = count, 1, -1 do
             local collection = st.deserialize(data[i]);
             if collection[1] then -- has children(not deleted)
-                local res = filter_with(elem.attr["with"], collection.attr["with"]);
+                local res = filter_jid(elem.attr["with"], collection.attr["with"]);
                 res = res and filter_start(elem.attr["start"], collection.attr["start"]);
                 res = res and filter_end(elem.attr["end"], collection.attr["start"]);
                 if res then
@@ -649,7 +664,7 @@ local function find_pref(pref, name, k, v, exactmatch)
                         if child.attr[k] == v then
                             return child;
                         end
-                    elseif filter_with(child.attr[k], v) then
+                    elseif filter_jid(child.attr[k], v) then
                         return child;
                     end
                 end
