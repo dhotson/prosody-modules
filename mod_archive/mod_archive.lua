@@ -18,6 +18,8 @@ local DEFAULT_MAX = 100;
 local FORCE_ARCHIVING = false;
 local AUTO_ARCHIVING_ENABLED = true;
 
+local HOST = 'localhost';
+
 module:add_feature("urn:xmpp:archive");
 module:add_feature("urn:xmpp:archive:auto");
 module:add_feature("urn:xmpp:archive:manage");
@@ -696,10 +698,10 @@ local function msg_handler(data)
         local from_node, from_host = jid.split(stanza.attr.from);
         local to_node, to_host = jid.split(stanza.attr.to);
         -- FIXME only archive messages of users on this host
-        if from_host == "localhost" and apply_pref(from_node, from_host, stanza.attr.to, thread) then
+        if from_host == HOST and apply_pref(from_node, from_host, stanza.attr.to, thread) then
             store_msg(stanza, from_node, from_host, true);
         end
-        if to_host == "localhost" and apply_pref(to_node, to_host, stanza.attr.from, thread) then
+        if to_host == HOST and apply_pref(to_node, to_host, stanza.attr.from, thread) then
             store_msg(stanza, to_node, to_host, false);
         end
     end
