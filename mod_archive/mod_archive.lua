@@ -70,15 +70,15 @@ local function store_msg(msg, node, host, isfrom)
                 end
             end
         else -- if the last collection occurs on the same day, then join it
-            -- TODO assuming the collection list are in reverse chronological order 
-            local collection = st.deserialize(data[1]);
+            -- TODO assuming the collection list are in chronological order 
+            local collection = st.deserialize(data[#data]);
             local difftime = os.difftime(date_parse(utc), date_parse(collection.attr["start"]));
             if difftime < 86400 then -- 60 * 60 * 24
                 collection:tag(tag, {secs='1', utc=utc}):add_child(body);
                 local ver = tonumber(collection.attr["version"]) + 1;
                 collection.attr["version"] = tostring(ver);
                 collection.attr["access"] = utc;
-                data[1] = collection;
+                data[#data] = collection;
                 dm.list_store(node, host, ARCHIVE_DIR, st.preserialize(data));
                 return;
             end
