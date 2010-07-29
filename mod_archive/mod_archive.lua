@@ -106,11 +106,7 @@ local function store_msg(msg, node, host, isfrom)
         -- TODO assuming the collection list are in REVERSE chronological order 
         for k, v in ipairs(data) do
             local collection = st.deserialize(v);
-            if thread and collection.attr["thread"] == thread:get_text()
-                or
-                not thread
-                and collection.attr["with"] == with
-                and os.difftime(utc_secs, date_parse(collection.attr["start"])) < 14400 then
+            local do_save = function()
                 local dt = 1;
                 for i = #collection, 1, -1 do
                     local s = collection[i].attr["utc_secs"];
@@ -125,7 +121,19 @@ local function store_msg(msg, node, host, isfrom)
                 collection.attr["access"] = utc_datetime;
                 data[k] = collection;
                 dm.list_store(node, host, ARCHIVE_DIR, st.preserialize(data));
-                return;
+            end
+            if thread then
+                if collection.attr["thread"] == thread:get_text() then
+                    do_save();
+                    return;
+                end
+            else
+                local dt = os.difftime(utc_secs, date_parse(collection.attr["start"]));
+                if dt >= 14400 then break end
+                if collection.attr["with"] == with then
+                    do_save();
+                    return;
+                end
             end
         end
     end
@@ -330,7 +338,7 @@ local function auto_handler(event)
     local elem = stanza.tags[1];
     local node, host = origin.username, origin.host;
     local data = load_prefs(node, host);
-    if not data then
+    if not data then -- TODO create new pref?
         return false;
     end
     local setting = data:child_with_name(elem.name)
