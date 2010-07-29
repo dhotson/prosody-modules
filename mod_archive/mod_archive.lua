@@ -51,6 +51,12 @@ local function date_parse(s)
 	return os.time({year=year, month=month, day=day, hour=hour, min=min, sec=sec});
 end
 
+local function list_reverse(list)
+  local t, n = {}, #list
+  for i = 1, n do t[i] = list[n-i+1] end -- reverse
+  for i = 1, n do list[i] = t[i] end -- copy back
+end
+
 -- local function list_push(node, host, collection)
 -- 	local data = dm.list_load(node, host, ARCHIVE_DIR);
 --     if data then
@@ -103,7 +109,7 @@ local function store_msg(msg, node, host, isfrom)
     local utc_secs = os.time(utc);
     local utc_datetime = date_time(utc);
     if data then
-        -- TODO assuming the collection list are in REVERSE chronological order 
+        -- The collection list are in REVERSE chronological order 
         for k, v in ipairs(data) do
             local collection = st.deserialize(v);
             local do_save = function()
@@ -457,6 +463,7 @@ local function list_handler(event)
     local reply = st.reply(stanza):tag('list', {xmlns='urn:xmpp:archive'});
     local count = table.getn(resset);
     if count > 0 then
+        list_reverse(resset);
         local max = elem.tags[1]:child_with_name("max");
         if max then
             max = tonumber(max:get_text()) or DEFAULT_MAX;
@@ -493,7 +500,6 @@ local function list_handler(event)
         end
         if s < 1 then s = 1; end
         if e > count + 1 then e = count + 1; end
-        -- Assuming result set is sorted.
         for i = s, e-1 do
             reply:add_child(st.stanza('chat', resset[i].attr));
         end
@@ -575,7 +581,6 @@ local function retrieve_handler(event)
         end
         if s < 1 then s = 1; end
         if e > count + 1 then e = count + 1; end
-        -- Assuming result set is sorted.
         for i = s, e-1 do
             reply:add_child(resset[i]);
         end
@@ -646,6 +651,7 @@ local function modified_handler(event)
     local reply = st.reply(stanza):tag('modified', {xmlns='urn:xmpp:archive'});
     local count = table.getn(resset);
     if count > 0 then
+        list_reverse(resset);
         local max = elem.tags[1]:child_with_name("max");
         if max then
             max = tonumber(max:get_text()) or DEFAULT_MAX;
@@ -682,7 +688,6 @@ local function modified_handler(event)
         end
         if s < 1 then s = 1; end
         if e > count + 1 then e = count + 1; end
-        -- Assuming result set is sorted.
         for i = s, e-1 do
             if resset[i][1] then
                 reply:add_child(st.stanza('changed', resset[i].attr));
