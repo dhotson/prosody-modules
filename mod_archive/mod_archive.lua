@@ -38,9 +38,12 @@ local function store_prefs(data, node, host)
     dm.store(node, host, PREFS_DIR, st.preserialize(data));
 end
 
-local function os_time()
-    -- return tostring(os.time(os.date('!*t')));
-    return datetime.datetime();
+local function os_date()
+    return os.date("!*t");
+end
+
+local function date_time(t)
+    return datetime.datetime(t);
 end
 
 local function date_parse(s)
@@ -48,46 +51,88 @@ local function date_parse(s)
 	return os.time({year=year, month=month, day=day, hour=hour, min=min, sec=sec});
 end
 
+-- local function list_push(node, host, collection)
+-- 	local data = dm.list_load(node, host, ARCHIVE_DIR);
+--     if data then
+--         table.insert(data, collection, 1);
+--         dm.list_store(node, host, ARCHIVE_DIR, st.preserialize(data));
+--     else
+--         dm.list_append(node, host, ARCHIVE_DIR, st.preserialize(collection));
+--     end
+-- end
+
+local function list_insert(node, host, collection)
+	local data = dm.list_load(node, host, ARCHIVE_DIR);
+    if data then
+        local s, e = 1, #data;
+        while true do
+            local c = st.deserialize(data[s]);
+            if collection.attr["start"] >= c.attr["start"] then
+                table.insert(data, collection, s);
+                break;
+            end
+            c = st.deserialize(data[e]);
+            if collection.attr["start"] <= c.attr["start"] then
+                table.insert(data, collection, e+1);
+                break;
+            end
+            local m = math.floor((s + e) / 2);
+            c = st.deserialize(data[m]);
+            if collection.attr["start"] > c.attr["start"] then
+                e = m - 1;
+            elseif collection.attr["start"] < c.attr["start"] then
+                s = m + 1;
+            else
+                table.insert(data, collection, m);
+                break;
+            end
+        end
+        dm.list_store(node, host, ARCHIVE_DIR, st.preserialize(data));
+    else
+        dm.list_append(node, host, ARCHIVE_DIR, st.preserialize(collection));
+    end
+end
+
 local function store_msg(msg, node, host, isfrom)
     local body = msg:child_with_name("body");
     local thread = msg:child_with_name("thread");
 	local data = dm.list_load(node, host, ARCHIVE_DIR);
-    local tag = (isfrom and "from") or "to";
-    local utc = os_time();
+    local tag = isfrom and "from" or "to";
+    local with = isfrom and msg.attr.to or msg.attr.from;
+    local utc = os_date();
+    local utc_secs = os.time(utc);
+    local utc_datetime = date_time(utc);
     if data then
-        if thread then
-            for k, v in ipairs(data) do
-                local collection = st.deserialize(v);
-                if collection.attr["thread"] == thread:get_text() then
-                    -- TODO figure out secs
-                    collection:tag(tag, {secs='1', utc=utc}):add_child(body);
-                    local ver = tonumber(collection.attr["version"]) + 1;
-                    collection.attr["version"] = tostring(ver);
-                    collection.attr["access"] = utc;
-                    data[k] = collection;
-                    dm.list_store(node, host, ARCHIVE_DIR, st.preserialize(data));
-                    return;
+        -- TODO assuming the collection list are in REVERSE chronological order 
+        for k, v in ipairs(data) do
+            local collection = st.deserialize(v);
+            if thread and collection.attr["thread"] == thread:get_text()
+                or
+                not thread
+                and collection.attr["with"] == with
+                and os.difftime(utc_secs, date_parse(collection.attr["start"])) < 14400 then
+                local dt = 1;
+                for i = #collection, 1, -1 do
+                    local s = collection[i].attr["utc_secs"];
+                    if s then
+                        dt = os.difftime(utc_secs, tonumber(s));
+                        break;
+                    end
                 end
-            end
-        else -- if the last collection occurs on the same day, then join it
-            -- TODO assuming the collection list are in chronological order 
-            local collection = st.deserialize(data[#data]);
-            local difftime = os.difftime(date_parse(utc), date_parse(collection.attr["start"]));
-            if difftime < 86400 then -- 60 * 60 * 24
-                collection:tag(tag, {secs='1', utc=utc}):add_child(body);
+                collection:tag(tag, {secs=dt, utc_secs=utc_secs}):add_child(body);
                 local ver = tonumber(collection.attr["version"]) + 1;
                 collection.attr["version"] = tostring(ver);
-                collection.attr["access"] = utc;
-                data[#data] = collection;
+                collection.attr["access"] = utc_datetime;
+                data[k] = collection;
                 dm.list_store(node, host, ARCHIVE_DIR, st.preserialize(data));
                 return;
             end
         end
     end
     -- not found, create new collection
-    local collection = st.stanza('chat', {with = isfrom and msg.attr.to or msg.attr.from, start=utc, thread=thread:get_text(), version='0', access=utc});
-    collection:tag(tag, {secs='0', utc=utc}):add_child(body);
-    dm.list_append(node, host, ARCHIVE_DIR, st.preserialize(collection));
+    local collection = st.stanza('chat', {with=with, start=utc_datetime, thread=thread and thread:get_text() or nil, version='0', access=utc_datetime});
+    collection:tag(tag, {secs='0', utc_secs=utc_secs}):add_child(body);
+    list_insert(node, host, collection);
 end
 
 local function save_result(collection)
@@ -157,7 +202,6 @@ local function preferences_handler(event)
         elseif elem.name == "item" then
             local found = false;
             for child in data:children() do
-                -- TODO bare JID or full JID?
                 if child.name == elem.name and child.attr["jid"] == elem.attr["jid"] then
                     for k, v in pairs(elem.attr) do
                         child.attr[k] = v;
@@ -341,7 +385,7 @@ local function save_handler(event)
                 local ver = tonumber(collection.attr["version"]) + 1;
                 collection.attr["version"] = tostring(ver);
                 collection.attr["subject"] = elem.attr["subject"];
-                collection.attr["access"] = os_time();
+                collection.attr["access"] = date_time();
                 origin.send(st.reply(stanza):add_child(save_result(collection)));
                 data[k] = collection;
                 dm.list_store(node, host, ARCHIVE_DIR, st.preserialize(data));
@@ -351,10 +395,10 @@ local function save_handler(event)
     end
     -- not found, create new collection
     elem.attr["version"] = "0";
-    elem.attr["access"] = os_time();
+    elem.attr["access"] = date_time();
     origin.send(st.reply(stanza):add_child(save_result(elem)));
     -- TODO check if elem is valid(?)
-    dm.list_append(node, host, ARCHIVE_DIR, st.preserialize(elem));
+    list_insert(node, host, elem);
     -- TODO unsuccessful reply
     return true;
 end
@@ -556,7 +600,7 @@ local function remove_handler(event)
                 if res then
                     -- table.remove(data, i);
                     local temp = st.stanza('chat', collection.attr);
-                    temp.attr["access"] = os_time();
+                    temp.attr["access"] = date_time();
                     data[i] = temp;
                     found = true;
                 end
