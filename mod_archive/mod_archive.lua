@@ -414,15 +414,15 @@ end
 ------------------------------------------------------------
 -- Archive Management
 ------------------------------------------------------------
-local function filter_jid(rule, jid)
+local function match_jid(rule, jid)
     return not rule or jid.compare(jid, rule);
 end
 
-local function filter_start(start, coll_start)
+local function is_earlier(start, coll_start)
     return not start or start <= coll_start;
 end
 
-local function filter_end(endtime, coll_start)
+local function is_later(endtime, coll_start)
     return not endtime or endtime >= coll_start;
 end
 
@@ -445,9 +445,9 @@ local function list_handler(event)
         for k, v in ipairs(data) do
             local collection = st.deserialize(v);
             if collection[1] then -- has children(not deleted)
-                local res = filter_jid(elem.attr["with"], collection.attr["with"]);
-                res = res and filter_start(elem.attr["start"], collection.attr["start"]);
-                res = res and filter_end(elem.attr["end"], collection.attr["start"]);
+                local res = match_jid(elem.attr["with"], collection.attr["with"]);
+                res = res and is_earlier(elem.attr["start"], collection.attr["start"]);
+                res = res and is_later(elem.attr["end"], collection.attr["start"]);
                 if res then
                     table.insert(resset, collection);
                 end
@@ -602,9 +602,9 @@ local function remove_handler(event)
         for i = count, 1, -1 do
             local collection = st.deserialize(data[i]);
             if collection[1] then -- has children(not deleted)
-                local res = filter_jid(elem.attr["with"], collection.attr["with"]);
-                res = res and filter_start(elem.attr["start"], collection.attr["start"]);
-                res = res and filter_end(elem.attr["end"], collection.attr["start"]);
+                local res = match_jid(elem.attr["with"], collection.attr["with"]);
+                res = res and is_earlier(elem.attr["start"], collection.attr["start"]);
+                res = res and is_later(elem.attr["end"], collection.attr["start"]);
                 if res then
                     -- table.remove(data, i);
                     local temp = st.stanza('chat', collection.attr);
@@ -637,7 +637,7 @@ local function modified_handler(event)
     if data then
         for k, v in ipairs(data) do
             local collection = st.deserialize(v);
-            local res = filter_start(elem.attr["start"], collection.attr["access"]);
+            local res = is_earlier(elem.attr["start"], collection.attr["access"]);
             if res then
                 table.insert(resset, collection);
             end
@@ -716,7 +716,7 @@ local function find_pref(pref, name, k, v, exactmatch)
                         if child.attr[k] == v then
                             return child;
                         end
-                    elseif filter_jid(child.attr[k], v) then
+                    elseif match_jid(child.attr[k], v) then
                         return child;
                     end
                 end
