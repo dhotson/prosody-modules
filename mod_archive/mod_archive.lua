@@ -51,6 +51,12 @@ local function date_parse(s)
 	return os.time({year=year, month=month, day=day, hour=hour, min=min, sec=sec});
 end
 
+local function list_reverse(list)
+  local t, n = {}, #list
+  for i = 1, n do t[i] = list[n-i+1] end -- reverse
+  for i = 1, n do list[i] = t[i] end -- copy back
+end
+
 -- local function list_push(node, host, collection)
 -- 	local data = dm.list_load(node, host, ARCHIVE_DIR);
 --     if data then
@@ -103,14 +109,10 @@ local function store_msg(msg, node, host, isfrom)
     local utc_secs = os.time(utc);
     local utc_datetime = date_time(utc);
     if data then
-        -- TODO assuming the collection list are in REVERSE chronological order 
+        -- The collection list are in REVERSE chronological order 
         for k, v in ipairs(data) do
             local collection = st.deserialize(v);
-            if thread and collection.attr["thread"] == thread:get_text()
-                or
-                not thread
-                and collection.attr["with"] == with
-                and os.difftime(utc_secs, date_parse(collection.attr["start"])) < 14400 then
+            local do_save = function()
                 local dt = 1;
                 for i = #collection, 1, -1 do
                     local s = collection[i].attr["utc_secs"];
@@ -125,7 +127,19 @@ local function store_msg(msg, node, host, isfrom)
                 collection.attr["access"] = utc_datetime;
                 data[k] = collection;
                 dm.list_store(node, host, ARCHIVE_DIR, st.preserialize(data));
-                return;
+            end
+            if thread then
+                if collection.attr["thread"] == thread:get_text() then
+                    do_save();
+                    return;
+                end
+            else
+                local dt = os.difftime(utc_secs, date_parse(collection.attr["start"]));
+                if dt >= 14400 then break end
+                if collection.attr["with"] == with then
+                    do_save();
+                    return;
+                end
             end
         end
     end
@@ -330,7 +344,7 @@ local function auto_handler(event)
     local elem = stanza.tags[1];
     local node, host = origin.username, origin.host;
     local data = load_prefs(node, host);
-    if not data then
+    if not data then -- TODO create new pref?
         return false;
     end
     local setting = data:child_with_name(elem.name)
@@ -406,15 +420,15 @@ end
 ------------------------------------------------------------
 -- Archive Management
 ------------------------------------------------------------
-local function filter_jid(rule, jid)
+local function match_jid(rule, jid)
     return not rule or jid.compare(jid, rule);
 end
 
-local function filter_start(start, coll_start)
+local function is_earlier(start, coll_start)
     return not start or start <= coll_start;
 end
 
-local function filter_end(endtime, coll_start)
+local function is_later(endtime, coll_start)
     return not endtime or endtime >= coll_start;
 end
 
@@ -437,9 +451,9 @@ local function list_handler(event)
         for k, v in ipairs(data) do
             local collection = st.deserialize(v);
             if collection[1] then -- has children(not deleted)
-                local res = filter_jid(elem.attr["with"], collection.attr["with"]);
-                res = res and filter_start(elem.attr["start"], collection.attr["start"]);
-                res = res and filter_end(elem.attr["end"], collection.attr["start"]);
+                local res = match_jid(elem.attr["with"], collection.attr["with"]);
+                res = res and is_earlier(elem.attr["start"], collection.attr["start"]);
+                res = res and is_later(elem.attr["end"], collection.attr["start"]);
                 if res then
                     table.insert(resset, collection);
                 end
@@ -449,6 +463,7 @@ local function list_handler(event)
     local reply = st.reply(stanza):tag('list', {xmlns='urn:xmpp:archive'});
     local count = table.getn(resset);
     if count > 0 then
+        list_reverse(resset);
         local max = elem.tags[1]:child_with_name("max");
         if max then
             max = tonumber(max:get_text()) or DEFAULT_MAX;
@@ -485,7 +500,6 @@ local function list_handler(event)
         end
         if s < 1 then s = 1; end
         if e > count + 1 then e = count + 1; end
-        -- Assuming result set is sorted.
         for i = s, e-1 do
             reply:add_child(st.stanza('chat', resset[i].attr));
         end
@@ -567,7 +581,6 @@ local function retrieve_handler(event)
         end
         if s < 1 then s = 1; end
         if e > count + 1 then e = count + 1; end
-        -- Assuming result set is sorted.
         for i = s, e-1 do
             reply:add_child(resset[i]);
         end
@@ -594,9 +607,9 @@ local function remove_handler(event)
         for i = count, 1, -1 do
             local collection = st.deserialize(data[i]);
             if collection[1] then -- has children(not deleted)
-                local res = filter_jid(elem.attr["with"], collection.attr["with"]);
-                res = res and filter_start(elem.attr["start"], collection.attr["start"]);
-                res = res and filter_end(elem.attr["end"], collection.attr["start"]);
+                local res = match_jid(elem.attr["with"], collection.attr["with"]);
+                res = res and is_earlier(elem.attr["start"], collection.attr["start"]);
+                res = res and is_later(elem.attr["end"], collection.attr["start"]);
                 if res then
                     -- table.remove(data, i);
                     local temp = st.stanza('chat', collection.attr);
@@ -629,7 +642,7 @@ local function modified_handler(event)
     if data then
         for k, v in ipairs(data) do
             local collection = st.deserialize(v);
-            local res = filter_start(elem.attr["start"], collection.attr["access"]);
+            local res = is_earlier(elem.attr["start"], collection.attr["access"]);
             if res then
                 table.insert(resset, collection);
             end
@@ -638,6 +651,7 @@ local function modified_handler(event)
     local reply = st.reply(stanza):tag('modified', {xmlns='urn:xmpp:archive'});
     local count = table.getn(resset);
     if count > 0 then
+        list_reverse(resset);
         local max = elem.tags[1]:child_with_name("max");
         if max then
             max = tonumber(max:get_text()) or DEFAULT_MAX;
@@ -674,7 +688,6 @@ local function modified_handler(event)
         end
         if s < 1 then s = 1; end
         if e > count + 1 then e = count + 1; end
-        -- Assuming result set is sorted.
         for i = s, e-1 do
             if resset[i][1] then
                 reply:add_child(st.stanza('changed', resset[i].attr));
@@ -708,7 +721,7 @@ local function find_pref(pref, name, k, v, exactmatch)
                         if child.attr[k] == v then
                             return child;
                         end
-                    elseif filter_jid(child.attr[k], v) then
+                    elseif match_jid(child.attr[k], v) then
                         return child;
                     end
                 end
