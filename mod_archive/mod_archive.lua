@@ -42,8 +42,12 @@ local function os_date()
     return os.date("!*t");
 end
 
-local function date_time(t)
-    return datetime.datetime(t);
+local function date_time(localtime)
+    return datetime.datetime(localtime);
+end
+
+local function date_format(s)
+	return os.date("%Y-%m-%dT%H:%M:%SZ", s);
 end
 
 local function date_parse(s)
@@ -60,7 +64,7 @@ end
 -- local function list_push(node, host, collection)
 -- 	local data = dm.list_load(node, host, ARCHIVE_DIR);
 --     if data then
---         table.insert(data, collection, 1);
+--         table.insert(data, 1, collection);
 --         dm.list_store(node, host, ARCHIVE_DIR, st.preserialize(data));
 --     else
 --         dm.list_append(node, host, ARCHIVE_DIR, st.preserialize(collection));
@@ -74,12 +78,12 @@ local function list_insert(node, host, collection)
         while true do
             local c = st.deserialize(data[s]);
             if collection.attr["start"] >= c.attr["start"] then
-                table.insert(data, collection, s);
+                table.insert(data, s, collection);
                 break;
             end
             c = st.deserialize(data[e]);
             if collection.attr["start"] <= c.attr["start"] then
-                table.insert(data, collection, e+1);
+                table.insert(data, e+1, collection);
                 break;
             end
             local m = math.floor((s + e) / 2);
@@ -89,7 +93,7 @@ local function list_insert(node, host, collection)
             elseif collection.attr["start"] < c.attr["start"] then
                 s = m + 1;
             else
-                table.insert(data, collection, m);
+                table.insert(data, m, collection);
                 break;
             end
         end
@@ -107,7 +111,7 @@ local function store_msg(msg, node, host, isfrom)
     local with = isfrom and msg.attr.to or msg.attr.from;
     local utc = os_date();
     local utc_secs = os.time(utc);
-    local utc_datetime = date_time(utc);
+    local utc_datetime = date_format(utc_secs);
     if data then
         -- The collection list are in REVERSE chronological order 
         for k, v in ipairs(data) do
@@ -136,7 +140,7 @@ local function store_msg(msg, node, host, isfrom)
             else
                 local dt = os.difftime(utc_secs, date_parse(collection.attr["start"]));
                 if dt >= 14400 then break end
-                if collection.attr["with"] == with then
+                if collection.attr["with"] == with then -- JID matching?
                     do_save();
                     return;
                 end
@@ -420,8 +424,8 @@ end
 ------------------------------------------------------------
 -- Archive Management
 ------------------------------------------------------------
-local function match_jid(rule, jid)
-    return not rule or jid.compare(jid, rule);
+local function match_jid(rule, id)
+    return not rule or jid.compare(id, rule);
 end
 
 local function is_earlier(start, coll_start)
