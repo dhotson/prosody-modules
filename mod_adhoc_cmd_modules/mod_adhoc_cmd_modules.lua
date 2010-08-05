@@ -34,13 +34,18 @@ function load_module_handler(self, data, state)
 		instructions = "Specify the module to be loaded";
 
 		{ name = "FORM_TYPE", type = "hidden", value = "http://prosody.im/protocol/modules#load" };
-		{ name = "module", type = "text-single", label = "Module to be loaded:"};
+		{ name = "module", type = "text-single", required = true, label = "Module to be loaded:"};
 	};
 	if state then
 		if data.action == "cancel" then
 			return { status = "canceled" };
 		end
 		local fields = layout:data(data.form);
+		if (not fields.module) or (fields.module == "") then
+			return { status = "completed", error = {
+				message = "Please specify a module. (This means your client misbehaved, as this field is required)"
+			} };
+		end
 		if modulemanager.is_loaded(data.to, fields.module) then
 			return { status = "completed", info = "Module already loaded" };
 		end
@@ -64,13 +69,18 @@ function reload_modules_handler(self, data, state)
 		instructions = "Select the module to be reloaded";
 
 		{ name = "FORM_TYPE", type = "hidden", value = "http://prosody.im/protocol/modules#reload" };
-		{ name = "module", type = "list-single", label = "Module to be reloaded:"};
+		{ name = "module", type = "list-single", required = true, label = "Module to be reloaded:"};
 	};
 	if state then
 		if data.action == "cancel" then
 			return { status = "canceled" };
 		end
 		local fields = layout:data(data.form);
+		if (not fields.module) or (fields.module == "") then
+			return { status = "completed", error = {
+				message = "Please specify a module. (This means your client misbehaved, as this field is required)"
+			} };
+		end
 		local ok, err = modulemanager.reload(data.to, fields.module);
 		if ok then
 			return { status = "completed", info = 'Module "'..fields.module..'" successfully reloaded on host "'..data.to..'".' };
@@ -91,13 +101,18 @@ function unload_modules_handler(self, data, state)
 		instructions = "Select the module to be unloaded";
 
 		{ name = "FORM_TYPE", type = "hidden", value = "http://prosody.im/protocol/modules#unload" };
-		{ name = "module", type = "list-single", label = "Module to be unloaded:"};
+		{ name = "module", type = "list-single", required = true, label = "Module to be unloaded:"};
 	};
 	if state then
 		if data.action == "cancel" then
 			return { status = "canceled" };
 		end
 		local fields = layout:data(data.form);
+		if (not fields.module) or (fields.module == "") then
+			return { status = "completed", error = {
+				message = "Please specify a module. (This means your client misbehaved, as this field is required)"
+			} };
+		end
 		local ok, err = modulemanager.unload(data.to, fields.module);
 		if ok then
 			return { status = "completed", info = 'Module "'..fields.module..'" successfully unloaded on host "'..data.to..'".' };
