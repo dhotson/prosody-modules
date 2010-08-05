@@ -54,7 +54,7 @@ end
 function commands.NICK(session, nick)
 	nick = nick:match("^[%w_]+");
 	if nicks[nick] then
-		session.send(":"..session.host.." 433 * The nickname "..nick.." is already in use");
+		session.send(":"..session.host.." 433 * "..nick.." :The nickname "..nick.." is already in use");
 		return;
 	end
 	nicks[nick] = session;
