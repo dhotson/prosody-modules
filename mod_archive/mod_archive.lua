@@ -802,7 +802,7 @@ module:hook("iq/self/urn:xmpp:archive:modified", modified_handler);
 module:hook("message/full", msg_handler, 10);
 module:hook("message/bare", msg_handler, 10);
 
--- FIXME sort collections
 -- TODO exactmatch
 -- TODO <item/> JID match
 -- TODO 'open attr' in removing a collection
+-- TODO save = body/message/stream
