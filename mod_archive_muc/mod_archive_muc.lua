@@ -9,11 +9,11 @@ local st = require "util.stanza";
 local dm = require "util.datamanager";
 local jid = require "util.jid";
 local datetime = require "util.datetime";
+local um = require "core.usermanager";
+local rom = require "core.rostermanager";
 
 local PREFS_DIR = "archive_muc_prefs";
 local ARCHIVE_DIR = "archive_muc";
-
-local HOST = 'localhost';
 
 local AUTO_ARCHIVING_ENABLED = true;
 
@@ -31,9 +31,7 @@ local function store_prefs(data, node, host)
     dm.store(node, host, PREFS_DIR, st.preserialize(data));
 end
 
-local function date_time(localtime)
-    return datetime.datetime(localtime);
-end
+local date_time = datetime.datetime;
 
 local function match_jid(rule, id)
     return not rule or jid.compare(id, rule);
@@ -123,9 +121,8 @@ local function is_in(list, jid)
     return false;
 end
 
-local function is_in_roster(node, host, jid)
-    -- TODO
-    return true;
+local function is_in_roster(node, host, id)
+    return rom.is_contact_subscribed(node, host, jid.bare(id));
 end
 
 local function apply_pref(node, host, jid)
@@ -166,11 +163,10 @@ local function msg_handler(data)
     if body then
         local from_node, from_host = jid.split(stanza.attr.from);
         local to_node, to_host = jid.split(stanza.attr.to);
-        -- FIXME only archive messages of users on this host
-        if from_host == HOST and apply_pref(from_node, from_host, stanza.attr.to) then
+        if um.user_exists(from_node, from_host) and apply_pref(from_node, from_host, stanza.attr.to) then
             store_msg(stanza, from_node, from_host);
         end
-        if to_host == HOST and apply_pref(to_node, to_host, stanza.attr.from) then
+        if um.user_exists(to_node, to_host) and apply_pref(to_node, to_host, stanza.attr.from) then
             store_msg(stanza, to_node, to_host);
         end
     end
@@ -183,7 +179,6 @@ module:hook("iq/self/urn:xmpp:archive#preferences:prefs", preferences_handler);
 -- Archive management
 module:hook("iq/self/urn:xmpp:archive#management:query", management_handler);
 
-module:hook("message/full", msg_handler, 20);
 module:hook("message/bare", msg_handler, 20);
 
 -- TODO prefs: [1] = "\n      ";
