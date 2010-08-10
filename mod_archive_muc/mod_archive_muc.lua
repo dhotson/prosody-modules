@@ -23,11 +23,26 @@ module:add_feature("urn:xmpp:archive#management");
 ------------------------------------------------------------
 -- Utils
 ------------------------------------------------------------
+local function trim(s)
+  return (string.gsub(s, "^%s*(.-)%s*$", "%1"))
+end
+
+local function clean_up(t)
+    for i = #t, 1, -1 do
+        if type(t[i]) == 'table' then
+            clean_up(t[i]);
+        elseif type(t[i]) == 'string' and trim(t[i]) == '' then
+            table.remove(t, i);
+        end
+    end
+end
+
 local function load_prefs(node, host)
     return st.deserialize(dm.load(node, host, PREFS_DIR));
 end
 
 local function store_prefs(data, node, host)
+    clean_up(data);
     dm.store(node, host, PREFS_DIR, st.preserialize(data));
 end
 
