@@ -9,6 +9,7 @@ local st = require "util.stanza";
 local dm = require "util.datamanager";
 local jid = require "util.jid";
 local datetime = require "util.datetime";
+local um = require "core.usermanager";
 
 local PREFS_DIR = "archive_prefs";
 local ARCHIVE_DIR = "archive";
@@ -17,8 +18,6 @@ local DEFAULT_MAX = 100;
 
 local FORCE_ARCHIVING = false;
 local AUTO_ARCHIVING_ENABLED = true;
-
-local HOST = 'localhost';
 
 module:add_feature("urn:xmpp:archive");
 module:add_feature("urn:xmpp:archive:auto");
@@ -42,9 +41,7 @@ local function os_date()
     return os.date("!*t");
 end
 
-local function date_time(localtime)
-    return datetime.datetime(localtime);
-end
+local date_time = datetime.datetime;
 
 local function date_format(s)
 	return os.date("%Y-%m-%dT%H:%M:%SZ", s);
@@ -60,16 +57,6 @@ local function list_reverse(list)
   for i = 1, n do t[i] = list[n-i+1] end -- reverse
   for i = 1, n do list[i] = t[i] end -- copy back
 end
-
--- local function list_push(node, host, collection)
--- 	local data = dm.list_load(node, host, ARCHIVE_DIR);
---     if data then
---         table.insert(data, 1, collection);
---         dm.list_store(node, host, ARCHIVE_DIR, st.preserialize(data));
---     else
---         dm.list_append(node, host, ARCHIVE_DIR, st.preserialize(collection));
---     end
--- end
 
 local function list_insert(node, host, collection)
 	local data = dm.list_load(node, host, ARCHIVE_DIR);
@@ -773,11 +760,10 @@ local function msg_handler(data)
     if body then
         local from_node, from_host = jid.split(stanza.attr.from);
         local to_node, to_host = jid.split(stanza.attr.to);
-        -- FIXME only archive messages of users on this host
-        if from_host == HOST and apply_pref(from_node, from_host, stanza.attr.to, thread) then
+        if um.user_exists(from_node, from_host) and apply_pref(from_node, from_host, stanza.attr.to, thread) then
             store_msg(stanza, from_node, from_host, true);
         end
-        if to_host == HOST and apply_pref(to_node, to_host, stanza.attr.from, thread) then
+        if um.user_exists(to_node, to_host) and apply_pref(to_node, to_host, stanza.attr.from, thread) then
             store_msg(stanza, to_node, to_host, false);
         end
     end
