@@ -66,7 +66,7 @@ local get_user_password_layout = dataforms_new{
 	instructions = "Fill out this form to get a user's password.";
 
 	{ name = "FORM_TYPE", type = "hidden", value = "http://jabber.org/protocol/admin" };
-	{ name = "accountjid", type = "jid-single", label = "The Jabber ID for which to retrieve the password" };
+	{ name = "accountjid", type = "jid-single", required = true, label = "The Jabber ID for which to retrieve the password" };
 };
 
 local get_user_password_result_layout = dataforms_new{
@@ -77,7 +77,7 @@ local get_user_password_result_layout = dataforms_new{
 
 local get_user_roster_layout = dataforms_new{
 	{ name = "FORM_TYPE", type = "hidden", value = "http://jabber.org/protocol/admin" };
-	{ name = "accountjid", type = "jid-single", label = "The Jabber ID for which to retrieve the roster" };
+	{ name = "accountjid", type = "jid-single", required = true, label = "The Jabber ID for which to retrieve the roster" };
 };
 
 local get_user_roster_result_layout = dataforms_new{
@@ -91,7 +91,7 @@ local get_user_stats_layout = dataforms_new{
 	instructions = "Fill out this form to gather user statistics.";
 
 	{ name = "FORM_TYPE", type = "hidden", value = "http://jabber.org/protocol/admin" };
-	{ name = "accountjid", type = "jid-single", label = "The Jabber ID for statistics" };
+	{ name = "accountjid", type = "jid-single", required = true, label = "The Jabber ID for statistics" };
 };
 
 local get_user_stats_result_layout = dataforms_new{
@@ -149,6 +149,9 @@ function add_user_command_handler(self, data, state)
 			return { status = "canceled" };
 		end
 		local fields = add_user_layout:data(data.form);
+		if not fields.accountjid then
+			return { status = "completed", error = { message = "You need to specify a JID." } };
+		end
 		local username, host, resource = jid.split(fields.accountjid);
 		if data.to ~= host then
 			return { status = "completed", error = { message = "Trying to add a user on " .. host .. " but command was sent to " .. data.to}};
@@ -180,6 +183,9 @@ function change_user_password_command_handler(self, data, state)
 			return { status = "canceled" };
 		end
 		local fields = change_user_password_layout:data(data.form);
+		if not fields.accountjid or fields.accountjid == "" or not fields.password then
+			return { status = "completed", error = { message = "Please specify username and password" } };
+		end
 		local username, host, resource = jid.split(fields.accountjid);
 		if data.to ~= host then
 			return { status = "completed", error = { message = "Trying to change the password of a user on " .. host .. " but command was sent to " .. data.to}};
@@ -266,6 +272,9 @@ function get_user_password_handler(self, data, state)
 			return { status = "canceled" };
 		end
 		local fields = get_user_password_layout:data(data.form);
+		if not fields.accountjid then
+			return { status = "completed", error = { message = "Please specify a JID." } };
+		end
 		local user, host, resource = jid.split(fields.accountjid);
 		local accountjid = "";
 		local password = "";
@@ -290,6 +299,10 @@ function get_user_roster_handler(self, data, state)
 		end
 
 		local fields = add_user_layout:data(data.form);
+
+		if not fields.accountjid then
+			return { status = "completed", error = { message = "Please specify a JID" } };
+		end
 
 		local user, host, resource = jid.split(fields.accountjid);
 		if host ~= data.to then
@@ -333,6 +346,10 @@ function get_user_stats_handler(self, data, state)
 		end
 
 		local fields = get_user_stats_layout:data(data.form);
+
+		if not fields.accountjid then
+			return { status = "completed", error = { message = "Please specify a JID." } };
+		end
 
 		local user, host, resource = jid.split(fields.accountjid);
 		if host ~= data.to then
@@ -429,6 +446,10 @@ function announce_handler(self, data, state)
 
 		local fields = announce_layout:data(data.form);
 
+		if #fields.announcement == 0 then
+			return { status = "completed", error = { message = "Please specify some announcement text." } };
+		end
+
 		module:log("info", "Sending server announcement to all online users");
 		local message = st.message({type = "headline"}, fields.announcement):up()
 			:tag("subject"):text(fields.subject or "Announcement");
@@ -452,7 +473,7 @@ function shut_down_service_handler(self, data, state)
 
 		local fields = shut_down_service_layout:data(data.form);
 
-		if fields.announcement then
+		if #fields.announcement > 0 then
 			local message = st.message({type = "headline"}, fields.announcement):up()
 				:tag("subject"):text("Server is shutting down");
 			send_to_online(message);
