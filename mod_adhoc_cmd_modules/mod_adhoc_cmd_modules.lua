@@ -43,7 +43,7 @@ function load_module_handler(self, data, state)
 		local fields = layout:data(data.form);
 		if (not fields.module) or (fields.module == "") then
 			return { status = "completed", error = {
-				message = "Please specify a module. (This means your client misbehaved, as this field is required)"
+				message = "Please specify a module."
 			} };
 		end
 		if modulemanager.is_loaded(data.to, fields.module) then
