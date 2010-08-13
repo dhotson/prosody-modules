@@ -15,7 +15,7 @@ local rom = require "core.rostermanager";
 local PREFS_DIR = "archive_muc_prefs";
 local ARCHIVE_DIR = "archive_muc";
 
-local AUTO_ARCHIVING_ENABLED = true;
+local AUTO_MUC_ARCHIVING_ENABLED = module:get_option_boolean("auto_muc_archiving_enabled", true);
 
 module:add_feature("urn:xmpp:archive#preferences");
 module:add_feature("urn:xmpp:archive#management");
@@ -143,7 +143,7 @@ end
 local function apply_pref(node, host, jid)
     local pref = load_prefs(node, host);
     if not pref then
-        return AUTO_ARCHIVING_ENABLED;
+        return AUTO_MUC_ARCHIVING_ENABLED;
     end
     local always = pref:child_with_name('always');
     if always and is_in(always, jid) then
@@ -161,7 +161,7 @@ local function apply_pref(node, host, jid)
     elseif default == 'never' then
         return false;
     end
-    return AUTO_ARCHIVING_ENABLED;
+    return AUTO_MUC_ARCHIVING_ENABLED;
 end
 
 local function store_msg(msg, node, host)
@@ -196,4 +196,3 @@ module:hook("iq/self/urn:xmpp:archive#management:query", management_handler);
 
 module:hook("message/bare", msg_handler, 20);
 
--- TODO prefs: [1] = "\n      ";

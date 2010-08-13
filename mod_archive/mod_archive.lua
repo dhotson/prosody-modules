@@ -14,10 +14,10 @@ local um = require "core.usermanager";
 local PREFS_DIR = "archive_prefs";
 local ARCHIVE_DIR = "archive";
 local xmlns_rsm = "http://jabber.org/protocol/rsm";
-local DEFAULT_MAX = 100;
 
-local FORCE_ARCHIVING = false;
-local AUTO_ARCHIVING_ENABLED = true;
+local DEFAULT_MAX = module:get_option_number("default_max", 100);
+local FORCE_ARCHIVING = module:get_option_boolean("force_archiving", false);
+local AUTO_ARCHIVING_ENABLED = module:get_option_boolean("auto_archiving_enabled", true);
 
 module:add_feature("urn:xmpp:archive");
 module:add_feature("urn:xmpp:archive:auto");
