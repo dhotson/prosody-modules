@@ -37,7 +37,7 @@ module:hook("iq/host/"..xmlns_disco.."#items:query", function (event)
 	end
 end, 500);
 
-module:hook("iq/host"..xmlns_cmd..":command", function (event)
+module:hook("iq/host/"..xmlns_cmd..":command", function (event)
 	local origin, stanza = event.origin, event.stanza;
 	if stanza.attr.type == "set" then
 		local node = stanza.tags[1].attr.node
