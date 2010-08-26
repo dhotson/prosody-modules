@@ -446,7 +446,7 @@ function announce_handler(self, data, state)
 
 		local fields = announce_layout:data(data.form);
 
-		if #fields.announcement == 0 then
+		if (not fields.announcement) or (#fields.announcement == 0)  then
 			return { status = "completed", error = { message = "Please specify some announcement text." } };
 		end
 
@@ -473,7 +473,7 @@ function shut_down_service_handler(self, data, state)
 
 		local fields = shut_down_service_layout:data(data.form);
 
-		if #fields.announcement > 0 then
+		if fields.announcement and #fields.announcement > 0 then
 			local message = st.message({type = "headline"}, fields.announcement):up()
 				:tag("subject"):text("Server is shutting down");
 			send_to_online(message);
