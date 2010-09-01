@@ -25,7 +25,7 @@ function list_modules_handler(self, data, state)
 
 	local modules = array.collect(keys(hosts[data.to].modules)):sort():concat("\n");
 
-	return { status = "completed", result = { layout = result; data = { modules = modules } } };
+	return { status = "completed", result = { layout = result; values = { modules = modules } } };
 end
 
 function load_module_handler(self, data, state)
@@ -90,7 +90,7 @@ function reload_modules_handler(self, data, state)
 		end
 	else
 		local modules = array.collect(keys(hosts[data.to].modules)):sort();
-		return { status = "executing", form = { layout = layout; data = { module = modules } } }, "executing";
+		return { status = "executing", form = { layout = layout; values = { module = modules } } }, "executing";
 	end
 end
 
@@ -122,7 +122,7 @@ function unload_modules_handler(self, data, state)
 		end
 	else
 		local modules = array.collect(keys(hosts[data.to].modules)):sort();
-		return { status = "executing", form = { layout = layout; data = { module = modules } } }, "executing";
+		return { status = "executing", form = { layout = layout; values = { module = modules } } }, "executing";
 	end
 end
 

@@ -286,7 +286,7 @@ function get_user_password_handler(self, data, state)
 		else
 			return { status = "completed", error = { message = "User does not exist" } };
 		end
-		return { status = "completed", result = { layout = get_user_password_result_layout, data = {accountjid = accountjid, password = password} } };
+		return { status = "completed", result = { layout = get_user_password_result_layout, values = {accountjid = accountjid, password = password} } };
 	else
 		return { status = "executing", form = get_user_password_layout }, "executing";
 	end
@@ -370,7 +370,7 @@ function get_user_stats_handler(self, data, state)
 			resources = resources .. "\n" .. resource;
 			IPs = IPs .. "\n" .. session.ip;
 		end
-		return { status = "completed", result = {layout = get_user_stats_result_layout, data = {ipaddresses = IPs, rostersize = tostring(rostersize),
+		return { status = "completed", result = {layout = get_user_stats_result_layout, values = {ipaddresses = IPs, rostersize = tostring(rostersize),
 			onlineresources = resources}} };
 	else
 		return { status = "executing", form = get_user_stats_layout }, "executing";
@@ -412,7 +412,7 @@ function get_online_users_command_handler(self, data, state)
 				end
 			end
 		end
-		return { status = "completed", result = {layout = get_online_users_result_layout, data = {onlineuserjids=t_concat(users, "\n")}} };
+		return { status = "completed", result = {layout = get_online_users_result_layout, values = {onlineuserjids=t_concat(users, "\n")}} };
 	else
 		return { status = "executing", form = get_online_users_layout }, "executing";
 	end
