@@ -298,7 +298,7 @@ function get_user_roster_handler(self, data, state)
 			return { status = "canceled" };
 		end
 
-		local fields = add_user_layout:data(data.form);
+		local fields = get_user_roster_layout:data(data.form);
 
 		if not fields.accountjid then
 			return { status = "completed", error = { message = "Please specify a JID" } };
