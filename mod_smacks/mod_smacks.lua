@@ -82,6 +82,7 @@ module:hook_stanza(xmlns_sm, "a", function (origin, stanza)
 	if not origin.smacks then return; end
 	origin.awaiting_ack = nil;
 	-- Remove handled stanzas from outgoing_stanza_queue
+	--log("debug", "ACK: h=%s, last=%s", stanza.attr.h or "", origin.last_acknowledged_stanza or "");
 	local handled_stanza_count = tonumber(stanza.attr.h)-origin.last_acknowledged_stanza;
 	local queue = origin.outgoing_stanza_queue;
 	if handled_stanza_count > #queue then
@@ -142,6 +143,7 @@ function sessionmanager.destroy_session(session, err)
 			end);
 			return; -- Postpone destruction for now
 		end
+		
 	end
 	return _destroy_session(session, err);
 end
