@@ -30,8 +30,8 @@ module:hook_stanza(xmlns_sm, "enable",
 			local queue = {};
 			session.outgoing_stanza_queue = queue;
 			session.last_acknowledged_stanza = 0;
-			local _send = session.send;
-			function session.send(stanza)
+			local _send = session.sends2s or session.send;
+			local function new_send(stanza)
 				local attr = stanza.attr;
 				if attr and not attr.xmlns then -- Stanza in default stream namespace
 					queue[#queue+1] = st.reply(stanza);
@@ -42,6 +42,12 @@ module:hook_stanza(xmlns_sm, "enable",
 					return _send(st.stanza("r", { xmlns = xmlns_sm }));
 				end
 				return ok, err;
+			end
+			
+			if session.sends2s then
+				session.sends2s = new_send;
+			else
+				session.send = new_send;
 			end
 			
 			session.handled_stanza_count = 0;
@@ -66,7 +72,7 @@ module:hook_stanza(xmlns_sm, "r", function (origin, stanza)
 	end
 	module:log("debug", "Received ack request, acking for %d", origin.handled_stanza_count);
 	-- Reply with <a>
-	origin.send(st.stanza("a", { xmlns = xmlns_sm, h = tostring(origin.handled_stanza_count) }));
+	(origin.sends2s or origin.send)(st.stanza("a", { xmlns = xmlns_sm, h = tostring(origin.handled_stanza_count) }));
 	return true;
 end);
 
