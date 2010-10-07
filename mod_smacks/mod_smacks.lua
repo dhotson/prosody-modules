@@ -4,11 +4,13 @@ local t_insert, t_remove = table.insert, table.remove;
 local math_min = math.min;
 local tonumber, tostring = tonumber, tostring;
 local add_filter = require "util.filters".add_filter;
+local timer = require "util.timer";
 
 local xmlns_sm = "urn:xmpp:sm:2";
 
 local sm_attr = { xmlns = xmlns_sm };
 
+local resume_timeout = 300;
 local max_unacked_stanzas = 0;
 
 module:add_event_hook("stream-features",
@@ -121,13 +123,24 @@ end
 local _destroy_session = sessionmanager.destroy_session;
 function sessionmanager.destroy_session(session, err)
 	if session.smacks then
-		local queue = session.outgoing_stanza_queue;
-		if #queue > 0 then
-			module:log("warn", "Destroying session with %d unacked stanzas:", #queue);
-			for i=1,#queue do
-				module:log("warn", "::%s", tostring(queue[i]));
+		if not session.resumption_token then
+			local queue = session.outgoing_stanza_queue;
+			if #queue > 0 then
+				module:log("warn", "Destroying session with %d unacked stanzas:", #queue);
+				for i=1,#queue do
+					module:log("warn", "::%s", tostring(queue[i]));
+				end
+				handle_unacked_stanzas(session);
 			end
-			handle_unacked_stanzas(session);
+		else
+			session.hibernating = true;
+			timer.add_task(resume_timeout, function ()
+				if session.hibernating then
+					session.resumption_token = nil;
+					sessionmanager.destroy_session(session); -- Re-destroy
+				end
+			end);
+			return; -- Postpone destruction for now
 		end
 	end
 	return _destroy_session(session, err);
