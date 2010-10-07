@@ -34,7 +34,7 @@ module:hook_stanza(xmlns_sm, "enable",
 			local function new_send(stanza)
 				local attr = stanza.attr;
 				if attr and not attr.xmlns then -- Stanza in default stream namespace
-					queue[#queue+1] = st.reply(stanza);
+					queue[#queue+1] = st.clone(stanza);
 				end
 				local ok, err = _send(stanza);
 				if ok and #queue > max_unacked_stanzas and not session.awaiting_ack then
@@ -107,12 +107,12 @@ function handle_unacked_stanzas(session)
 	if #queue > 0 then
 		session.outgoing_stanza_queue = {};
 		for i=1,#queue do
-			local reply = queue[i];
+			local reply = st.reply(queue[i]);
 			if reply.attr.to ~= session.full_jid then
 				reply.attr.type = "error";
 				reply:tag("error", error_attr)
 					:tag("recipient-unavailable", {xmlns = "urn:ietf:params:xml:ns:xmpp-stanzas"});
-				core_process_stanza(session, queue[i]);
+				core_process_stanza(session, reply);
 			end
 		end
 	end
