@@ -19,6 +19,7 @@ function check_message(data)
 	local from_room, from_host, from_nick = jid.split(from_room_jid);
 
 	local body = stanza:get_child("body");
+	if not body then return; end -- No body, like topic changes
 	body = body and body:get_text(); -- I feel like I want to do `or ""` there :/
 	local target_room, message = body:match("^@([^:]+):(.*)");
 	if not target_room or not message then return; end
