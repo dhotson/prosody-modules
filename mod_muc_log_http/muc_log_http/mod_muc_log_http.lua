@@ -4,6 +4,8 @@
 -- COPYING file in the source package for more information.
 --
 
+module:set_global();
+
 local prosody = prosody;
 local tabSort = table.sort;
 local tonumber = _G.tonumber;
