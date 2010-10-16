@@ -13,14 +13,14 @@ local sm_attr = { xmlns = xmlns_sm };
 local resume_timeout = 300;
 local max_unacked_stanzas = 0;
 
-module:add_event_hook("stream-features",
-		function (session, features)
-			features:tag("sm", sm_attr):tag("optional"):up():up();
+module:hook("stream-features",
+		function (event)
+			event.features:tag("sm", sm_attr):tag("optional"):up():up();
 		end);
 
 module:hook("s2s-stream-features",
-		function (data)
-			data.features:tag("sm", sm_attr):tag("optional"):up():up();
+		function (event)
+			event.features:tag("sm", sm_attr):tag("optional"):up():up();
 		end);
 
 module:hook_stanza(xmlns_sm, "enable",
