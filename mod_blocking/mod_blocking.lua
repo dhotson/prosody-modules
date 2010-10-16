@@ -100,7 +100,9 @@ function get_blocked_jids(username, host)
 	return jid_list;
 end
 
-function handle_blocking_command(session, stanza)
+function handle_blocking_command(event)
+	local session, stanza = event.origin, event.stanza;
+
 	local username, host = jid_split(stanza.attr.from);
 	if stanza.attr.type == "set" then
 		if stanza.tags[1].name == "block" then
@@ -110,16 +112,18 @@ function handle_blocking_command(session, stanza)
 				block_jid_list[#block_jid_list+1] = item.attr.jid;
 			end
 			if #block_jid_list == 0 then
-				--FIXME: Reply bad-request
+				session.send(st.error_reply(stanza, "modify", "bad-request"));
 			else
 				for _, jid in ipairs(block_jid_list) do
 					add_blocked_jid(username, host, jid);
 				end
 				session.send(st.reply(stanza));
 			end
+			return true;
 		elseif stanza.tags[1].name == "unblock" then
 			remove_all_blocked_jids(username, host);
 			session.send(st.reply(stanza));
+			return true;
 		end
 	elseif stanza.attr.type == "get" and stanza.tags[1].name == "blocklist" then
 		local reply = st.reply(stanza):tag("blocklist", { xmlns = xmlns_blocking });
@@ -128,9 +132,10 @@ function handle_blocking_command(session, stanza)
 			reply:tag("item", { jid = jid }):up();
 		end
 		session.send(reply);
-	else
-		--FIXME: Need to respond with service-unavailable
+		return true;
 	end
 end
 
-module:add_iq_handler("c2s", xmlns_blocking, handle_blocking_command);
+module:hook("iq/self/urn:xmpp:blocking:blocklist", handle_blocking_command);
+module:hook("iq/self/urn:xmpp:blocking:block", handle_blocking_command);
+module:hook("iq/self/urn:xmpp:blocking:unblock", handle_blocking_command);
