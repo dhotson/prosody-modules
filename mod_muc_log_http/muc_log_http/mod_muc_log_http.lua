@@ -827,7 +827,7 @@ function module.unload()
 	module:log("debug", "unloaded mod_muc_log_http");
 end
 
-module:add_event_hook("component-activated", function(component, config)
+module:hook("component-activated", function(component, config)
 	if config.core and config.core.modules_enabled then
 		for _,mod in ipairs(config.core.modules_enabled) do
 			if(mod == "muc_log") then
