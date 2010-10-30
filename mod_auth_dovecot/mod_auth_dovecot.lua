@@ -7,7 +7,7 @@
 
 local socket_unix = require "socket.unix";
 local datamanager = require "util.datamanager";
-local log = require "util.logger".init("auth_internal_plain");
+local log = require "util.logger".init("auth_dovecot");
 local new_sasl = require "util.sasl".new;
 local nodeprep = require "util.encodings".stringprep.nodeprep;
 local base64 = require "util.encodings".base64;
