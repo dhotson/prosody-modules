@@ -17,7 +17,7 @@ local prosody = _G.prosody;
 local socket_path = module:get_option_string("dovecot_auth_socket", "/var/run/dovecot/auth-login");
 
 function new_default_provider(host)
-	local provider = { name = "dovecot", c = nil };
+	local provider = { name = "dovecot", c = nil, request_id = 0 };
 	log("debug", "initializing dovecot authentication provider for host '%s'", host);
 	
 	-- Closes the socket
@@ -128,10 +128,11 @@ function new_default_provider(host)
 		-- Send auth data
 		username = username .. "@" .. module.host; -- FIXME: this is actually a hack for my server
 		local b64 = base64.encode(username .. "\0" .. username .. "\0" .. password);
-		local id = "54321"; -- FIXME: probably can just be a fixed value if making one request per connection
-		if (not provider:send("AUTH\t" .. id .. "\tPLAIN\tservice=XMPP\tresp=" .. b64 .. "\n")) then
+		provider.request_id = provider.request_id + 1
+		if (not provider:send("AUTH\t" .. provider.request_id .. "\tPLAIN\tservice=XMPP\tresp=" .. b64 .. "\n")) then
 			return nil, "Auth failed. Dovecot communications error";
 		end
+		
 		
 		-- Get response
 		local l = provider:receive();
