@@ -36,6 +36,7 @@ function new_default_provider(host)
 		provider.c = socket.unix();
 		
 		-- Create a connection to dovecot socket
+		log("debug", "connecting to dovecot socket at '%s'", socket_path);
 		local r, e = provider.c:connect(socket_path);
 		if (not r) then
 			log("warn", "error connecting to dovecot socket at '%s'. error was '%s'. check permissions", socket_path, e);
@@ -45,6 +46,7 @@ function new_default_provider(host)
 		
 		-- Send our handshake
 		local pid = pposix.getpid();
+		log("debug", "sending handshake to dovecot. version 1.1, cpid '%d'", pid);
 		if not provider:send("VERSION\t1\t1\n") then
 			return false
 		end
@@ -60,6 +62,7 @@ function new_default_provider(host)
 				return false;
 			end
 			
+			log("debug", "dovecot handshake: '%s'", l);
 			parts = string.gmatch(l, "[^\t]+");
 			first = parts();
 			if (first == "VERSION") then
@@ -128,23 +131,37 @@ function new_default_provider(host)
 		-- Send auth data
 		username = username .. "@" .. module.host; -- FIXME: this is actually a hack for my server
 		local b64 = base64.encode(username .. "\0" .. username .. "\0" .. password);
-		provider.request_id = provider.request_id + 1
-		if (not provider:send("AUTH\t" .. provider.request_id .. "\tPLAIN\tservice=XMPP\tresp=" .. b64 .. "\n")) then
+		provider.request_id = provider.request_id + 1 % 4294967296
+		
+		local msg = "AUTH\t" .. provider.request_id .. "\tPLAIN\tservice=XMPP\tresp=" .. b64;
+		log("debug", "sending auth request for '%s' with password '%s': '%s'", username, password, msg);
+		if (not provider:send(msg .. "\n")) then
 			return nil, "Auth failed. Dovecot communications error";
 		end
 		
 		
 		-- Get response
 		local l = provider:receive();
+		log("debug", "got auth response: '%s'", l);
 		if (not l) then
 			return nil, "Auth failed. Dovecot communications error";
 		end
 		local parts = string.gmatch(l, "[^\t]+");
 		
 		-- Check response
-		if (parts() == "OK") then
+		local status = parts();
+		local resp_id = tonumber(parts());
+		if (resp_id  ~= provider.request_id) then
+			log("warn", "dovecot response_id(%s) doesn't match request_id(%s)", resp_id, provider.request_id);
+			provider:close();
+			return nil, "Auth failed. Dovecot communications error";
+		end
+		
+		if (status == "OK") then
+			log("info", "login ok for '%s'", username);
 			return true;
 		else
+			log("info", "login failed for '%s'", username);
 			return nil, "Auth failed. Invalid username or password.";
 		end
 	end
