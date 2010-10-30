@@ -117,12 +117,8 @@ function new_default_provider(host)
 		return r;
 	end
 	
-	function provider.test_password(username, password)
-		log("debug", "test password '%s' for user %s at host %s", password, username, module.host);
-		
-		local tries = 0;
-		
-		if (provider.c == nil or tries > 0) then
+	function provider.send_auth_request(self, username, password)
+		if (provider.c == nil) then
 			if (not provider:connect()) then
 				return nil, "Auth failed. Dovecot communications error";
 			end
@@ -151,11 +147,20 @@ function new_default_provider(host)
 		-- Check response
 		local status = parts();
 		local resp_id = tonumber(parts());
+		
 		if (resp_id  ~= provider.request_id) then
 			log("warn", "dovecot response_id(%s) doesn't match request_id(%s)", resp_id, provider.request_id);
 			provider:close();
 			return nil, "Auth failed. Dovecot communications error";
 		end
+		
+		return status, parts;
+	end
+	
+	function provider.test_password(username, password)
+		log("debug", "test password '%s' for user %s at host %s", password, username, module.host);
+		
+		local status, extra = provider:send_auth_request(username, password);
 		
 		if (status == "OK") then
 			log("info", "login ok for '%s'", username);
@@ -175,8 +180,27 @@ function new_default_provider(host)
 	end
 
 	function provider.user_exists(username)
-		--TODO: Send an auth request. If it returns FAIL <id> user=<user> then user exists.
-		return nil, "user_exists not yet implemented in dovecot backend.";
+		log("debug", "user_exists for user %s at host %s", username, module.host);
+		
+		-- Send a request. If the response (FAIL) contains an extra
+		-- parameter like user=<username> then it exists.
+		local status, extra = provider:send_auth_request(username, "");
+		
+		local param = extra();
+		while (param) do
+			parts = string.gmatch(param, "[^=]+");
+			name = parts();
+			value = parts();
+			if (name == "user") then
+				log("info", "user '%s' exists", username);
+				return true;
+			end
+			
+			param = extra();
+		end
+		
+		log("info", "user '%s' does not exists (or dovecot didn't send user=<username> parameter)", username);
+		return false;
 	end
 
 	function provider.create_user(username, password)
