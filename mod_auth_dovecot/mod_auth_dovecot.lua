@@ -11,6 +11,7 @@ local log = require "util.logger".init("auth_internal_plain");
 local new_sasl = require "util.sasl".new;
 local nodeprep = require "util.encodings".stringprep.nodeprep;
 local base64 = require "util.encodings".base64;
+local pposix = require "util.pposix";
 
 local prosody = _G.prosody;
 
@@ -24,7 +25,7 @@ function new_default_provider(host)
 		c = assert(socket.unix());
 		assert(c:connect("/var/run/dovecot/auth-login")); -- FIXME: Hardcoded is bad
 		
-		local pid = "12345"; -- FIXME: this should be an unique number between processes, recommendation is PID
+		local pid = pposix.getpid();
 
 		-- Send our handshake
         -- FIXME: Oh no! There are asserts everywhere
