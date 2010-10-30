@@ -14,6 +14,7 @@ local base64 = require "util.encodings".base64;
 local pposix = require "util.pposix";
 
 local prosody = _G.prosody;
+local socket_path = module:get_option_string("dovecot_auth_socket", "/var/run/dovecot/auth-login");
 
 function new_default_provider(host)
 	local provider = { name = "dovecot", c = nil };
@@ -35,10 +36,9 @@ function new_default_provider(host)
 		provider.c = socket.unix();
 		
 		-- Create a connection to dovecot socket
-		local socket = "/var/run/dovecot/auth-login";
-		local r, e = provider.c:connect(socket);
+		local r, e = provider.c:connect(socket_path);
 		if (not r) then
-			log("warn", "error connecting to dovecot socket at '%s'. error was '%s'. check permissions", socket, e);
+			log("warn", "error connecting to dovecot socket at '%s'. error was '%s'. check permissions", socket_path, e);
 			provider:close();
 			return false;
 		end
