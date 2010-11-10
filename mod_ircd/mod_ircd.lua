@@ -172,7 +172,20 @@ function irc_component(origin, stanza)
 	end
 end
 
-require "core.componentmanager".register_component(module.host, irc_component);
+local function stanza_handler(event)
+	irc_component(event.origin, event.stanza);
+	return true;
+end
+module:hook("iq/bare", stanza_handler);
+module:hook("message/bare", stanza_handler);
+module:hook("presence/bare", stanza_handler);
+module:hook("iq/full", stanza_handler);
+module:hook("message/full", stanza_handler);
+module:hook("presence/full", stanza_handler);
+module:hook("iq/host", stanza_handler);
+module:hook("message/host", stanza_handler);
+module:hook("presence/host", stanza_handler);
+require "core.componentmanager".register_component(module.host, function() end); -- COMPAT Prosody 0.7
 
 prosody.events.add_handler("server-stopping", function (shutdown)
 	module:log("debug", "Closing IRC connections prior to shutdown");
