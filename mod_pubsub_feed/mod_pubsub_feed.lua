@@ -6,7 +6,7 @@
 --   "pubsub_feed";
 -- }
 -- feeds = { -- node -> url
---   telecomix = "https://status.telecomix.org/api/statuses/public_timeline.atom";
+--   prosody_blog = "http://blog.prosody.im/feed/atom.xml";
 -- }
 -- feed_pull_interval = 20 -- minutes
 
@@ -16,9 +16,10 @@ if not modules.pubsub then
 end
 local add_task = require "util.timer".add_task;
 local date, time = os.date, os.time;
-local dt_parse = require "util.datetime".parse;
+local dt_parse, dt_datetime = require "util.datetime".parse, require "util.datetime".datetime;
 local http = require "net.http";
 local parse_feed = require "feeds".feed_from_string;
+local st = require "util.stanza";
 
 local config = module:get_option("feeds") or {
 	planet_jabber = "http://planet.jabber.org/atom.xml";
@@ -68,9 +69,11 @@ local function refresh_feeds()
 				module:log("debug", "timestamp is %s, item.last_update is %s", tostring(timestamp), tostring(item.last_update));
 				if not timestamp or not item.last_update or timestamp > item.last_update then
 					local id = entry:get_child("id");
-					id = id[1] or item.url.."#"..timestamp;
+					id = id[1] or item.url.."#"..dt_datetime(timestamp); -- Missing id, so make one up
+					local item = st.stanza("item", { id = id }):add_child(entry);
+
 					module:log("debug", "publishing to %s, id %s", node, id);
-					modules.pubsub.service:publish(node, actor, id, entry)
+					modules.pubsub.service:publish(node, actor, id, item)
 				end
 			end
 		end);
