@@ -38,4 +38,4 @@ function check_message(data)
 	muc_rooms[bare_room]:broadcast_message(forward_stanza);
 end
 
-module:hook("message/bare", check_message);
+module:hook("message/bare", check_message, 10);
