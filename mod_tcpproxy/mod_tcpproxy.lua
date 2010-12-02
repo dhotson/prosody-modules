@@ -108,14 +108,14 @@ local function stanza_handler(event)
 	proxy_component(event.origin, event.stanza);
 	return true;
 end
-module:hook("iq/bare", stanza_handler);
-module:hook("message/bare", stanza_handler);
-module:hook("presence/bare", stanza_handler);
-module:hook("iq/full", stanza_handler);
-module:hook("message/full", stanza_handler);
-module:hook("presence/full", stanza_handler);
-module:hook("iq/host", stanza_handler);
-module:hook("message/host", stanza_handler);
-module:hook("presence/host", stanza_handler);
+module:hook("iq/bare", stanza_handler, -1);
+module:hook("message/bare", stanza_handler, -1);
+module:hook("presence/bare", stanza_handler, -1);
+module:hook("iq/full", stanza_handler, -1);
+module:hook("message/full", stanza_handler, -1);
+module:hook("presence/full", stanza_handler, -1);
+module:hook("iq/host", stanza_handler, -1);
+module:hook("message/host", stanza_handler, -1);
+module:hook("presence/host", stanza_handler, -1);
 
 require "core.componentmanager".register_component(host, function() end); -- COMPAT Prosody 0.7
