@@ -4,6 +4,7 @@
 local host_session = prosody.hosts[module.host];
 local st_msg = require "util.stanza".message;
 local jid = require "util.jid";
+local now = require "util.datetime".datetime;
 
 function check_message(data)
 	local origin, stanza = data.origin, data.stanza;
@@ -33,6 +34,7 @@ function check_message(data)
 
 	local sender = jid.join(target_room, module.host, from_room .. "/" .. from_nick);
 	local forward_stanza = st_msg({from = sender, to = bare_room, type = "groupchat"}, message);
+	forward_stanza:tag("delay", { xmlns = 'urn:xmpp:delay', from = from_room_jid, stamp = now() }):up();
 
 	module:log("debug", "broadcasting message to target room");
 	muc_rooms[bare_room]:broadcast_message(forward_stanza);
