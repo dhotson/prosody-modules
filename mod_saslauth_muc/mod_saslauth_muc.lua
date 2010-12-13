@@ -42,8 +42,7 @@ local function create_handler_for(room_jid, jid)
 end
 
 -- Timer to clear SASL sessions
-timer.add_task(timeout, function()
-	local now = os_time();
+timer.add_task(timeout, function(now)
 	for room, handlers in pairs(_rooms) do
 		for jid, handler in pairs(handlers) do
 			if handler.timeout <= now then handlers[jid] = nil; end
@@ -52,6 +51,9 @@ timer.add_task(timeout, function()
 	end
 	return timeout;
 end);
+function module.unload()
+	timeout = nil; -- stop timer on unload
+end
 
 -- Stanza handlers
 module:hook("presence/full", function(event)
