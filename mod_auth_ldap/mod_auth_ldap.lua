@@ -48,7 +48,7 @@ function provider.get_sasl_handler()
 				log("debug", "NODEprep failed on username: %s", username);
 				return "", nil;
 			end
-			return provider.test_password(prepped_username, realm, password), true;
+			return provider.test_password(prepped_username, password), true;
 		end
 	};
 	return new_sasl(realm, testpass_authentication_profile);
