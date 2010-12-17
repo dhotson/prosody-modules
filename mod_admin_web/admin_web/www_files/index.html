@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+	"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>S2S</title>
+<link rel="stylesheet" type="text/css" href="style.css" />
+<meta http-equiv="Content-Type" content="application/xhtml+xml; charset=utf-8" />
+<script type="text/javascript" src="js/jquery-1.4.4.min.js"></script>
+<script type="text/javascript" src="js/strophe.js"></script>
+<script type="text/javascript" src="js/main.js"></script>
+</head>
+<body>
+<div id='login'>
+  <form id='cred' name='cred'>
+    <label for='jid'>JID:</label><br/>
+    <input type='text' id='jid' />
+    <br />
+    <label for='pass'>Password:</label><br/>
+    <input type='password' id='pass' />
+    <br />
+    <input type='submit' id='connect' value='connect' />
+  </form>
+</div>
+
+<div id='main'>
+  <div class="container">
+    Incomming S2S connections:
+    <ul id="s2sin"></ul>
+  </div>
+  <div class="container">
+    Outgoing S2S connections:
+    <ul id="s2sout"></ul>
+  </div>
+</div>
+
+<div id='log_container'>
+  <a id='log_toggle' href='#'>Status Log :</a>
+  <div id='log'></div>
+</div>
+</body>
+</html>
