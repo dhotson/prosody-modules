@@ -56,6 +56,9 @@ module:hook("iq/self/jabber:iq:private:query", function(event)
 		end
 		if stanza.attr.type == "get" then
 			local data = data and data[key];
+			if (not data) and key == "storage:storage:bookmarks" then
+				data = st.stanza("storage", { xmlns = "storage:bookmarks" });
+			end
 			if data then
 				data = st.deserialize(data);
 				if key == "storage:storage:bookmarks" then
