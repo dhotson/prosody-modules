@@ -11,26 +11,37 @@
 <script type="text/javascript" src="js/main.js"></script>
 </head>
 <body>
-<div id='login'>
-  <form id='cred' name='cred'>
-    <label for='jid'>JID:</label><br/>
-    <input type='text' id='jid' />
-    <br />
-    <label for='pass'>Password:</label><br/>
-    <input type='password' id='pass' />
-    <br />
-    <input type='submit' id='connect' value='connect' />
-  </form>
+<div id='left'>
+  <div id='login'>
+    <form id='cred' name='cred'>
+      <label for='jid'>JID:</label><br/>
+      <input type='text' id='jid' />
+      <br />
+      <label for='pass'>Password:</label><br/>
+      <input type='password' id='pass' />
+      <br />
+      <input type='submit' id='connect' value='connect' />
+    </form>
+  </div>
+  <div id='menu'>
+    <ul>
+      <li id='adhocMenu'><a href="#">General</a></li>
+      <li id='serverMenu'><a href="#">Server</a></li>
+    </ul>
+  </div>
 </div>
 
 <div id='main'>
-  <div class="container">
-    Incomming S2S connections:
-    <ul id="s2sin"></ul>
-  </div>
-  <div class="container">
-    Outgoing S2S connections:
-    <ul id="s2sout"></ul>
+  <div id="adhoc">More later</div>
+  <div id="s2sList">
+    <div class="container">
+      Incomming S2S connections:
+      <ul id="s2sin"></ul>
+    </div>
+    <div class="container">
+      Outgoing S2S connections:
+      <ul id="s2sout"></ul>
+    </div>
   </div>
 </div>
 

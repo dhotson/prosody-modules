@@ -78,7 +78,9 @@ function showConnect() {
     button.value = 'connect';
     pass.show();
     jid.show();
-    $('.container').hide();
+    $('#menu').hide();
+    $('#adhoc').hide();
+    $('#s2sList').hide();
     $('#cred label').show();
     $('#cred br').show();
     $('ul').empty();
@@ -92,7 +94,8 @@ function showDisconnect() {
     button.value = 'disconnect';
     pass.hide();
     jid.hide();
-    $('.container').show();
+    $('#menu').show();
+    $('#adhoc').show();
     $('#cred label').hide();
     $('#cred br').hide();
 }
@@ -107,7 +110,7 @@ $(document).ready(function () {
 
     $("#log_toggle").click(function () {
         $("#log").toggle();
-      });
+    });
 
     $('#cred').bind('submit', function (event) {
         var button = $('#connect').get(0);
@@ -126,6 +129,17 @@ $(document).ready(function () {
         event.preventDefault();
     });
 
+    $('#adhocMenu').click(function () {
+	$('#s2sList').slideUp();
+	$('#adhoc').slideDown();
+        event.preventDefault();
+    });
+
+    $('#serverMenu').click(function () {
+	$('#adhoc').slideUp();
+	$('#s2sList').slideDown();
+        event.preventDefault();
+    });
 });
 
 window.onunload = window.onbeforeunload = function() {

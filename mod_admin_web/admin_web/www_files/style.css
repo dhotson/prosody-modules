@@ -26,11 +26,10 @@ a {
   margin: 2em;
   padding: 0.5em;
   border: solid;
-  float: left;
-  display: none
+  float: left
 }
 
-#login{
+#left {
   float: left;
   margin-right: 2em;
   padding: 1em;
@@ -38,8 +37,29 @@ a {
   color: #000000
 }
 
+#adhoc {
+  display: none
+}
+
+#s2sList {
+  display: none
+}
+
 #cred input[type="submit"] {
   margin-left: 0em
+}
+
+#menu {
+  display: none
+}
+
+#menu ul {
+  list-style-type: none;
+  padding: 0px;
+}
+
+#menu li {
+  font-size: 20pt
 }
 
 #main {
