@@ -52,7 +52,7 @@ function add_host(session, type)
 	if session.compressed then
 		item:tag("compressed"):up();
 	end
-	hosts[service].modules.pubsub.service:publish(xmlns_sessions, host, id, item);
+	hosts[service].modules.pubsub.service:publish(xmlns_sessions, service, id, item);
 	module:log("debug", "Added host " .. name .. " s2s" .. type);
 end
 
@@ -61,7 +61,7 @@ function del_host(session, type)
 	local id = idmap[name.."_"..type];
 	if id then
 		local notifier = stanza.stanza("retract", { id = id });
-		hosts[service].modules.pubsub.service:retract(xmlns_sessions, host, id, notifier);
+		hosts[service].modules.pubsub.service:retract(xmlns_sessions, service, id, notifier);
 	end
 end
 
@@ -94,6 +94,7 @@ function serve_file(path)
 	local f, err = open(full_path, "rb");
 	if not f then return response_404; end
 	local data = f:read("*a");
+	data = data:gsub("%%PUBSUBHOST%%", service);
 	f:close();
 	if not data then
 		return response_403;
@@ -117,7 +118,10 @@ function module.load()
 	local host_session = prosody.hosts[host];
 	local http_conf = config.get("*", "core", "webadmin_http_ports");
 
-	hosts[service].modules.pubsub.service:create(xmlns_sessions, host);
+	local ok, errmsg = hosts[service].modules.pubsub.service:create(xmlns_sessions, service);
+	if not ok then
+		error("Could not create node: " .. tostring(errmsg));
+	end
 
 	for remotehost, session in pairs(host_session.s2sout) do
 		if session.type ~= "s2sout_unauthed" then

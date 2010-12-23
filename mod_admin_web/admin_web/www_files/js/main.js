@@ -8,7 +8,7 @@ Strophe.addNamespace('CAPS', 'http://jabber.org/protocol/caps');
 var localJID = null;
 var connection   = null;
 
-var pubsubHost = null; /* TODO: Replace this inside Lua */
+var pubsubHost = '%PUBSUBHOST%';
 
 function log(msg) {
     var entry = $('<div></div>').append(document.createTextNode(msg));
@@ -62,7 +62,6 @@ function onConnect(status) {
     } else if (status == Strophe.Status.CONNECTED) {
         log('Strophe is connected.');
         showDisconnect();
-	pubsubHost = 'pubsub.' + connection.domain;
         connection.send($iq({to: pubsubHost, type: 'set', id: connection.getUniqueId()}).c('pubsub', {xmlns: Strophe.NS.PUBSUB})
                 .c('subscribe', {node: Strophe.NS.S2SPUBSUB, jid: connection.jid}));
         connection.addHandler(_cbNewS2S, Strophe.NS.PUBSUB + '#event', 'message');
