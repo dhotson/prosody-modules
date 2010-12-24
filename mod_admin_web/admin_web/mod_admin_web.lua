@@ -118,9 +118,11 @@ function module.load()
 	local host_session = prosody.hosts[host];
 	local http_conf = config.get("*", "core", "webadmin_http_ports");
 
-	local ok, errmsg = hosts[service].modules.pubsub.service:create(xmlns_sessions, service);
-	if not ok then
-		error("Could not create node: " .. tostring(errmsg));
+	if not select(2, hosts[service].modules.pubsub.service:get_nodes(service))[xmlns_sessions] then
+		local ok, errmsg = hosts[service].modules.pubsub.service:create(xmlns_sessions, service);
+		if not ok then
+			error("Could not create node: " .. tostring(errmsg));
+		end
 	end
 
 	for remotehost, session in pairs(host_session.s2sout) do
