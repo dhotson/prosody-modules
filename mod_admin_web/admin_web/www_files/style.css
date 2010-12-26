@@ -49,6 +49,10 @@ a {
   margin-left: 0em
 }
 
+#cred fieldset {
+  border: 0px
+}
+
 #menu {
   display: none
 }
