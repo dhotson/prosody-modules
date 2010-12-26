@@ -65,7 +65,7 @@ local function refresh_feeds()
 				e_updated = e_updated and e_updated[1];
 				e_updated = e_updated and dt_parse(e_updated);
 
-				local timestamp = e_published or e_updated or nil;
+				local timestamp = e_updated or e_published or nil;
 				module:log("debug", "timestamp is %s, item.last_update is %s", tostring(timestamp), tostring(item.last_update));
 				if not timestamp or not item.last_update or timestamp > item.last_update then
 					local id = entry:get_child("id");
