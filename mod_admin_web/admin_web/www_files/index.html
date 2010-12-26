@@ -8,10 +8,17 @@
 <meta http-equiv="Content-Type" content="application/xhtml+xml; charset=utf-8" />
 <script type="text/javascript" src="js/jquery-1.4.4.min.js"></script>
 <script type="text/javascript" src="js/strophe.js"></script>
+<script type="text/javascript" src="js/adhoc.js"></script>
 <script type="text/javascript" src="js/main.js"></script>
 </head>
 <body>
 <div id='left'>
+  <div id='menu'>
+    <ul>
+      <li id='adhocMenu'><a href="#">General</a></li>
+      <li id='serverMenu'><a href="#">Server</a></li>
+    </ul>
+  </div>
   <div id='login'>
     <form id='cred' name='cred'>
       <label for='jid'>JID:</label><br/>
@@ -23,16 +30,10 @@
       <input type='submit' id='connect' value='connect' />
     </form>
   </div>
-  <div id='menu'>
-    <ul>
-      <li id='adhocMenu'><a href="#">General</a></li>
-      <li id='serverMenu'><a href="#">Server</a></li>
-    </ul>
-  </div>
 </div>
 
 <div id='main'>
-  <div id="adhoc">More later</div>
+  <div id="adhoc"></div>
   <div id="s2sList">
     <div class="container">
       Incomming S2S connections:

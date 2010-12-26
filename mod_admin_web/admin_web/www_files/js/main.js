@@ -62,6 +62,7 @@ function onConnect(status) {
     } else if (status == Strophe.Status.CONNECTED) {
         log('Strophe is connected.');
         showDisconnect();
+	Adhoc.checkFeatures('#adhoc', connection.domain);
         connection.send($iq({to: pubsubHost, type: 'set', id: connection.getUniqueId()}).c('pubsub', {xmlns: Strophe.NS.PUBSUB})
                 .c('subscribe', {node: Strophe.NS.S2SPUBSUB, jid: connection.jid}));
         connection.addHandler(_cbNewS2S, Strophe.NS.PUBSUB + '#event', 'message');
