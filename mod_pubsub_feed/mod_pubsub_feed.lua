@@ -73,7 +73,24 @@ local function refresh_feeds()
 					local item = st.stanza("item", { id = id }):add_child(entry);
 
 					module:log("debug", "publishing to %s, id %s", node, id);
-					modules.pubsub.service:publish(node, actor, id, item)
+					local ok, err = modules.pubsub.service:publish(node, actor, id, item);
+					if not ok then
+						if err == "item-not-found" then -- try again
+							module:log("debug", "got item-not-found, creating %s and trying again", node);
+							local ok, err = modules.pubsub.service:create(node, actor);
+							if not ok then
+								module:log("error", "could not create node: %s", err);
+								return;
+							end
+							local ok, err = modules.pubsub.service:publish(node, actor, id, item);
+							if not ok then
+								module:log("error", "still could not create node: %s", err);
+								return
+							end
+						else
+							module:log("error", "publish failed: %s", err);
+						end
+					end
 				end
 			end
 		end);
