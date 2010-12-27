@@ -118,7 +118,9 @@ function showConnect() {
     $('#c2sList').hide();
     $('#cred label').show();
     $('#cred br').show();
-    $('ul').empty();
+    $('#s2sin').empty();
+    $('#s2sout').empty();
+    $('#c2s').empty();
 }
 
 function showDisconnect() {
