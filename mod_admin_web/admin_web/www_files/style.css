@@ -37,11 +37,7 @@ a {
   color: #000000
 }
 
-#adhoc {
-  display: none
-}
-
-#s2sList {
+#adhoc, #s2sList, #c2sList {
   display: none
 }
 

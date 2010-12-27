@@ -1,6 +1,7 @@
 var BOSH_SERVICE = 'http://localhost:5280/http-bind/';
 var show_log = false;
 
+Strophe.addNamespace('C2SPUBSUB', 'http://prosody.im/streams/c2s');
 Strophe.addNamespace('S2SPUBSUB', 'http://prosody.im/streams/s2s');
 Strophe.addNamespace('PUBSUB', 'http://jabber.org/protocol/pubsub');
 Strophe.addNamespace('CAPS', 'http://jabber.org/protocol/caps');
@@ -43,6 +44,33 @@ function _cbNewS2S(e) {
     return true;
 }
 
+function _cbNewC2S(e) {
+    var items, retract, id, jid;
+    items = e.getElementsByTagName('item');
+    for (i = 0; i < items.length; i++) {
+        id = items[i].attributes['id'].value;
+        jid = items[i].getElementsByTagName('session')[0].attributes['jid'].value;
+        $('#c2s').append('<li id="' + id + '">' + jid + '</li>');
+    }
+    retract = e.getElementsByTagName('retract')[0];
+    if (retract) {
+        id = retract.attributes['id'].value;
+        $('#' + id).remove();
+    }
+    return true;
+}
+
+function _cbPubSub(e) {
+    var node = e.getElementsByTagName('items')[0].attributes['node'].value;
+    if (node == Strophe.NS.C2SPUBSUB) {
+        _cbNewC2S(e);
+    } else if (node == Strophe.NS.S2SPUBSUB) {
+        _cbNewS2S(e);
+    }
+
+    return true;
+}
+
 function onConnect(status) {
     if (status == Strophe.Status.CONNECTING) {
         log('Strophe is connecting.');
@@ -63,11 +91,16 @@ function onConnect(status) {
         log('Strophe is connected.');
         showDisconnect();
 	Adhoc.checkFeatures('#adhoc', connection.domain);
+        connection.addHandler(_cbPubSub, Strophe.NS.PUBSUB + '#event', 'message');
+        connection.send($iq({to: pubsubHost, type: 'set', id: connection.getUniqueId()}).c('pubsub', {xmlns: Strophe.NS.PUBSUB})
+                .c('subscribe', {node: Strophe.NS.C2SPUBSUB, jid: connection.jid}));
         connection.send($iq({to: pubsubHost, type: 'set', id: connection.getUniqueId()}).c('pubsub', {xmlns: Strophe.NS.PUBSUB})
                 .c('subscribe', {node: Strophe.NS.S2SPUBSUB, jid: connection.jid}));
-        connection.addHandler(_cbNewS2S, Strophe.NS.PUBSUB + '#event', 'message');
         connection.sendIQ($iq({to: pubsubHost, type: 'get', id: connection.getUniqueId()}).c('pubsub', {xmlns: Strophe.NS.PUBSUB})
                 .c('items', {node: Strophe.NS.S2SPUBSUB}), _cbNewS2S);
+        connection.sendIQ($iq({to: pubsubHost, type: 'get', id: connection.getUniqueId()}).c('pubsub', {xmlns: Strophe.NS.PUBSUB})
+                .c('items', {node: Strophe.NS.C2SPUBSUB}), _cbNewC2S);
+
     }
 }
 
@@ -82,6 +115,7 @@ function showConnect() {
     $('#menu').hide();
     $('#adhoc').hide();
     $('#s2sList').hide();
+    $('#c2sList').hide();
     $('#cred label').show();
     $('#cred br').show();
     $('ul').empty();
@@ -132,15 +166,25 @@ $(document).ready(function () {
 
     $('#adhocMenu').click(function () {
 	$('#s2sList').slideUp();
+	$('#c2sList').slideUp();
 	$('#adhoc').slideDown();
         event.preventDefault();
     });
 
     $('#serverMenu').click(function () {
 	$('#adhoc').slideUp();
+	$('#c2sList').slideUp();
 	$('#s2sList').slideDown();
         event.preventDefault();
     });
+
+    $('#clientMenu').click(function () {
+	$('#adhoc').slideUp();
+	$('#s2sList').slideUp();
+	$('#c2sList').slideDown();
+        event.preventDefault();
+    });
+
 });
 
 window.onunload = window.onbeforeunload = function() {

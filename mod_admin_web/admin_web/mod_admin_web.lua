@@ -4,6 +4,11 @@
 -- COPYING file in the source package for more information.
 --
 
+-- <session xmlns="http://prosody.im/streams/c2s" jid="alice@example.com/brussels">
+--   <encrypted/>
+--   <compressed/>
+-- </session>
+
 -- <session xmlns="http://prosody.im/streams/s2s" jid="example.com">
 --   <encrypted/>
 --   <compressed/>
@@ -22,7 +27,8 @@ local service = config.get("*", "core", "webadmin_pubsub_host") or ("pubsub." ..
 
 local http_base = (prosody.paths.plugins or "./plugins/") .. "admin_web/www_files";
 
-local xmlns_sessions = "http://prosody.im/streams/s2s";
+local xmlns_c2s_session = "http://prosody.im/streams/c2s";
+local xmlns_s2s_session = "http://prosody.im/streams/s2s";
 
 local response_400 = { status = "400 Bad Request", body = "<h1>Bad Request</h1>Sorry, we didn't understand your request :(" };
 local response_403 = { status = "403 Forbidden", body = "<h1>Forbidden</h1>You don't have permission to view the contents of this directory :(" };
@@ -37,6 +43,33 @@ local mime_map = {
 
 local idmap = {};
 
+function add_client(session)
+	local name = session.full_jid;
+	local id = idmap[name];
+	if not id then
+		id = uuid_generate();
+		idmap[name] = id;
+	end
+	local item = stanza.stanza("item", { id = id }):tag("session", {xmlns = xmlns_c2s_session, jid = name}):up();
+	if session.secure then
+		item:tag("encrypted"):up();
+	end
+	if session.compressed then
+		item:tag("compressed"):up();
+	end
+	hosts[service].modules.pubsub.service:publish(xmlns_c2s_session, service, id, item);
+	module:log("debug", "Added client " .. name);
+end
+
+function del_client(session)
+	local name = session.full_jid;
+	local id = idmap[name];
+	if id then
+		local notifier = stanza.stanza("retract", { id = id });
+		hosts[service].modules.pubsub.service:retract(xmlns_c2s_session, service, id, notifier);
+	end
+end
+
 function add_host(session, type)
 	local name = (type == "out" and session.to_host) or (type == "in" and session.from_host);
 	local id = idmap[name.."_"..type];
@@ -44,7 +77,7 @@ function add_host(session, type)
 		id = uuid_generate();
 		idmap[name.."_"..type] = id;
 	end
-	local item = stanza.stanza("item", { id = id }):tag("session", {xmlns = xmlns_sessions, jid = name})
+	local item = stanza.stanza("item", { id = id }):tag("session", {xmlns = xmlns_s2s_session, jid = name})
 		:tag(type):up();
 	if session.secure then
 		item:tag("encrypted"):up();
@@ -52,7 +85,7 @@ function add_host(session, type)
 	if session.compressed then
 		item:tag("compressed"):up();
 	end
-	hosts[service].modules.pubsub.service:publish(xmlns_sessions, service, id, item);
+	hosts[service].modules.pubsub.service:publish(xmlns_s2s_session, service, id, item);
 	module:log("debug", "Added host " .. name .. " s2s" .. type);
 end
 
@@ -61,7 +94,7 @@ function del_host(session, type)
 	local id = idmap[name.."_"..type];
 	if id then
 		local notifier = stanza.stanza("retract", { id = id });
-		hosts[service].modules.pubsub.service:retract(xmlns_sessions, service, id, notifier);
+		hosts[service].modules.pubsub.service:retract(xmlns_s2s_session, service, id, notifier);
 	end
 end
 
@@ -118,10 +151,10 @@ function module.load()
 	local host_session = prosody.hosts[host];
 	local http_conf = config.get("*", "core", "webadmin_http_ports");
 
-	if not select(2, hosts[service].modules.pubsub.service:get_nodes(service))[xmlns_sessions] then
-		local ok, errmsg = hosts[service].modules.pubsub.service:create(xmlns_sessions, service);
+	if not select(2, hosts[service].modules.pubsub.service:get_nodes(service))[xmlns_s2s_session] then
+		local ok, errmsg = hosts[service].modules.pubsub.service:create(xmlns_s2s_session, service);
 		if not ok then
-			error("Could not create node: " .. tostring(errmsg));
+			module:log("warn", "Could not create node " .. xmlns_s2s_session .. ": " .. tostring(errmsg));
 		end
 	end
 
@@ -136,8 +169,29 @@ function module.load()
 		end
 	end
 
+	if not select(2, hosts[service].modules.pubsub.service:get_nodes(service))[xmlns_c2s_session] then
+		local ok, errmsg = hosts[service].modules.pubsub.service:create(xmlns_c2s_session, service);
+		if not ok then
+			module:log("warn", "Could not create node " .. xmlns_c2s_session .. ": " .. tostring(errmsg));
+		end
+	end
+
+	for username, user in pairs(host_session.sessions or {}) do
+		for resource, session in pairs(user.sessions or {}) do
+			add_client(session);
+		end
+	end
+
 	httpserver.new_from_config(http_conf, handle_file_request, { base = "admin" });
 end
+
+module:hook("resource-bind", function(event)
+	add_client(event.session);
+end);
+
+module:hook("resource-unbind", function(event)
+	del_client(event.session);
+end);
 
 module:hook("s2sout-established", function(event)
 	add_host(event.session, "out");
