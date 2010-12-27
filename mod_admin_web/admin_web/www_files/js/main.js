@@ -1,4 +1,4 @@
-var BOSH_SERVICE = 'http://localhost:5280/http-bind/';
+var BOSH_SERVICE = '/http-bind/';
 var show_log = false;
 
 Strophe.addNamespace('C2SPUBSUB', 'http://prosody.im/streams/c2s');
