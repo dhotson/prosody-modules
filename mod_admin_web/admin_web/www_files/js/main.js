@@ -25,15 +25,24 @@ function rawOutput(data) {
 }
 
 function _cbNewS2S(e) {
-    var items, retract, id, jid;
+    var items, entry, retract, id, jid;
     items = e.getElementsByTagName('item');
     for (i = 0; i < items.length; i++) {
         id = items[i].attributes['id'].value;
         jid = items[i].getElementsByTagName('session')[0].attributes['jid'].value;
+
+        entry = $('<li id="' + id + '">' + jid + '</li>');
+        if (e.getElementsByTagName('encrypted')[0]) {
+            entry.append('<img src="images/encrypted.png" title="encrypted" alt=" (encrypted)" />');
+        }
+        if (e.getElementsByTagName('compressed')[0]) {
+            entry.append('<img src="images/compressed.png" title="compressed" alt=" (compressed)" />');
+        }
+
         if (items[i].getElementsByTagName('out')[0]) {
-            $('#s2sout').append('<li id="' + id + '">' + jid + '</li>');
+            entry.appendTo('#s2sout');
         } else {
-            $('#s2sin').append('<li id="' + id + '">' + jid + '</li>');
+            entry.appendTo('#s2sin');
         }
     }
     retract = e.getElementsByTagName('retract')[0];
@@ -45,12 +54,19 @@ function _cbNewS2S(e) {
 }
 
 function _cbNewC2S(e) {
-    var items, retract, id, jid;
+    var items, entry, retract, id, jid;
     items = e.getElementsByTagName('item');
     for (i = 0; i < items.length; i++) {
         id = items[i].attributes['id'].value;
         jid = items[i].getElementsByTagName('session')[0].attributes['jid'].value;
-        $('#c2s').append('<li id="' + id + '">' + jid + '</li>');
+        entry = $('<li id="' + id + '">' + jid + '</li>');
+        if (e.getElementsByTagName('encrypted')[0]) {
+            entry.append('<img src="images/encrypted.png" title="encrypted" alt=" (encrypted)" />');
+        }
+        if (e.getElementsByTagName('compressed')[0]) {
+            entry.append('<img src="images/compressed.png" title="compressed" alt=" (compressed)" />');
+        }
+        entry.appendTo('#c2s');
     }
     retract = e.getElementsByTagName('retract')[0];
     if (retract) {
