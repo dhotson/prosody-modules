@@ -151,6 +151,10 @@ function module.load()
 	local host_session = prosody.hosts[host];
 	local http_conf = config.get("*", "core", "webadmin_http_ports");
 
+	httpserver.new_from_config(http_conf, handle_file_request, { base = "admin" });
+end
+
+module:hook("server-started", function ()
 	if not select(2, hosts[service].modules.pubsub.service:get_nodes(service))[xmlns_s2s_session] then
 		local ok, errmsg = hosts[service].modules.pubsub.service:create(xmlns_s2s_session, service);
 		if not ok then
@@ -181,9 +185,7 @@ function module.load()
 			add_client(session);
 		end
 	end
-
-	httpserver.new_from_config(http_conf, handle_file_request, { base = "admin" });
-end
+end);
 
 module:hook("resource-bind", function(event)
 	add_client(event.session);
