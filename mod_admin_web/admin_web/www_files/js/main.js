@@ -182,21 +182,21 @@ $(document).ready(function () {
         event.preventDefault();
     });
 
-    $('#adhocMenu').click(function () {
+    $('#adhocMenu').click(function (event) {
 	$('#s2sList').slideUp();
 	$('#c2sList').slideUp();
 	$('#adhoc').slideDown();
         event.preventDefault();
     });
 
-    $('#serverMenu').click(function () {
+    $('#serverMenu').click(function (event) {
 	$('#adhoc').slideUp();
 	$('#c2sList').slideUp();
 	$('#s2sList').slideDown();
         event.preventDefault();
     });
 
-    $('#clientMenu').click(function () {
+    $('#clientMenu').click(function (event) {
 	$('#adhoc').slideUp();
 	$('#s2sList').slideUp();
 	$('#c2sList').slideDown();
