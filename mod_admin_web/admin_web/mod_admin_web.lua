@@ -30,6 +30,7 @@ local http_base = (prosody.paths.plugins or "./plugins/") .. "admin_web/www_file
 local xmlns_c2s_session = "http://prosody.im/streams/c2s";
 local xmlns_s2s_session = "http://prosody.im/streams/s2s";
 
+local response_301 = { status = "301 Moved Permanently" };
 local response_400 = { status = "400 Bad Request", body = "<h1>Bad Request</h1>Sorry, we didn't understand your request :(" };
 local response_403 = { status = "403 Forbidden", body = "<h1>Forbidden</h1>You don't have permission to view the contents of this directory :(" };
 local response_404 = { status = "404 Not Found", body = "<h1>Page Not Found</h1>Sorry, we couldn't find what you were looking for :(" };
@@ -116,9 +117,14 @@ local function preprocess_path(path)
 	return path;
 end
 
-function serve_file(path)
+function serve_file(path, base)
 	local full_path = http_base..path;
 	if stat(full_path, "mode") == "directory" then
+		if not path:find("/$") then
+			local response = response_301;
+			response.headers = { ["Location"] = base .. "/" };
+			return response;
+		end
 		if stat(full_path.."/index.html", "mode") == "file" then
 			return serve_file(path.."/index.html");
 		end
@@ -143,8 +149,8 @@ end
 local function handle_file_request(method, body, request)
 	local path = preprocess_path(request.url.path);
 	if not path then return response_400; end
-	path = path:gsub("^/[^/]+", ""); -- Strip /admin/
-	return serve_file(path);
+	path_stripped = path:gsub("^/[^/]+", ""); -- Strip /admin/
+	return serve_file(path_stripped, path);
 end
 
 function module.load()
