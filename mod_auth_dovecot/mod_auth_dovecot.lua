@@ -69,11 +69,10 @@ function new_default_provider(host)
 			first = parts();
 			if (first == "VERSION") then
 				-- Version should be 1.1
-				local v1 = parts();
-				local v2 = parts();
+				local major_version = parts();
 				
-				if (not (v1 == "1" and v2 == "1")) then
-					log("warn", "server version is not 1.1. it is %s.%s", v1, v2);
+				if major_version ~= "1" then
+					log("error", "dovecot server version is not 1.x. it is %s.x", major_version);
 					provider:close();
 					return false;
 				end
