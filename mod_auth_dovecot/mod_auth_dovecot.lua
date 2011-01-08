@@ -17,15 +17,17 @@ local prosody = _G.prosody;
 local socket_path = module:get_option_string("dovecot_auth_socket", "/var/run/dovecot/auth-login");
 
 function new_default_provider(host)
-	local provider = { name = "dovecot", c = nil, request_id = 0 };
+	local provider = { name = "dovecot", request_id = 0 };
 	log("debug", "initializing dovecot authentication provider for host '%s'", host);
+	
+	local conn;
 	
 	-- Closes the socket
 	function provider.close(self)
-		if (provider.c ~= nil) then
-			provider.c:close();
+		if conn then
+			conn:close();
+			conn = nil;
 		end
-		provider.c = nil;
 	end
 	
 	-- The following connects to a new socket and send the handshake
@@ -33,11 +35,11 @@ function new_default_provider(host)
 		-- Destroy old socket
 		provider:close();
 		
-		provider.c = socket.unix();
+		conn = socket.unix();
 		
 		-- Create a connection to dovecot socket
 		log("debug", "connecting to dovecot socket at '%s'", socket_path);
-		local r, e = provider.c:connect(socket_path);
+		local r, e = conn:connect(socket_path);
 		if (not r) then
 			log("warn", "error connecting to dovecot socket at '%s'. error was '%s'. check permissions", socket_path, e);
 			provider:close();
@@ -97,7 +99,7 @@ function new_default_provider(host)
 	
 	-- Wrapper for send(). Handles errors
 	function provider.send(self, data)
-		local r, e = provider.c:send(data);
+		local r, e = conn:send(data);
 		if (not r) then
 			log("warn", "error sending '%s' to dovecot. error was '%s'", data, e);
 			provider:close();
@@ -108,7 +110,7 @@ function new_default_provider(host)
 	
 	-- Wrapper for receive(). Handles errors
 	function provider.receive(self)
-		local r, e = provider.c:receive();
+		local r, e = conn:receive();
 		if (not r) then
 			log("warn", "error receiving data from dovecot. error was '%s'", socket, e);
 			provider:close();
@@ -118,8 +120,8 @@ function new_default_provider(host)
 	end
 	
 	function provider.send_auth_request(self, username, password)
-		if (provider.c == nil) then
-			if (not provider:connect()) then
+		if not conn then
+			if not provider:connect() then
 				return nil, "Auth failed. Dovecot communications error";
 			end
 		end
