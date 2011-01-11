@@ -93,13 +93,15 @@ module:hook("iq-set/bare/jabber:iq:roster:query", function(event)
 						session.send(st.error_reply(stanza, "modify", "item-not-found"));
 					end
 				else
+					local subscription = item.attr.subscription;
+					if subscription ~= "both" and subscription ~= "to" and subscription ~= "from" and subscription ~= "none" then -- TODO error on invalid
+						subscription = roster[jid] and roster[jid].subscription or "none";
+					end
 					local r_item = {name = item.attr.name, groups = {}};
 					if r_item.name == "" then r_item.name = nil; end
-					if roster[jid] then
-						r_item.subscription = roster[jid].subscription;
-						r_item.ask = roster[jid].ask;
-					else
-						r_item.subscription = "none";
+					r_item.subscription = subscription;
+					if subscription ~= "both" and subscription ~= "to" then
+						r_item.ask = roster[jid] and roster[jid].ask;
 					end
 					for _, child in ipairs(item) do
 						if child.name == "group" then
