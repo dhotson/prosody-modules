@@ -1,15 +1,15 @@
 var BOSH_SERVICE = '/http-bind/';
-var show_log = false;
+var show_log = true;
 
-Strophe.addNamespace('C2SPUBSUB', 'http://prosody.im/streams/c2s');
-Strophe.addNamespace('S2SPUBSUB', 'http://prosody.im/streams/s2s');
-Strophe.addNamespace('PUBSUB', 'http://jabber.org/protocol/pubsub');
+Strophe.addNamespace('C2SSTREAM', 'http://prosody.im/streams/c2s');
+Strophe.addNamespace('S2SSTREAM', 'http://prosody.im/streams/s2s');
+Strophe.addNamespace('ADMINSUB', 'http://prosody.im/adminsub');
 Strophe.addNamespace('CAPS', 'http://jabber.org/protocol/caps');
 
 var localJID = null;
 var connection   = null;
 
-var pubsubHost = '%PUBSUBHOST%';
+var adminsubHost = '%ADMINSUBHOST%';
 
 function log(msg) {
     var entry = $('<div></div>').append(document.createTextNode(msg));
@@ -32,10 +32,10 @@ function _cbNewS2S(e) {
         jid = items[i].getElementsByTagName('session')[0].attributes['jid'].value;
 
         entry = $('<li id="' + id + '">' + jid + '</li>');
-        if (e.getElementsByTagName('encrypted')[0]) {
+        if (items[i].getElementsByTagName('encrypted')[0]) {
             entry.append('<img src="images/encrypted.png" title="encrypted" alt=" (encrypted)" />');
         }
-        if (e.getElementsByTagName('compressed')[0]) {
+        if (items[i].getElementsByTagName('compressed')[0]) {
             entry.append('<img src="images/compressed.png" title="compressed" alt=" (compressed)" />');
         }
 
@@ -60,10 +60,10 @@ function _cbNewC2S(e) {
         id = items[i].attributes['id'].value;
         jid = items[i].getElementsByTagName('session')[0].attributes['jid'].value;
         entry = $('<li id="' + id + '">' + jid + '</li>');
-        if (e.getElementsByTagName('encrypted')[0]) {
+        if (items[i].getElementsByTagName('encrypted')[0]) {
             entry.append('<img src="images/encrypted.png" title="encrypted" alt=" (encrypted)" />');
         }
-        if (e.getElementsByTagName('compressed')[0]) {
+        if (items[i].getElementsByTagName('compressed')[0]) {
             entry.append('<img src="images/compressed.png" title="compressed" alt=" (compressed)" />');
         }
         entry.appendTo('#c2s');
@@ -76,11 +76,11 @@ function _cbNewC2S(e) {
     return true;
 }
 
-function _cbPubSub(e) {
+function _cbAdminSub(e) {
     var node = e.getElementsByTagName('items')[0].attributes['node'].value;
-    if (node == Strophe.NS.C2SPUBSUB) {
+    if (node == Strophe.NS.C2SSTREAM) {
         _cbNewC2S(e);
-    } else if (node == Strophe.NS.S2SPUBSUB) {
+    } else if (node == Strophe.NS.S2SSTREAM) {
         _cbNewS2S(e);
     }
 
@@ -106,17 +106,16 @@ function onConnect(status) {
     } else if (status == Strophe.Status.CONNECTED) {
         log('Strophe is connected.');
         showDisconnect();
+        connection.addHandler(_cbAdminSub, Strophe.NS.ADMINSUB + '#event', 'message');
+        connection.send($iq({to: adminsubHost, type: 'set', id: connection.getUniqueId()}).c('adminsub', {xmlns: Strophe.NS.ADMINSUB})
+                .c('subscribe', {node: Strophe.NS.C2SSTREAM}));
+        connection.send($iq({to: adminsubHost, type: 'set', id: connection.getUniqueId()}).c('adminsub', {xmlns: Strophe.NS.ADMINSUB})
+                .c('subscribe', {node: Strophe.NS.S2SSTREAM}));
+        connection.sendIQ($iq({to: adminsubHost, type: 'get', id: connection.getUniqueId()}).c('adminsub', {xmlns: Strophe.NS.ADMINSUB})
+                .c('items', {node: Strophe.NS.S2SSTREAM}), _cbNewS2S);
+        connection.sendIQ($iq({to: adminsubHost, type: 'get', id: connection.getUniqueId()}).c('adminsub', {xmlns: Strophe.NS.ADMINSUB})
+                .c('items', {node: Strophe.NS.C2SSTREAM}), _cbNewC2S);
 	Adhoc.checkFeatures('#adhoc', connection.domain);
-        connection.addHandler(_cbPubSub, Strophe.NS.PUBSUB + '#event', 'message');
-        connection.send($iq({to: pubsubHost, type: 'set', id: connection.getUniqueId()}).c('pubsub', {xmlns: Strophe.NS.PUBSUB})
-                .c('subscribe', {node: Strophe.NS.C2SPUBSUB, jid: connection.jid}));
-        connection.send($iq({to: pubsubHost, type: 'set', id: connection.getUniqueId()}).c('pubsub', {xmlns: Strophe.NS.PUBSUB})
-                .c('subscribe', {node: Strophe.NS.S2SPUBSUB, jid: connection.jid}));
-        connection.sendIQ($iq({to: pubsubHost, type: 'get', id: connection.getUniqueId()}).c('pubsub', {xmlns: Strophe.NS.PUBSUB})
-                .c('items', {node: Strophe.NS.S2SPUBSUB}), _cbNewS2S);
-        connection.sendIQ($iq({to: pubsubHost, type: 'get', id: connection.getUniqueId()}).c('pubsub', {xmlns: Strophe.NS.PUBSUB})
-                .c('items', {node: Strophe.NS.C2SPUBSUB}), _cbNewC2S);
-
     }
 }
 

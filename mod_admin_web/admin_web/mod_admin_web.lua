@@ -15,18 +15,22 @@
 --   <in/> / <out/>
 -- </session>
 
-local stanza = require "util.stanza";
+local st = require "util.stanza";
 local uuid_generate = require "util.uuid".generate;
+local is_admin = require "usermanager".is_admin;
+local pubsub = require "util.pubsub";
 local httpserver = require "net.httpserver";
+local jid_bare = require "util.jid".bare;
 local lfs = require "lfs";
 local open = io.open;
 local stat = lfs.attributes;
 
 local host = module:get_host();
-local service = config.get("*", "core", "webadmin_pubsub_host") or ("pubsub." .. host);
+local service;
 
 local http_base = (prosody.paths.plugins or "./plugins/") .. "admin_web/www_files";
 
+local xmlns_adminsub = "http://prosody.im/adminsub";
 local xmlns_c2s_session = "http://prosody.im/streams/c2s";
 local xmlns_s2s_session = "http://prosody.im/streams/s2s";
 
@@ -51,14 +55,14 @@ function add_client(session)
 		id = uuid_generate();
 		idmap[name] = id;
 	end
-	local item = stanza.stanza("item", { id = id }):tag("session", {xmlns = xmlns_c2s_session, jid = name}):up();
+	local item = st.stanza("item", { id = id }):tag("session", {xmlns = xmlns_c2s_session, jid = name}):up();
 	if session.secure then
 		item:tag("encrypted"):up();
 	end
 	if session.compressed then
 		item:tag("compressed"):up();
 	end
-	hosts[service].modules.pubsub.service:publish(xmlns_c2s_session, service, id, item);
+	service:publish(xmlns_c2s_session, host, id, item);
 	module:log("debug", "Added client " .. name);
 end
 
@@ -66,8 +70,8 @@ function del_client(session)
 	local name = session.full_jid;
 	local id = idmap[name];
 	if id then
-		local notifier = stanza.stanza("retract", { id = id });
-		hosts[service].modules.pubsub.service:retract(xmlns_c2s_session, service, id, notifier);
+		local notifier = st.stanza("retract", { id = id });
+		service:retract(xmlns_c2s_session, host, id, notifier);
 	end
 end
 
@@ -78,7 +82,7 @@ function add_host(session, type)
 		id = uuid_generate();
 		idmap[name.."_"..type] = id;
 	end
-	local item = stanza.stanza("item", { id = id }):tag("session", {xmlns = xmlns_s2s_session, jid = name})
+	local item = st.stanza("item", { id = id }):tag("session", {xmlns = xmlns_s2s_session, jid = name})
 		:tag(type):up();
 	if session.secure then
 		item:tag("encrypted"):up();
@@ -86,7 +90,7 @@ function add_host(session, type)
 	if session.compressed then
 		item:tag("compressed"):up();
 	end
-	hosts[service].modules.pubsub.service:publish(xmlns_s2s_session, service, id, item);
+	service:publish(xmlns_s2s_session, host, id, item);
 	module:log("debug", "Added host " .. name .. " s2s" .. type);
 end
 
@@ -94,8 +98,8 @@ function del_host(session, type)
 	local name = (type == "out" and session.to_host) or (type == "in" and session.from_host);
 	local id = idmap[name.."_"..type];
 	if id then
-		local notifier = stanza.stanza("retract", { id = id });
-		hosts[service].modules.pubsub.service:retract(xmlns_s2s_session, service, id, notifier);
+		local notifier = st.stanza("retract", { id = id });
+		service:retract(xmlns_s2s_session, host, id, notifier);
 	end
 end
 
@@ -133,7 +137,7 @@ function serve_file(path, base)
 	local f, err = open(full_path, "rb");
 	if not f then return response_404; end
 	local data = f:read("*a");
-	data = data:gsub("%%PUBSUBHOST%%", service);
+	data = data:gsub("%%ADMINSUBHOST%%", host);
 	f:close();
 	if not data then
 		return response_403;
@@ -161,10 +165,12 @@ end
 
 prosody.events.add_handler("server-started", function ()
 	local host_session = prosody.hosts[host];
-	if not select(2, hosts[service].modules.pubsub.service:get_nodes(service))[xmlns_s2s_session] then
-		local ok, errmsg = hosts[service].modules.pubsub.service:create(xmlns_s2s_session, service);
+	if not select(2, service:get_nodes(true))[xmlns_s2s_session] then
+		local ok, errmsg = service:create(xmlns_s2s_session, true);
 		if not ok then
 			module:log("warn", "Could not create node " .. xmlns_s2s_session .. ": " .. tostring(errmsg));
+		else
+			service:set_affiliation(xmlns_s2s_session, true, host, "owner")
 		end
 	end
 
@@ -179,10 +185,12 @@ prosody.events.add_handler("server-started", function ()
 		end
 	end
 
-	if not select(2, hosts[service].modules.pubsub.service:get_nodes(service))[xmlns_c2s_session] then
-		local ok, errmsg = hosts[service].modules.pubsub.service:create(xmlns_c2s_session, service);
+	if not select(2, service:get_nodes(true))[xmlns_c2s_session] then
+		local ok, errmsg = service:create(xmlns_c2s_session, true);
 		if not ok then
 			module:log("warn", "Could not create node " .. xmlns_c2s_session .. ": " .. tostring(errmsg));
+		else
+			service:set_affiliation(xmlns_c2s_session, true, host, "owner")
 		end
 	end
 
@@ -193,12 +201,74 @@ prosody.events.add_handler("server-started", function ()
 	end
 end);
 
+function simple_broadcast(node, jids, item)
+	item = st.clone(item);
+	item.attr.xmlns = nil; -- Clear the pubsub namespace
+	local message = st.message({ from = module.host, type = "headline" })
+		:tag("event", { xmlns = xmlns_adminsub .. "#event" })
+			:tag("items", { node = node })
+				:add_child(item);
+	for jid in pairs(jids) do
+		module:log("debug", "Sending notification to %s", jid);
+		message.attr.to = jid;
+		core_post_stanza(hosts[host], message);
+	end
+end
+
+function get_affiliation(jid)
+	local bare_jid = jid_bare(jid);
+	if is_admin(bare_jid, host) then
+		return "member";
+	else
+		return "none";
+	end
+end
+
+module:hook("iq/host/http://prosody.im/adminsub:adminsub", function(event)
+	local origin, stanza = event.origin, event.stanza;
+	local adminsub = stanza.tags[1];
+	local action = adminsub.tags[1];
+	local reply;
+	if action.name == "subscribe" then
+		local ok, ret = service:add_subscription(action.attr.node, stanza.attr.from, stanza.attr.from);
+		if ok then
+			reply = st.reply(stanza)
+				:tag("adminsub", { xmlns = xmlns_adminsub });
+		else
+			reply = st.error_reply(stanza, "cancel", ret);
+		end
+	elseif action.name == "items" then
+		local node = action.attr.node;
+		local ok, ret = service:get_items(node, stanza.attr.from);
+		if not ok then
+			return origin.send(st.error_reply(stanza, "cancel", ret));
+		end
+
+		local data = st.stanza("items", { node = node });
+		for _, entry in pairs(ret) do
+			data:add_child(entry);
+		end
+		if data then
+			reply = st.reply(stanza)
+				:tag("adminsub", { xmlns = xmlns_adminsub })
+					:add_child(data);
+		else
+			reply = st.error_reply(stanza, "cancel", "item-not-found");
+		end
+	else
+		reply = st.error_reply(stanza, "feature-not-implemented");
+	end
+	return origin.send(reply);
+end);
+
 module:hook("resource-bind", function(event)
 	add_client(event.session);
 end);
 
 module:hook("resource-unbind", function(event)
 	del_client(event.session);
+	service:remove_subscription(xmlns_c2s_session, host, event.session.full_jid);
+	service:remove_subscription(xmlns_s2s_session, host, event.session.full_jid);
 end);
 
 module:hook("s2sout-established", function(event)
@@ -216,3 +286,57 @@ end);
 module:hook("s2sin-destroyed", function(event)
 	del_host(event.session, "in");
 end);
+
+service = pubsub.new({
+	broadcaster = simple_broadcast;
+	normalize_jid = jid_bare;
+	get_affiliation = get_affiliation;
+	capabilities = {
+		member = {
+			create = false;
+			publish = false;
+			retract = false;
+			get_nodes = true;
+
+			subscribe = true;
+			unsubscribe = true;
+			get_subscription = true;
+			get_subscriptions = true;
+			get_items = true;
+
+			subscribe_other = false;
+			unsubscribe_other = false;
+			get_subscription_other = false;
+			get_subscriptions_other = false;
+
+			be_subscribed = true;
+			be_unsubscribed = true;
+
+			set_affiliation = false;
+		};
+
+		owner = {
+			create = true;
+			publish = true;
+			retract = true;
+			get_nodes = true;
+
+			subscribe = true;
+			unsubscribe = true;
+			get_subscription = true;
+			get_subscriptions = true;
+			get_items = true;
+
+			subscribe_other = true;
+			unsubscribe_other = true;
+			get_subscription_other = true;
+			get_subscriptions_other = true;
+
+			be_subscribed = true;
+			be_unsubscribed = true;
+
+			set_affiliation = true;
+		};
+	};
+});
+
