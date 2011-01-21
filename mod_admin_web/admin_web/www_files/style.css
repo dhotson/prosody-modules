@@ -33,11 +33,19 @@ a {
   float: left;
   margin-right: 2em;
   padding: 1em;
+  border: solid 1px;
   background: #6197DF;
   color: #000000
 }
 
-#adhoc, #s2sList, #c2sList {
+#selector {
+  padding: 1em;
+  border: solid 1px;
+  background: #6197DF;
+  color: #000000
+}
+
+#main {
   display: none
 }
 

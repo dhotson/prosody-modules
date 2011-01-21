@@ -1,5 +1,5 @@
 var BOSH_SERVICE = '/http-bind/';
-var show_log = true;
+var show_log = false;
 
 Strophe.addNamespace('C2SSTREAM', 'http://prosody.im/streams/c2s');
 Strophe.addNamespace('S2SSTREAM', 'http://prosody.im/streams/s2s');
@@ -9,7 +9,7 @@ Strophe.addNamespace('CAPS', 'http://jabber.org/protocol/caps');
 var localJID = null;
 var connection   = null;
 
-var adminsubHost = '%ADMINSUBHOST%';
+var adminsubHost = null;
 
 function log(msg) {
     var entry = $('<div></div>').append(document.createTextNode(msg));
@@ -105,17 +105,31 @@ function onConnect(status) {
         }
     } else if (status == Strophe.Status.CONNECTED) {
         log('Strophe is connected.');
-        showDisconnect();
-        connection.addHandler(_cbAdminSub, Strophe.NS.ADMINSUB + '#event', 'message');
-        connection.send($iq({to: adminsubHost, type: 'set', id: connection.getUniqueId()}).c('adminsub', {xmlns: Strophe.NS.ADMINSUB})
-                .c('subscribe', {node: Strophe.NS.C2SSTREAM}));
-        connection.send($iq({to: adminsubHost, type: 'set', id: connection.getUniqueId()}).c('adminsub', {xmlns: Strophe.NS.ADMINSUB})
-                .c('subscribe', {node: Strophe.NS.S2SSTREAM}));
-        connection.sendIQ($iq({to: adminsubHost, type: 'get', id: connection.getUniqueId()}).c('adminsub', {xmlns: Strophe.NS.ADMINSUB})
-                .c('items', {node: Strophe.NS.S2SSTREAM}), _cbNewS2S);
-        connection.sendIQ($iq({to: adminsubHost, type: 'get', id: connection.getUniqueId()}).c('adminsub', {xmlns: Strophe.NS.ADMINSUB})
-                .c('items', {node: Strophe.NS.C2SSTREAM}), _cbNewC2S);
-	Adhoc.checkFeatures('#adhoc', connection.domain);
+        connection.sendIQ($iq({to: connection.domain, type: 'get', id: connection.getUniqueId()}).c('adminsub', {xmlns: Strophe.NS.ADMINSUB})
+            .c('adminfor'), function(e) {
+                var items;
+                items = e.getElementsByTagName('item');
+                if (items.length == 0) {
+                    alert("You are not an administrator");
+                    connection.disconnect();
+                    return false;
+                }
+                for (i = 0; i < items.length; i++) {
+                    $('#host').append('<option>' + $(items[i]).text() + '</option>');
+                }
+                showDisconnect();
+                adminsubHost = $(items[0]).text();
+                Adhoc.checkFeatures('#adhoc', adminsubHost);
+                connection.addHandler(_cbAdminSub, Strophe.NS.ADMINSUB + '#event', 'message');
+                connection.send($iq({to: adminsubHost, type: 'set', id: connection.getUniqueId()}).c('adminsub', {xmlns: Strophe.NS.ADMINSUB})
+                    .c('subscribe', {node: Strophe.NS.C2SSTREAM}));
+                connection.send($iq({to: adminsubHost, type: 'set', id: connection.getUniqueId()}).c('adminsub', {xmlns: Strophe.NS.ADMINSUB})
+                    .c('subscribe', {node: Strophe.NS.S2SSTREAM}));
+                connection.sendIQ($iq({to: adminsubHost, type: 'get', id: connection.getUniqueId()}).c('adminsub', {xmlns: Strophe.NS.ADMINSUB})
+                    .c('items', {node: Strophe.NS.S2SSTREAM}), _cbNewS2S);
+                connection.sendIQ($iq({to: adminsubHost, type: 'get', id: connection.getUniqueId()}).c('adminsub', {xmlns: Strophe.NS.ADMINSUB})
+                    .c('items', {node: Strophe.NS.C2SSTREAM}), _cbNewC2S);
+        });
     }
 }
 
@@ -128,14 +142,13 @@ function showConnect() {
     pass.show();
     jid.show();
     $('#menu').hide();
-    $('#adhoc').hide();
-    $('#s2sList').hide();
-    $('#c2sList').hide();
+    $('#main').hide();
     $('#cred label').show();
     $('#cred br').show();
     $('#s2sin').empty();
     $('#s2sout').empty();
     $('#c2s').empty();
+    $('#host').empty();
 }
 
 function showDisconnect() {
@@ -147,7 +160,10 @@ function showDisconnect() {
     pass.hide();
     jid.hide();
     $('#menu').show();
+    $('#main').show();
     $('#adhoc').show();
+    $('#s2sList').hide();
+    $('#c2sList').hide();
     $('#cred label').hide();
     $('#cred br').hide();
 }
@@ -172,9 +188,7 @@ $(document).ready(function () {
 
         if (button.value == 'connect') {
             $('#log').empty();
-            connection.connect(localJID,
-               pass.get(0).value,
-               onConnect);
+            connection.connect(localJID, pass.get(0).value, onConnect);
         } else {
             connection.disconnect();
         }
@@ -182,26 +196,45 @@ $(document).ready(function () {
     });
 
     $('#adhocMenu').click(function (event) {
-	$('#s2sList').slideUp();
-	$('#c2sList').slideUp();
-	$('#adhoc').slideDown();
+        $('#s2sList').slideUp();
+        $('#c2sList').slideUp();
+        $('#adhoc').slideDown();
         event.preventDefault();
     });
 
     $('#serverMenu').click(function (event) {
-	$('#adhoc').slideUp();
-	$('#c2sList').slideUp();
-	$('#s2sList').slideDown();
+        $('#adhoc').slideUp();
+        $('#c2sList').slideUp();
+        $('#s2sList').slideDown();
         event.preventDefault();
     });
 
     $('#clientMenu').click(function (event) {
-	$('#adhoc').slideUp();
-	$('#s2sList').slideUp();
-	$('#c2sList').slideDown();
+        $('#adhoc').slideUp();
+        $('#s2sList').slideUp();
+        $('#c2sList').slideDown();
         event.preventDefault();
     });
 
+    $('#host').bind('change', function (event) {
+        connection.send($iq({to: adminsubHost, type: 'set', id: connection.getUniqueId()}).c('adminsub', {xmlns: Strophe.NS.ADMINSUB})
+            .c('unsubscribe', {node: Strophe.NS.C2SSTREAM}));
+        connection.send($iq({to: adminsubHost, type: 'set', id: connection.getUniqueId()}).c('adminsub', {xmlns: Strophe.NS.ADMINSUB})
+            .c('unsubscribe', {node: Strophe.NS.S2SSTREAM}));
+        adminsubHost = $(this).val();
+        Adhoc.checkFeatures('#adhoc', adminsubHost);
+        $('#s2sin').empty();
+        $('#s2sout').empty();
+        $('#c2s').empty();
+        connection.send($iq({to: adminsubHost, type: 'set', id: connection.getUniqueId()}).c('adminsub', {xmlns: Strophe.NS.ADMINSUB})
+            .c('subscribe', {node: Strophe.NS.C2SSTREAM}));
+        connection.send($iq({to: adminsubHost, type: 'set', id: connection.getUniqueId()}).c('adminsub', {xmlns: Strophe.NS.ADMINSUB})
+            .c('subscribe', {node: Strophe.NS.S2SSTREAM}));
+        connection.sendIQ($iq({to: adminsubHost, type: 'get', id: connection.getUniqueId()}).c('adminsub', {xmlns: Strophe.NS.ADMINSUB})
+            .c('items', {node: Strophe.NS.S2SSTREAM}), _cbNewS2S);
+        connection.sendIQ($iq({to: adminsubHost, type: 'get', id: connection.getUniqueId()}).c('adminsub', {xmlns: Strophe.NS.ADMINSUB})
+            .c('items', {node: Strophe.NS.C2SSTREAM}), _cbNewC2S);
+    });
 });
 
 window.onunload = window.onbeforeunload = function() {
