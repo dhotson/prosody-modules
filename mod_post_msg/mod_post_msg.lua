@@ -24,6 +24,14 @@ function(s)
 	return r
 end;
 
+--COMPAT 0.7
+if not test_password then
+	local validate_credentials = require "core.usermanager".validate_credentials;
+	test_password = function(user, host, password)
+		return validate_credentials(host, user, password)
+	end
+end
+
 local function http_response(code, message, extra_headers)
 	local response = {
 		status = code .. " " .. message;
