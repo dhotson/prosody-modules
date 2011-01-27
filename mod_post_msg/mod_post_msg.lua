@@ -105,5 +105,12 @@ local function handle_request(method, body, request)
 	return http_response(202, "Accepted")
 end
 
-local ports = config.get(module.host, "core", "post_msg_ports") or { 5280 };
-require "net.httpserver".new_from_config(ports, "msg", handle_request);
+local function setup()
+	local ports = module:get_option("post_msg_ports") or { 5280 };
+	require "net.httpserver".new_from_config(ports, handle_request, { base = "msg" });
+end
+if prosody.start_time then -- already started
+	setup();
+else
+	prosody.events.add_handler("server-started", setup);
+end
