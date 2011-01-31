@@ -32,6 +32,7 @@ local st = require "util.stanza";
 local httpserver = require "net.httpserver";
 local formencode = require "net.http".formencode;
 local dump = require "util.serialization".serialize;
+local uuid = require "util.uuid".generate;
 
 local urldecode = require "net.http".urldecode;
 local urlencode = require "net.http".urlencode;
@@ -58,8 +59,10 @@ for node, url in pairs(config) do
 end
 
 local response_codes = {
+	["200"] = "OK";
 	["202"] = "Accepted";
 	["400"] = "Bad Request";
+	["404"] = "Not Found";
 	["501"] = "Not Implemented";
 };
 
@@ -159,13 +162,15 @@ function refresh_feeds()
 	return refresh_interval;
 end
 
-function subscribe(feed, challenge)
+function subscribe(feed)
+	local token = uuid();
 	local _body, body = {
 		["hub.callback"] = "http://"..module.host..":5280/callback?node=" .. urlencode(feed.node); --FIXME figure out your own hostname reliably?
 		["hub.mode"] = "subscribe"; --TODO unsubscribe
 		["hub.topic"] = feed.url;
 		["hub.verify"] = "async";
-		["hub.verify_token"] = challenge;
+		["hub.verify_token"] = token;
+		--["hub.secret"] = ""; -- TODO http://pubsubhubbub.googlecode.com/svn/trunk/pubsubhubbub-core-0.3.html#authednotify
 		--["hub.lease_seconds"] = "";
 	}, { };
 	for name, value in pairs(_body) do
@@ -176,20 +181,10 @@ function subscribe(feed, challenge)
 	--module:log("debug", "subscription request, body: %s", body);
 
 	--FIXME The subscription states and related stuff
-	--feed.subscription = challenge and "asked" or "asking";
-	feed.subscription = "asking";
+	feed.subscription = "subscribe";
 	http.request(feed.hub, { body = body }, function(data, code, req) 
 		local code = tostring(code);
 		module:log("debug", "subscription to %s submitted, staus %s", feed.node, code);
-		if code == '202' then
-			if challenge then
-				module:log("debug", "subscribe to %s confirmed", feed.node);
-				feed.subscription = "active";
-			else
-				module:log("debug", "subscription to %s submitted", feed.node);
-				--feed.subscription = "incomplete"; 
-			end
-		end
 	end);
 end
 
@@ -201,20 +196,31 @@ function handle_http_request(method, body, request)
 		--module:log("debug", "GET data: %s", dump(query));
 	end
 
-	-- TODO http://pubsubhubbub.googlecode.com/svn/trunk/pubsubhubbub-core-0.3.html#authednotify
-
 	if method == "GET" then
 		if query.node and feed_list[query.node] then
 			local feed = feed_list[query.node];
-			local challenge = query["hub.challenge"];
-			if challenge and feed.subscription == "asking" then
-				module:log("debug", "got a challenge for %s: %s", feed.node, challenge);
-				subscribe(feed, challenge);
-				return http_response(202);
+			if query["hub.topic"] ~= feed.url then
+				module:log("debug", "Invalid topic: %s", tostring(query["hub.topic"]))
+				return http_response(404)
 			end
+			if query["hub.mode"] ~= feed.subscription then
+				module:log("debug", "Invalid mode: %s", tostring(query["hub.mode"]))
+				return http_response(400)
+				-- Would this work for unsubscribe?
+				-- Also, if feed.subscription is changed here,
+				-- it would probably invalidate the subscription
+				-- when/if the hub asks if it should be renewed
+			end
+			if query["hub.verify"] ~= feed.token then
+				module:log("debug", "Invalid verify_token: %s", tostring(query["hub.verify"]))
+				return http_response(401)
+			end
+			module:log("debug", "Confirming %s request to %s", feed.subscription, feed.url)
+			return http_response(200, nil, query["hub.challenge"])
 		end
 		return http_response(400);
 	elseif method == "POST" then
+		-- TODO http://pubsubhubbub.googlecode.com/svn/trunk/pubsubhubbub-core-0.3.html#authednotify
 		if #body > 0 and feed_list[query.node] then
 			module:log("debug", "got %d bytes PuSHed for %s", #body, query.node);
 			local feed = feed_list[query.node];
