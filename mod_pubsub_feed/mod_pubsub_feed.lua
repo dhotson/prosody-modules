@@ -33,6 +33,7 @@ local httpserver = require "net.httpserver";
 local formencode = require "net.http".formencode;
 local dump = require "util.serialization".serialize;
 local uuid = require "util.uuid".generate;
+local hmac_sha1 = require "util.hmac".sha1;
 
 local urldecode = require "net.http".urldecode;
 local urlencode = require "net.http".urlencode;
@@ -165,13 +166,14 @@ end
 
 function subscribe(feed)
 	feed.token = uuid();
+	feed.secret = uuid();
 	local _body, body = {
 		["hub.callback"] = "http://"..module.host..":5280/callback?node=" .. urlencode(feed.node); --FIXME figure out your own hostname reliably?
 		["hub.mode"] = "subscribe"; --TODO unsubscribe
 		["hub.topic"] = feed.url;
 		["hub.verify"] = "async";
 		["hub.verify_token"] = feed.token;
-		--["hub.secret"] = ""; -- TODO http://pubsubhubbub.googlecode.com/svn/trunk/pubsubhubbub-core-0.3.html#authednotify
+		["hub.secret"] = feed.secret;
 		--["hub.lease_seconds"] = "";
 	}, { };
 	for name, value in pairs(_body) do
@@ -196,6 +198,7 @@ function handle_http_request(method, body, request)
 		query = urlparams(query);
 		--module:log("debug", "GET data: %s", dump(query));
 	end
+	--module:log("debug", "Headers: %s", dump(request.headers));
 
 	if method == "GET" then
 		if query.node and feed_list[query.node] then
@@ -225,6 +228,15 @@ function handle_http_request(method, body, request)
 		if #body > 0 and feed_list[query.node] then
 			module:log("debug", "got %d bytes PuSHed for %s", #body, query.node);
 			local feed = feed_list[query.node];
+			local signature = request.headers["x-hub-signature"];
+			if feed.secret then
+				local localsig = "sha1=" .. hmac_sha1(feed.secret, body, true);
+				if localsig ~= signature then
+					module:log("debug", "Invalid signature");
+					return http_response(403);
+				end
+				module:log("debug", "Valid signature");
+			end
 			feed.data = body;
 			update_entry(feed);
 			feed.last_update = time();
