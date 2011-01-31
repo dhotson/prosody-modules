@@ -62,6 +62,7 @@ local response_codes = {
 	["200"] = "OK";
 	["202"] = "Accepted";
 	["400"] = "Bad Request";
+	["403"] = "Forbidden";
 	["404"] = "Not Found";
 	["501"] = "Not Implemented";
 };
@@ -163,13 +164,13 @@ function refresh_feeds()
 end
 
 function subscribe(feed)
-	local token = uuid();
+	feed.token = uuid();
 	local _body, body = {
 		["hub.callback"] = "http://"..module.host..":5280/callback?node=" .. urlencode(feed.node); --FIXME figure out your own hostname reliably?
 		["hub.mode"] = "subscribe"; --TODO unsubscribe
 		["hub.topic"] = feed.url;
 		["hub.verify"] = "async";
-		["hub.verify_token"] = token;
+		["hub.verify_token"] = feed.token;
 		--["hub.secret"] = ""; -- TODO http://pubsubhubbub.googlecode.com/svn/trunk/pubsubhubbub-core-0.3.html#authednotify
 		--["hub.lease_seconds"] = "";
 	}, { };
@@ -211,9 +212,9 @@ function handle_http_request(method, body, request)
 				-- it would probably invalidate the subscription
 				-- when/if the hub asks if it should be renewed
 			end
-			if query["hub.verify"] ~= feed.token then
-				module:log("debug", "Invalid verify_token: %s", tostring(query["hub.verify"]))
-				return http_response(401)
+			if query["hub.verify_token"] ~= feed.token then
+				module:log("debug", "Invalid verify_token: %s", tostring(query["hub.verify_token"]))
+				return http_response(403)
 			end
 			module:log("debug", "Confirming %s request to %s", feed.subscription, feed.url)
 			return http_response(200, nil, query["hub.challenge"])
