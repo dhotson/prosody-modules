@@ -1,0 +1,6 @@
+Output "mod_ircd.lua"
+
+-- In theory, you should be able to leave all but verses groupchat plugin
+Module "verse" "verse.lua"
+
+Main "mod_ircd.out.lua"

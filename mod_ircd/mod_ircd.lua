@@ -1,13 +1,77 @@
+-- README
+-- Squish verse into this dir, then squish them into one, which you move
+-- and rename to mod_ircd.lua in your prosody modules/plugins dir.
+--
+-- IRC spec:
+-- http://tools.ietf.org/html/rfc2812
+local _module = module
+module = _G.module
+local module = _module
+--
+local component_jid, component_secret, muc_server =
+      module.host, nil, module:get_option("conference_server");
+
+package.loaded["util.sha1"] = require "util.encodings";
+local verse = require "verse"
+require "verse.component"
+require "socket"
+c = verse.new();--verse.logger())
+c:add_plugin("groupchat");
+
+local function verse2prosody(e)
+	return c:event("stanza", e.stanza) or true;
+end
+module:hook("message/bare", verse2prosody);
+module:hook("message/full", verse2prosody);
+module:hook("presence/bare", verse2prosody);
+module:hook("presence/full", verse2prosody);
+c.type = "component";
+c.send = core_post_stanza;
+
+-- This plugin is actually a verse based component, but that mode is currently commented out
+
+-- Add some hooks for debugging
+--c:hook("opened", function () print("Stream opened!") end);
+--c:hook("closed", function () print("Stream closed!") end);
+--c:hook("stanza", function (stanza) print("Stanza:", stanza) end);
+
+-- This one prints all received data
+--c:hook("incoming-raw", print, 1000);
+--c:hook("stanza", print, 1000);
+--c:hook("outgoing-raw", print, 1000);
+
+-- Print a message after authentication
+--c:hook("authentication-success", function () print("Logged in!"); end);
+--c:hook("authentication-failure", function (err) print("Failed to log in! Error: "..tostring(err.condition)); end);
+
+-- Print a message and exit when disconnected
+--c:hook("disconnected", function () print("Disconnected!"); os.exit(); end);
+
+-- Now, actually start the connection:
+--c.connect_host = "127.0.0.1"
+--c:connect_component(component_jid, component_secret);
+
+local jid = require "util.jid";
+
+local function irc2muc(channel, nick)
+	return jid.join(channel:gsub("^#", ""), muc_server, nick)
+end
+local function muc2irc(room)
+	local channel, _, nick = jid.split(room);
+	return "#"..channel, nick;
+end
+
 local irc_listener = { default_port = 6667, default_mode = "*l" };
 
 local sessions = {};
+local jids = {};
 local commands = {};
 
 local nicks = {};
 
 local st = require "util.stanza";
 
-local conference_server = module:get_option("conference_server") or "conference.jabber.org";
+local conference_server = muc_server;
 
 local function irc_close_session(session)
 	session.conn:close();
@@ -16,28 +80,27 @@ end
 function irc_listener.onincoming(conn, data)
 	local session = sessions[conn];
 	if not session then
-		session = { conn = conn, host = module.host, reset_stream = function () end,
+		session = { conn = conn, host = component_jid, reset_stream = function () end,
 			close = irc_close_session, log = logger.init("irc"..(conn.id or "1")),
+			rooms = {},
 			roster = {} };
 		sessions[conn] = session;
 		function session.data(data)
-			module:log("debug", "Received: %s", data);
 			local command, args = data:match("^%s*([^ ]+) *(.*)%s*$");
 			if not command then
-				module:log("warn", "Invalid command: %s", data);
 				return;
 			end
 			command = command:upper();
-			module:log("debug", "Received command: %s", command);
 			if commands[command] then
 				local ret = commands[command](session, args);
 				if ret then
 					session.send(ret.."\r\n");
 				end
+			else
+				module:log("debug", "Unknown command: %s", command);
 			end
 		end
 		function session.send(data)
-			module:log("debug", "sending: %s", data);
 			return conn:write(data.."\r\n");
 		end
 	end
@@ -47,54 +110,100 @@ function irc_listener.onincoming(conn, data)
 end
 
 function irc_listener.ondisconnect(conn, error)
-	module:log("debug", "Client disconnected");
+	local session = sessions[conn];
+	for _, room in pairs(session.rooms) do
+		room:leave("Disconnected");
+	end
 	sessions[conn] = nil;
 end
 
 function commands.NICK(session, nick)
+	if session.nick then
+		session.send(":"..session.host.." 484 * "..nick.." :I'm afraid I can't let you do that, "..nick);
+		return;
+	end
 	nick = nick:match("^[%w_]+");
 	if nicks[nick] then
 		session.send(":"..session.host.." 433 * "..nick.." :The nickname "..nick.." is already in use");
 		return;
 	end
+	local full_jid = jid.join(nick, component_jid, "ircd");
+	jids[full_jid] = session;
 	nicks[nick] = session;
 	session.nick = nick;
-	session.full_jid = nick.."@"..module.host.."/ircd";
+	session.full_jid = full_jid;
 	session.type = "c2s";
-	module:log("debug", "Client bound to %s", session.full_jid);
 	session.send(":"..session.host.." 001 "..session.nick.." :Welcome to XMPP via the "..session.host.." gateway "..session.nick);
 end
 
 local joined_mucs = {};
 function commands.JOIN(session, channel)
+	if not session.nick then
+		return ":"..session.host.." 451 :You have not registered";
+	end
+
 	if not joined_mucs[channel] then
 		joined_mucs[channel] = { occupants = {}, sessions = {} };
 	end
 	joined_mucs[channel].sessions[session] = true;
-	local join_stanza = st.presence({ from = session.full_jid, to = channel:gsub("^#", "").."@"..conference_server.."/"..session.nick });
-	core_process_stanza(session, join_stanza);
+	local room_jid = irc2muc(channel);
+	print(session.full_jid);
+	local room, err = c:join_room(room_jid, session.nick, { source = session.full_jid } );
+	if not room then
+		return ":"..session.host.." ERR :Could not join room: "..err
+	end
+	session.rooms[channel] = room;
+	room.channel = channel;
+	room.session = session;
 	session.send(":"..session.nick.." JOIN :"..channel);
 	session.send(":"..session.host.." 332 "..session.nick.." "..channel.." :Connection in progress...");
-        local nicks = session.nick;
-        for nick in pairs(joined_mucs[channel].occupants) do
-            nicks = nicks.." "..nick;
-        end
-        session.send(":"..session.host.." 353 "..session.nick.." = "..channel.." :"..nicks);
-	session.send(":"..session.host.." 366 "..session.nick.." "..channel.." :End of /NAMES list.");
+	room:hook("message", function(event)
+		if not event.body then return end
+		local nick, body = event.nick, event.body;
+		if nick ~= session.nick then
+			if body:sub(1,4) == "/me " then
+				body = "\1ACTION ".. body:sub(5) .. "\1"
+			end
+			session.send(":"..nick.." PRIVMSG "..channel.." :"..body);
+		end
+	end);
 end
+
+c:hook("groupchat/joined", function(room)
+	local session = room.session or jids[room.opts.source];
+	local channel = muc2irc(room.jid);
+	local nicks = session.nick;
+	-- TODO Break this out into commands.NAMES
+	for nick in pairs(room.occupants) do
+		if nick ~= session.nick then
+			nicks = nicks.." "..nick;
+		end
+	end
+	session.send(":"..session.host.." 366 "..session.nick.." "..channel.." :End of /NAMES list.");
+	session.send(":"..session.host.." 353 "..session.nick.." = "..channel.." :"..nicks);
+	room:hook("occupant-joined", function(nick)
+		session.send(":"..nick.nick.."!"..nick.nick.." JOIN :"..room.channel);
+	end);
+	room:hook("occupant-left", function(nick)
+		session.send(":"..nick.nick.."!"..nick.nick.." PART "..room.channel.." :");
+	end);
+end);
 
 function commands.PART(session, channel)
 	local channel, part_message = channel:match("^([^:]+):?(.*)$");
 	channel = channel:match("^([%S]*)");
-	core_process_stanza(session, st.presence{ type = "unavailable", from = session.full_jid,
-		to = channel:gsub("^#", "").."@"..conference_server.."/"..session.nick }:tag("status"):text(part_message));
+	session.rooms[channel]:leave(part_message);
 	session.send(":"..session.nick.." PART :"..channel);
 end
 
 function commands.PRIVMSG(session, message)
-	local who, message = message:match("^(%S+) :(.+)$");
-	if joined_mucs[who] then
-		core_process_stanza(session, st.message{to=who:gsub("^#", "").."@"..conference_server, type="groupchat"}:tag("body"):text(message));
+	local channel, message = message:match("^(%S+) :(.+)$");
+	if message and #message > 0 and session.rooms[channel] then
+		if message:sub(1,8) == "\1ACTION " then
+			message = "/me ".. message:sub(9,-2)
+		end
+		module:log("debug", "%s sending PRIVMSG \"%s\" to %s", session.nick, message, channel);
+		session.rooms[channel]:send_message(message);
 	end
 end
 
@@ -103,8 +212,9 @@ function commands.PING(session, server)
 end
 
 function commands.WHO(session, channel)
-	if joined_mucs[channel] then
-		for nick in pairs(joined_mucs[channel].occupants) do
+	if session.rooms[channel] then
+		local room = session.rooms[channel]
+		for nick in pairs(room.occupants) do
 			--n=MattJ 91.85.191.50 irc.freenode.net MattJ H :0 Matthew Wild
 			session.send(":"..session.host.." 352 "..session.nick.." "..channel.." "..nick.." "..nick.." "..session.host.." "..nick.." H :0 "..nick);
 		end
@@ -116,90 +226,34 @@ function commands.MODE(session, channel)
 	session.send(":"..session.host.." 324 "..session.nick.." "..channel.." +J"); 
 end
 
---- Component (handle stanzas from the server for IRC clients)
-function irc_component(origin, stanza)
-	local from, from_bare = stanza.attr.from, jid.bare(stanza.attr.from);
-	local from_node = "#"..jid.split(stanza.attr.from);
-	
-	if joined_mucs[from_node] and from_bare == from then
-		-- From room itself
-		local joined_muc = joined_mucs[from_node];
-		if stanza.name == "message" then
-			local subject = stanza:get_child("subject");
-			subject = subject and (subject:get_text() or "");
-			if subject then
-				for session in pairs(joined_muc.sessions) do
-					session.send(":"..session.host.." 332 "..session.nick.." "..from_node.." :"..subject);
-				end
-			end
-		end
-	elseif joined_mucs[from_node] then
-		-- From room occupant
-		local joined_muc = joined_mucs[from_node];
-		local nick = select(3, jid.split(from)):gsub(" ", "_");
-		if stanza.name == "presence" then
-			local what;
-			if not stanza.attr.type then
-				if joined_muc.occupants[nick] then
-					return;
-				end
-				joined_muc.occupants[nick] = true;
-				what = "JOIN";
-			else
-				joined_muc.occupants[nick] = nil;
-				what = "PART";
-			end
-			for session in pairs(joined_muc.sessions) do
-				if nick ~= session.nick then
-					session.send(":"..nick.."!"..nick.." "..what.." :"..from_node);
-				end
-			end
-		elseif stanza.name == "message" then
-			local body = stanza:get_child("body");
-			body = body and body:get_text() or "";
-			local hasdelay = stanza:get_child("delay", "urn:xmpp:delay");
-			if body ~= "" and nick then
-				local to_nick = jid.split(stanza.attr.to);
-				local session = nicks[to_nick];
-				if nick ~= session.nick or hasdelay then
-				    session.send(":"..nick.." PRIVMSG "..from_node.." :"..body);
-				end
-			end
-			if not nick then
-				module:log("error", "Invalid nick from JID: %s", from);
-			end
-		end
-	end
+
+function commands.RAW(session, data)
+	--c:send(data)
 end
 
-local function stanza_handler(event)
-	irc_component(event.origin, event.stanza);
-	return true;
-end
-module:hook("iq/bare", stanza_handler, -1);
-module:hook("message/bare", stanza_handler, -1);
-module:hook("presence/bare", stanza_handler, -1);
-module:hook("iq/full", stanza_handler, -1);
-module:hook("message/full", stanza_handler, -1);
-module:hook("presence/full", stanza_handler, -1);
-module:hook("iq/host", stanza_handler, -1);
-module:hook("message/host", stanza_handler, -1);
-module:hook("presence/host", stanza_handler, -1);
-require "core.componentmanager".register_component(module.host, function() end); -- COMPAT Prosody 0.7
+--c:hook("ready", function ()
+	require "net.connlisteners".register("irc", irc_listener);
+	require "net.connlisteners".start("irc");
+--end);
 
-prosody.events.add_handler("server-stopping", function (shutdown)
-	module:log("debug", "Closing IRC connections prior to shutdown");
-	for channel, joined_muc in pairs(joined_mucs) do
-		for session in pairs(joined_muc.sessions) do
-			core_process_stanza(session,
-				st.presence{ type = "unavailable", from = session.full_jid,
-					to = channel:gsub("^#", "").."@"..conference_server.."/"..session.nick }
-					:tag("status")
-						:text("Connection closed: Server is shutting down"..(shutdown.reason and (": "..shutdown.reason) or "")));
-			session:close();
-		end
-	end
-end);
+--print("Starting loop...")
+--verse.loop()
 
-require "net.connlisteners".register("irc", irc_listener);
-require "net.connlisteners".start("irc", { port = module:get_option("port") });
+--[[ TODO
+
+This is so close to working as a Prosody plugin you know ^^
+Zash: :D
+MattJ: That component function can go
+Prosody fires events now
+but verse fires "message" where Prosody fires "message/bare"
+[20:59:50] 
+Easy... don't connect_component
+hook "message/*" and presence, and whatever
+and call c:event("message", ...)
+module:hook("message/bare", function (e) c:event("message", e.stanza) end)
+as an example
+That's so bad ^^
+and override c:send() to core_post_stanza...
+
+--]]
+
