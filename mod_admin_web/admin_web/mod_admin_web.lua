@@ -29,7 +29,7 @@ module:set_global();
 
 local service = {};
 
-local http_base = (prosody.paths.plugins or "./plugins/") .. "admin_web/www_files";
+local http_base = (prosody.paths.plugins or "./plugins") .. "/admin_web/www_files";
 
 local xmlns_adminsub = "http://prosody.im/adminsub";
 local xmlns_c2s_session = "http://prosody.im/streams/c2s";
