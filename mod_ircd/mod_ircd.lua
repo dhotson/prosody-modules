@@ -136,6 +136,11 @@ function commands.NICK(session, nick)
 	session.send(":"..session.host.." 001 "..session.nick.." :Welcome to XMPP via the "..session.host.." gateway "..session.nick);
 end
 
+function commands.USER(session, params)
+	-- FIXME
+	-- Empty command for now
+end
+
 local joined_mucs = {};
 function commands.JOIN(session, channel)
 	if not session.nick then
@@ -165,6 +170,7 @@ function commands.JOIN(session, channel)
 				body = "\1ACTION ".. body:sub(5) .. "\1"
 			end
 			session.send(":"..nick.." PRIVMSG "..channel.." :"..body);
+			--FIXME PM's probably won't work
 		end
 	end);
 end
@@ -226,6 +232,13 @@ function commands.MODE(session, channel)
 	session.send(":"..session.host.." 324 "..session.nick.." "..channel.." +J"); 
 end
 
+function commands.QUIT(session, message)
+	session.send("ERROR :Closing Link: "..session.nick);
+	for _, room in pairs(session.rooms) do
+		room:leave(message);
+	end
+	session:close();
+end
 
 function commands.RAW(session, data)
 	--c:send(data)
