@@ -142,7 +142,7 @@ function showConnect() {
     pass.show();
     jid.show();
     $('#menu').hide();
-    $('#main').hide();
+    $('#right').hide();
     $('#cred label').show();
     $('#cred br').show();
     $('#s2sin').empty();
@@ -160,7 +160,7 @@ function showDisconnect() {
     pass.hide();
     jid.hide();
     $('#menu').show();
-    $('#main').show();
+    $('#right').show();
     $('#adhoc').show();
     $('#s2sList').hide();
     $('#c2sList').hide();
