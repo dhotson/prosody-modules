@@ -60,6 +60,14 @@ local function muc2irc(room)
 	local channel, _, nick = jid.split(room);
 	return "#"..channel, nick;
 end
+local rolemap = {
+	moderator = "@",
+	participant = "+",
+}
+local modemap = {
+	moderator = "o",
+	participant = "v",
+}
 
 local irc_listener = { default_port = 6667, default_mode = "*l" };
 
@@ -91,12 +99,18 @@ function irc_listener.onincoming(conn, data)
 				return;
 			end
 			command = command:upper();
+			if not session.nick then
+				if not (command == "USER" or command == "NICK") then
+					session.send(":" .. session.host .. " 451 " .. command .. " :You have not registered")
+				end
+			end
 			if commands[command] then
 				local ret = commands[command](session, args);
 				if ret then
 					session.send(ret.."\r\n");
 				end
 			else
+				session.send(":" .. session.host .. " 421 " .. session.nick .. " " .. command .. " :Unknown command")
 				module:log("debug", "Unknown command: %s", command);
 			end
 		end
@@ -114,12 +128,15 @@ function irc_listener.ondisconnect(conn, error)
 	for _, room in pairs(session.rooms) do
 		room:leave("Disconnected");
 	end
+	jids[session.full_jid] = nil;
+	nicks[session.nick] = nil;
 	sessions[conn] = nil;
 end
 
 function commands.NICK(session, nick)
 	if session.nick then
 		session.send(":"..session.host.." 484 * "..nick.." :I'm afraid I can't let you do that, "..nick);
+		--TODO Loop throug all rooms and change nick, with help from Verse.
 		return;
 	end
 	nick = nick:match("^[%w_]+");
@@ -141,16 +158,7 @@ function commands.USER(session, params)
 	-- Empty command for now
 end
 
-local joined_mucs = {};
 function commands.JOIN(session, channel)
-	if not session.nick then
-		return ":"..session.host.." 451 :You have not registered";
-	end
-
-	if not joined_mucs[channel] then
-		joined_mucs[channel] = { occupants = {}, sessions = {} };
-	end
-	joined_mucs[channel].sessions[session] = true;
 	local room_jid = irc2muc(channel);
 	print(session.full_jid);
 	local room, err = c:join_room(room_jid, session.nick, { source = session.full_jid } );
@@ -177,23 +185,42 @@ end
 
 c:hook("groupchat/joined", function(room)
 	local session = room.session or jids[room.opts.source];
-	local channel = muc2irc(room.jid);
-	local nicks = session.nick;
-	-- TODO Break this out into commands.NAMES
-	for nick in pairs(room.occupants) do
-		if nick ~= session.nick then
-			nicks = nicks.." "..nick;
-		end
+	local channel = room.channel;
+	session.send((":%s!%s JOIN %s :"):format(session.nick, session.nick, channel));
+	if room.topic then
+		session.send((":%s 332 %s :%s"):format(session.host, channel, room.topic));
 	end
-	session.send(":"..session.host.." 366 "..session.nick.." "..channel.." :End of /NAMES list.");
-	session.send(":"..session.host.." 353 "..session.nick.." = "..channel.." :"..nicks);
+	commands.NAMES(session, channel)
+	--FIXME Ones own mode get's lost
+	--session.send((":%s MODE %s +%s %s"):format(session.host, room.channel, modemap[nick.role], nick.nick));
 	room:hook("occupant-joined", function(nick)
-		session.send(":"..nick.nick.."!"..nick.nick.." JOIN :"..room.channel);
+		session.send((":%s!%s JOIN :%s"):format(nick.nick, nick.nick, channel));
+		if nick.role and modemap[nick.role] then
+			session.send((":%s MODE %s +%s %s"):format(session.host, room.channel, modemap[nick.role], nick.nick));
+		end
 	end);
 	room:hook("occupant-left", function(nick)
-		session.send(":"..nick.nick.."!"..nick.nick.." PART "..room.channel.." :");
+		session.send((":%s!%s PART %s :"):format(nick.nick, nick.nick, channel));
 	end);
 end);
+
+function commands.NAMES(session, channel)
+	local nicks = { };
+	local room = session.rooms[channel];
+	if not room then return end
+	-- TODO Break this out into commands.NAMES
+	for nick, n in pairs(room.occupants) do
+		if n.role and rolemap[n.role] then
+			nick = rolemap[n.role] .. nick;
+		end
+		table.insert(nicks, nick);
+	end
+	nicks = table.concat(nicks, " ");
+	--:molyb.irc.bnfh.org 353 derp = #grill-bit :derp hyamobi walt snuggles_ E-Rock kng grillbit gunnarbot Frink shedma zagabar zash Mrw00t Appiah J10 lectus peck EricJ soso mackt offer hyarion @pettter MMN-o 
+	session.send((":%s 353 %s = %s :%s"):format(session.host, session.nick, channel, nicks));
+	session.send((":%s 366 %s %s :End of /NAMES list."):format(session.host, session.nick, channel));
+	session.send(":"..session.host.." 353 "..session.nick.." = "..channel.." :"..nicks);
+end
 
 function commands.PART(session, channel)
 	local channel, part_message = channel:match("^([^:]+):?(.*)$");
@@ -237,6 +264,9 @@ function commands.QUIT(session, message)
 	for _, room in pairs(session.rooms) do
 		room:leave(message);
 	end
+	jids[session.full_jid] = nil;
+	nicks[session.nick] = nil;
+	sessions[session.conn] = nil;
 	session:close();
 end
 
