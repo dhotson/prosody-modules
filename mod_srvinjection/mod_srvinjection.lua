@@ -26,7 +26,7 @@ local original_lookup = adns.lookup;
 function adns.lookup(handler, qname, qtype, qclass)
 	if qtype == "SRV" then
 		local host = qname:match("^_xmpp%-server%._tcp%.(.*)%.$");
-		local mapping = map[host];
+		local mapping = map[host] or mapping["*"];
 		if mapping then
 			handler(mapping);
 			return;
