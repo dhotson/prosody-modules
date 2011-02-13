@@ -78,19 +78,15 @@ function new_provider(host)
 					return false;
 				end
 			elseif first == "MECH" then
-				-- Mechanisms should include PLAIN
-				local ok = false;
-				for part in parts do
-					if part == "PLAIN" then
-						ok = true;
-					end
-				end
-				if not ok then
-					log("warn", "server doesn't support PLAIN mechanism. It supports '%s'", line);
+				local mech = parts();
+				supported_mechs[mech] = true;
+			elseif first == "DONE" then
+				-- We need PLAIN
+				if not supported_mechs.PLAIN then
+					log("warn", "server doesn't support PLAIN mechanism.");
 					provider:close();
 					return false;
 				end
-			elseif first == "DONE" then
 				done = true;
 			end
 		end
