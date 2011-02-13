@@ -59,6 +59,7 @@ function new_provider(host)
 		
 		-- Parse Dovecot's handshake
 		local done = false;
+		local supported_mechs = {};
 		while (not done) do
 			local line = provider:receive();
 			if not line then
