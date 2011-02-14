@@ -12,7 +12,7 @@ local log = require "util.logger".init("auth_dovecot");
 local new_sasl = require "util.sasl".new;
 local nodeprep = require "util.encodings".stringprep.nodeprep;
 local base64 = require "util.encodings".base64;
-local pposix = require "util.pposix";
+local sha1 = require "util.hashes".sha1;
 
 local prosody = prosody;
 local socket_path = module:get_option_string("dovecot_auth_socket", "/var/run/dovecot/auth-login");
@@ -22,6 +22,8 @@ function new_provider(host)
 	log("debug", "initializing dovecot authentication provider for host '%s'", host);
 	
 	local conn;
+	-- Generate an id for this connection (must be a 31-bit number, unique per process)
+	local pid = tonumber(sha1(host, true):sub(1, 6), 16);
 	
 	-- Closes the socket
 	function provider.close(self)
@@ -48,7 +50,6 @@ function new_provider(host)
 		end
 		
 		-- Send our handshake
-		local pid = pposix.getpid();
 		log("debug", "sending handshake to dovecot. version 1.1, cpid '%d'", pid);
 		if not provider:send("VERSION\t1\t1\n") then
 			return false
