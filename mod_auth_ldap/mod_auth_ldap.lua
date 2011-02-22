@@ -40,7 +40,6 @@ function provider.set_password(username, password) return nil, "Passwords unavai
 function provider.create_user(username, password) return nil, "Account creation/modification not available with LDAP."; end
 
 function provider.get_sasl_handler()
-	local realm = module:get_option("sasl_realm") or module.host;
 	local testpass_authentication_profile = {
 		plain_test = function(sasl, username, password, realm)
 			local prepped_username = nodeprep(username);
@@ -51,7 +50,7 @@ function provider.get_sasl_handler()
 			return provider.test_password(prepped_username, password), true;
 		end
 	};
-	return new_sasl(realm, testpass_authentication_profile);
+	return new_sasl(module.host, testpass_authentication_profile);
 end
 
 module:add_item("auth-provider", provider);

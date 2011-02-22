@@ -111,7 +111,6 @@ function new_external_provider(host)
 	function provider.create_user(username, password) return nil, "Account creation/modification not available."; end
 	
 	function provider.get_sasl_handler()
-		local realm = module:get_option("sasl_realm") or module.host;
 		local testpass_authentication_profile = {
 			plain_test = function(sasl, username, password, realm)
 				local prepped_username = nodeprep(username);
@@ -122,7 +121,7 @@ function new_external_provider(host)
 				return usermanager.test_password(prepped_username, realm, password), true;
 			end,
 		};
-		return new_sasl(realm, testpass_authentication_profile);
+		return new_sasl(module.host, testpass_authentication_profile);
 	end
 
 	function provider.is_admin(jid)
