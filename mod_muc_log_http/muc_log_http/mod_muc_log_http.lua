@@ -767,9 +767,8 @@ local function readFile(filepath)
 end
 
 local function loadTheme(path)
-	local iter = lfs.dir(path);
-    for file in iter do
-        if file ~= "." and file ~= ".." then
+	for file in lfs.dir(path) do
+        	if file ~= "." and file ~= ".." then
 			module:log("debug", "opening theme file: " .. file);
 			local tmp = split(file:gsub("\.html$", ""), "_");
 			local content = readFile(path .. "/" .. file);
