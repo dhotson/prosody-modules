@@ -15,6 +15,8 @@ local strformat = string.format;
 local splitJid = require "util.jid".split;
 local config_get = require "core.configmanager".get;
 local httpserver = require "net.httpserver";
+local urlencode = require "net.http".urlencode;
+local urldecode = require "net.http".urldecode;
 local datamanager = require "util.datamanager";
 local data_load, data_getpath = datamanager.load, datamanager.getpath;
 local datastore = "muc_log";
@@ -288,6 +290,7 @@ local function perDayCallback(path, day, month, year, room, webPath)
 		year = year - 2000;
 	end
 	local bareDay = str_format("%.02d%.02d%.02d", year, month, day);
+       room = urlencode(room);
 	local attributes, err = lfs.attributes(path.."/"..bareDay.."/"..room..".dat")
 	if attributes ~= nil and attributes.mode == "file" then
 		local s = html.days.bit;
@@ -693,7 +696,9 @@ end
 
 function handle_request(method, body, request)
 	local node, host, day = splitUrl(request.url.path);
-	
+
+       node = urldecode(node);
+
 	if muc_hosts ~= nil and html.doc ~= nil then
 	 	if node ~= nil and host ~= nil then
 			local bare = node .. "@" .. host;
