@@ -4,6 +4,7 @@
 
 module.host = "*"
 
+local httpserver = require "net.httpserver";
 local filters = require "util.filters"
 local json = require "util.json"
 
@@ -120,4 +121,34 @@ function module.unload()
 	filters.remove_filter_hook(filter_hook);
 end
 
+function encode(data)
+	if type(data) == "string" then
+		data = json.encode({ s = data });
+	elseif type(data) == "table" and data.body then
+		data.body = json.encode({ s = data.body });
+		data.headers["Content-Type"] = "application/json";
+	end
+	return data;
+end
+function handle_request(method, body, request)
+	local mod_bosh = modulemanager.get_module("*", "bosh")
+	if mod_bosh then
+		if body and method == "POST" then
+			pcall(function() body = json.decode(body).s; end);
+		end
+		local _send = request.send;
+		function request:send(data) return _send(self, encode(data)); end
+		return encode(mod_bosh.handle_request(method, body, request));
+	end
+	return "<html><body>mod_bosh not loaded</body></html>";
+end
 
+local function setup()
+	local ports = module:get_option("jsonstreams_ports") or { 5280 };
+	httpserver.new_from_config(ports, handle_request, { base = "jsonstreams" });
+end
+if prosody.start_time then -- already started
+	setup();
+else
+	prosody.events.add_handler("server-started", setup);
+end
