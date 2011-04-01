@@ -39,7 +39,8 @@ Strophe.addConnectionPlugin('jsonstreams', {
                 		return _xhr.send(data);
                 	}
                 };
-                xhr.onreadystatechange = _xhr.onreadystatechange;
+                var req = this;
+                xhr.onreadystatechange = this.func.bind(null, this);
                 _xhr.onreadystatechange = function() {
                 	xhr.readyState = _xhr.readyState;
                 	if (xhr.readyState != 4) {
@@ -50,7 +51,9 @@ Strophe.addConnectionPlugin('jsonstreams', {
 	                	xhr.status = _xhr.status;
 	               		xhr.responseText = _xhr.responseText;
 	               		xhr.responseXML = _xhr.responseXML;
-	                	if (_xhr.responseText && !_xhr.responseXML) {
+	                	if (_xhr.responseText && !(_xhr.responseXML
+	                			&& _xhr.responseXML.documentElement
+	                			&& _xhr.responseXML.documentElement.tagName != "parsererror")) {
 	                		var data = JSON.parse(_xhr.responseText);
 	                		if (data && data.s) {
 	                			xhr.responseText = data.s;
@@ -58,7 +61,7 @@ Strophe.addConnectionPlugin('jsonstreams', {
 	                		}
 	                	}
 	                }
-                	if (xhr.onreadystatechange) { xhr.onreadystatechange(); }
+                	if ("function" == typeof xhr.onreadystatechange) { xhr.onreadystatechange(req); }
                 }
                 return xhr;
             };
