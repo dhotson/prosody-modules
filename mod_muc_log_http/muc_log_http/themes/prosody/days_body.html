@@ -1,18 +1,18 @@
-<div class="title">
-	<div class="date">###SINCE### - ###TO###</div>
-	<div class="roomjid">###JID###</div>
-	<div class="links">(join via <a class="component" href="xmpp:###JID###?join">client</a> / <a class="component" href="http://speeqe.com/room/###JID###/">speeqe</a>)</div>
+<div id="title">
+	<div id="date">###SINCE### - ###TO###</div>
+	<div id="roomjid">###JID###</div>
+	<div id="links">(join via <a class="component" href="xmpp:###JID###?join">client</a> / <a class="component" href="http://speeqe.com/room/###JID###/">speeqe</a>)</div>
 </div>
-<div class="calendar">
-	<div style="text-align: center">
-		<a class="nav" href="../###PREVIOUS_ROOM###">&lt;</a>
-		<a class="nav" href="..">^</a>
-		<a class="nav" href="../###NEXT_ROOM###">&gt;</a>
+<div id="calendar">
+	<div id="navigation">
+		<a class="nav" href="../###PREVIOUS_ROOM###/">&lt;</a>
+		<a class="nav" href="../">^</a>
+		<a class="nav" href="../###NEXT_ROOM###/">&gt;</a>
 	</div>
-	<div class="weekday" style="margin-top: 50px; padding-left: 5px; padding-right: 5px; padding-top: 3px; text-align: center;">List of rooms for this component</div>
-	<div style="padding-left: 5px; padding-right: 5px; border: 1px solid black;">###ROOMS###</div>
+	<div class="weekday">List of rooms for this component</div>
+	<div id="roomList">###ROOMS###</div>
 </div>
 <div class="topic">###ROOMTOPIC###</div>
-<div id="calender" style="overflow: auto;">
+<div id="main">
 ###DAYS_STUFF###
 </div>
