@@ -4,6 +4,8 @@
 -- A Good chunk of the code is from mod_data_access.lua by Kim Alvefur
 -- aka Zash.
 
+local jid_prep = require "util.jid".prep;
+local jid_split = require "util.jid".split;
 local usermanager = require "core.usermanager";
 local b64_decode = require "util.encodings".base64.decode;
 local json_decode = require "util.json".decode;
@@ -53,41 +55,44 @@ local function handle_req(method, body, request)
 		return http_response(401, "Who the hell are you?! Guards!");
 	end
 	
-	local req_body; pcall(function() req_body = json.decode(body) end);
-	-- Check if user is an admin of said host
-	if not usermanager.is_admin(user, req_body["host"]) then
-		module:log("warn", "%s tried to submit registration data for %s but he's not an admin", user, req_body["host"])
-		return http_response(401, "I obey only to my masters... Have a nice day.");
+	local req_body; 
+	-- We check that what we have is valid JSON wise else we throw an error...
+	if not pcall(function() req_body = json_decode(body) end) then
+		module:log("debug", "JSON data submitted for user registration by %s failed to Decode.", user); 
+		return http_response(400, "JSON Decoding failed.");
 	else
-		-- Various sanity checks.
-		if req_body == nil then module:log("debug", "JSON data submitted for user registration by %s failed to Decode.", user); return http_response(400, "JSON Decoding failed."); end
-		
-		-- Checks for both Throttling/Whitelist and Blacklist (basically copycatted from prosody's register.lua code)
-		if blacklist[req_body["ip"]] then module:log("warn", "Attempt of reg. submission to the JSON servlet from blacklisted address: %s", req_body["ip"]); return http_response(403, "The specified address is blacklisted, sorry sorry."); end
-		if throttle_time and not whitelist[req_body["ip"]] then
-			if not recent_ips[req_body["ip"]] then
-				recent_ips[req_body["ip"]] = { time = os_time(), count = 1 };
-			else
-				local ip = recent_ips[req_body["ip"]];
-				ip.count = ip.count + 1;
+		-- Check if user is an admin of said host
+		if not usermanager.is_admin(user, req_body["host"]) then
+			module:log("warn", "%s tried to submit registration data for %s but he's not an admin", user, req_body["host"]);
+			return http_response(401, "I obey only to my masters... Have a nice day.");
+		else	
+			-- Checks for both Throttling/Whitelist and Blacklist (basically copycatted from prosody's register.lua code)
+			if blacklist[req_body["ip"]] then then module:log("warn", "Attempt of reg. submission to the JSON servlet from blacklisted address: %s", req_body["ip"]); return http_response(403, "The specified address is blacklisted, sorry sorry."); end
+			if throttle_time and not whitelist[req_body["ip"]] then
+				if not recent_ips[req_body["ip"]] then
+					recent_ips[req_body["ip"]] = { time = os_time(), count = 1 };
+				else
+					local ip = recent_ips[req_body["ip"]];
+					ip.count = ip.count + 1;
 
-				if os_time() - ip.time < throttle_time then
+					if os_time() - ip.time < throttle_time then
+						ip.time = os_time();
+						module:log("warn", "JSON Registration request from %s has been throttled.", req_body["ip"]);
+						return http_response(503, "Woah... How many users you want to register..? Request throttled, wait a bit and try again.");
+					end
 					ip.time = os_time();
-					module:log("warn", "JSON Registration request from %s has been throttled.", req_body["ip"]);
-					return http_response(503, "Woah... How many users you want to register..? Request throttled, wait a bit and try again.");
 				end
-				ip.time = os_time();
 			end
-		end
-		
-		-- We first check if the supplied username for registration is already there.
-		if not usermanager.user_exists(req_body["username"], req_body["host"]) then
-			usermanager.create_user(req_body["username"], req_body["password"], req_body["host"]);
-			module:log("debug", "%s registration data submission for %s is successful", user, req_body["user"]);
-			return http_response(200, "Done.");
-		else
-			module:log("debug", "%s registration data submission for %s failed (user already exists)", user, req_body["user"]);
-			return http_response(409, "User already exists.");
+
+			-- We first check if the supplied username for registration is already there.
+			if not usermanager.user_exists(req_body["username"], req_body["host"]) then
+				usermanager.create_user(req_body["username"], req_body["password"], req_body["host"]);
+				module:log("debug", "%s registration data submission for %s is successful", user, req_body["user"]);
+				return http_response(200, "Done.");
+			else
+				module:log("debug", "%s registration data submission for %s failed (user already exists)", user, req_body["user"]);
+				return http_response(409, "User already exists.");
+			end
 		end
 	end
 end
