@@ -9,6 +9,7 @@ local jid_split = require "util.jid".split;
 local usermanager = require "core.usermanager";
 local b64_decode = require "util.encodings".base64.decode;
 local json_decode = require "util.json".decode;
+local os_time = os.time;
 
 module.host = "*" -- HTTP/BOSH Servlets need to be global.
 
