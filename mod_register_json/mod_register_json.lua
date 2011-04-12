@@ -10,7 +10,18 @@ local json_decode = require "util.json".decode;
 
 module.host = "*" -- HTTP/BOSH Servlets need to be global.
 
+-- Pick up configuration.
+
 local set_realm_name = module:get_option("reg_servlet_realm") or "Restricted";
+local throttle_time = module:get_option("reg_servlet_ttime") or false;
+local whitelist = module:get_option("reg_servlet_wl") or {};
+local blacklist = module:get_option("reg_servlet_bl") or {};
+local recent_ips = {};
+
+-- Begin
+
+for _, ip in ipairs(whitelist) do whitelisted_ips[ip] = true; end
+for _, ip in ipairs(blacklist) do blacklisted_ips[ip] = true; end
 
 local function http_response(code, message, extra_headers)
         local response = {
@@ -36,23 +47,42 @@ local function handle_req(method, body, request)
 	local user_node, user_host = jid_split(user)
 	if not hosts[user_host] then return http_response(401, "Negative."); end
 	
-	module:log("debug", "%s is authing to submit a new user registration data", user)
+	module:log("warn", "%s is authing to submit a new user registration data", user)
 	if not usermanager.test_password(user_node, user_host, password) then
-		module:log("debug", "%s failed authentication", user)
+		module:log("warn", "%s failed authentication", user)
 		return http_response(401, "Who the hell are you?! Guards!");
 	end
 	
 	local req_body; pcall(function() req_body = json.decode(body) end);
 	-- Check if user is an admin of said host
 	if not usermanager.is_admin(user, req_body["host"]) then
-		module:log("debug", "%s tried to submit registration data for %s but he's not an admin", user, req_body["host"])
+		module:log("warn", "%s tried to submit registration data for %s but he's not an admin", user, req_body["host"])
 		return http_response(401, "I obey only to my masters... Have a nice day.");
 	else
 		-- Various sanity checks.
 		if req_body == nil then module:log("debug", "JSON data submitted for user registration by %s failed to Decode.", user); return http_response(400, "JSON Decoding failed."); end
+		
+		-- Checks for both Throttling/Whitelist and Blacklist (basically copycatted from prosody's register.lua code)
+		if blacklist[req_body["ip"]] then then module:log("warn", "Attempt of reg. submission to the JSON servlet from blacklisted address: %s", req_body["ip"]); return http_response(403, "The specified address is blacklisted, sorry sorry."); end
+		if throttle_time and not whitelist[req_body["ip"]] then
+			if not recent_ips[req_body["ip"]] then
+				recent_ips[req_body["ip"]] = { time = os_time(), count = 1 };
+			else
+				local ip = recent_ips[req_body["ip"]];
+				ip.count = ip.count + 1;
+
+				if os_time() - ip.time < throttle_time then
+					ip.time = os_time();
+					module:log("warn", "JSON Registration request from %s has been throttled.", req_body["ip"]);
+					return http_response(503, "Woah... How many users you want to register..? Request throttled, wait a bit and try again.");
+				end
+				ip.time = os_time();
+			end
+		end
+		
 		-- We first check if the supplied username for registration is already there.
 		if not usermanager.user_exists(req_body["username"], req_body["host"]) then
-			usermanager.create_user(req_body["username"], req_body["password"], req_body["host]);
+			usermanager.create_user(req_body["username"], req_body["password"], req_body["host"]);
 			module:log("debug", "%s registration data submission for %s is successful", user, req_body["user"]);
 			return http_response(200, "Done.");
 		else
@@ -62,6 +92,7 @@ local function handle_req(method, body, request)
 	end
 end
 
+-- Set it up!
 local function setup()
         local ports = module:get_option("reg_servlet_port") or { 9280 };
         local base_name = module:get_option("reg_servlet_base") or "register_account";
