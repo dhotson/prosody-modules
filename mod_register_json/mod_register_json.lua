@@ -67,7 +67,7 @@ local function handle_req(method, body, request)
 			return http_response(401, "I obey only to my masters... Have a nice day.");
 		else	
 			-- Checks for both Throttling/Whitelist and Blacklist (basically copycatted from prosody's register.lua code)
-			if blacklist[req_body["ip"]] then then module:log("warn", "Attempt of reg. submission to the JSON servlet from blacklisted address: %s", req_body["ip"]); return http_response(403, "The specified address is blacklisted, sorry sorry."); end
+			if blacklist[req_body["ip"]] then module:log("warn", "Attempt of reg. submission to the JSON servlet from blacklisted address: %s", req_body["ip"]); return http_response(403, "The specified address is blacklisted, sorry sorry."); end
 			if throttle_time and not whitelist[req_body["ip"]] then
 				if not recent_ips[req_body["ip"]] then
 					recent_ips[req_body["ip"]] = { time = os_time(), count = 1 };
