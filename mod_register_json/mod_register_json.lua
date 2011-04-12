@@ -8,7 +8,7 @@ local usermanager = require "core.usermanager";
 local b64_decode = require "util.encodings".base64.decode;
 local json_decode = require "util.json".decode;
 
-module.host = "*" -- HTTP/BOSH Servlets need to be loaded globally.
+module.host = "*" -- HTTP/BOSH Servlets need to be global.
 
 local set_realm_name = module:get_option("reg_servlet_realm") or "Restricted";
 
@@ -50,10 +50,9 @@ local function handle_req(method, body, request)
 	else
 		-- Various sanity checks.
 		if req_body == nil then module:log("debug", "JSON data submitted for user registration by %s failed to Decode.", user); return http_response(400, "JSON Decoding failed."); end
-		if req_body["password"]:match("%s") then module:log("debug", "Password submitted for user registration by %s contained spaces.", user); return http_response(400, "Supplied user passwords can't contain spaces."); end
 		-- We first check if the supplied username for registration is already there.
 		if not usermanager.user_exists(req_body["username"], req_body["host"]) then
-			usermanager.create_user(req_body["username"], req_body["password"], req_body["host"]);
+			usermanager.create_user(req_body["username"], req_body["password"], req_body["host]);
 			module:log("debug", "%s registration data submission for %s is successful", user, req_body["user"]);
 			return http_response(200, "Done.");
 		else
@@ -64,9 +63,15 @@ local function handle_req(method, body, request)
 end
 
 local function setup()
-        local ports = module:get_option("reg_servlet_port") or { 5280 };
+        local ports = module:get_option("reg_servlet_port") or { 9443 };
         local base_name = module:get_option("reg_servlet_base") or "register_account";
-        require "net.httpserver".new_from_config(ports, handle_req, { base = base_name });
+        local ssl_cert = module:get_option("reg_servlet_sslcert") or false;
+        local ssl_key = module:get_option("reg_servlet_sslkey") or false;
+        if not ssl_cert or not ssl_key then
+        	require "net.httpserver".new_from_config(ports, handle_req, { base = base_name });
+        else
+        	require "net.httpserver".new_from_config(ports, handle_req, { ssl = { key = ssl_key, certificate = ssl_cert }, base = base_name });
+	end
 end
 if prosody.start_time then -- already started
         setup();
