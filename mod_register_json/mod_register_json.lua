@@ -63,13 +63,14 @@ local function handle_req(method, body, request)
 end
 
 local function setup()
-        local ports = module:get_option("reg_servlet_port") or { 9443 };
+        local ports = module:get_option("reg_servlet_port") or { 9280 };
         local base_name = module:get_option("reg_servlet_base") or "register_account";
         local ssl_cert = module:get_option("reg_servlet_sslcert") or false;
         local ssl_key = module:get_option("reg_servlet_sslkey") or false;
         if not ssl_cert or not ssl_key then
         	require "net.httpserver".new_from_config(ports, handle_req, { base = base_name });
         else
+        	if module:get_option("reg_servlet_port") == nil then ports = { 9443 }; end
         	require "net.httpserver".new_from_config(ports, handle_req, { ssl = { key = ssl_key, certificate = ssl_cert }, base = base_name });
 	end
 end
