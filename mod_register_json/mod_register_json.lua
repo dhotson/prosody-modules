@@ -53,7 +53,7 @@ local function handle_req(method, body, request)
 		if req_body["password"]:match("%s") then module:log("debug", "Password submitted for user registration by %s contained spaces.", user); return http_response(400, "Supplied user passwords can't contain spaces."); end
 		-- We first check if the supplied username for registration is already there.
 		if not usermanager.user_exists(req_body["username"], req_body["host"]) then
-			usermanager.create_user(req_body["username"], req_body["password"], req_body["host]);
+			usermanager.create_user(req_body["username"], req_body["password"], req_body["host"]);
 			module:log("debug", "%s registration data submission for %s is successful", user, req_body["user"]);
 			return http_response(200, "Done.");
 		else
