@@ -61,6 +61,12 @@ local function handle_req(method, body, request)
 		module:log("debug", "JSON data submitted for user registration by %s failed to Decode.", user); 
 		return http_response(400, "JSON Decoding failed.");
 	else
+		-- Decode JSON data and check that all bits are there else throw an error
+		req_body = json_decode(body);
+		if req_body["username"] == nil or req_body["password"] == nil or req_body["host"] == nil or req_body["ip"] == nil then
+			module:log("debug", "%s supplied an insufficent number of elements or wrong elements for the JSON registration", user); 
+			return http_response(400, "Invalid syntax.");
+		end
 		-- Check if user is an admin of said host
 		if not usermanager.is_admin(user, req_body["host"]) then
 			module:log("warn", "%s tried to submit registration data for %s but he's not an admin", user, req_body["host"]);
