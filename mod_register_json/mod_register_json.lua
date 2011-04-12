@@ -63,7 +63,7 @@ local function handle_req(method, body, request)
 		if req_body == nil then module:log("debug", "JSON data submitted for user registration by %s failed to Decode.", user); return http_response(400, "JSON Decoding failed."); end
 		
 		-- Checks for both Throttling/Whitelist and Blacklist (basically copycatted from prosody's register.lua code)
-		if blacklist[req_body["ip"]] then then module:log("warn", "Attempt of reg. submission to the JSON servlet from blacklisted address: %s", req_body["ip"]); return http_response(403, "The specified address is blacklisted, sorry sorry."); end
+		if blacklist[req_body["ip"]] then module:log("warn", "Attempt of reg. submission to the JSON servlet from blacklisted address: %s", req_body["ip"]); return http_response(403, "The specified address is blacklisted, sorry sorry."); end
 		if throttle_time and not whitelist[req_body["ip"]] then
 			if not recent_ips[req_body["ip"]] then
 				recent_ips[req_body["ip"]] = { time = os_time(), count = 1 };
