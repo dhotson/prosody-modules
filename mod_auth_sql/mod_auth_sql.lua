@@ -79,7 +79,20 @@ function new_default_provider(host)
 
 	function provider.test_password(username, password)
 		log("debug", "test password '%s' for user %s at host %s", password, username, module.host);
-		return nil, "Password based auth not supported.";
+
+		local stmt, err = getsql("SELECT `username` FROM `authreg` WHERE `username`=? AND `password`=? AND `realm`=?",
+			username, password, module.host);
+
+		if stmt ~= nil then
+			if #stmt:rows(true) > 0 then
+				return true;
+			end
+		else
+			log("error", "QUERY ERROR: %s %s", err, debug.traceback());
+			return nil, err;
+		end
+
+		return false;
 	end
 
 	function provider.get_password(username)
@@ -102,11 +115,25 @@ function new_default_provider(host)
 	end
 
 	function provider.set_password(username, password)
-		return nil, "Password based auth not supported.";
+		return nil, "Setting password is not supported.";
 	end
 
 	function provider.user_exists(username)
-		return nil, "User exist check not supported.";
+		log("debug", "test user %s existence at host %s", username, module.host);
+
+		local stmt, err = getsql("SELECT `username` FROM `authreg` WHERE `username`=? AND `realm`=?",
+			username, module.host);
+
+		if stmt ~= nil then
+			if #stmt:rows(true) > 0 then
+				return true;
+			end
+		else
+			log("error", "QUERY ERROR: %s %s", err, debug.traceback());
+			return nil, err;
+		end
+
+		return false;
 	end
 
 	function provider.create_user(username, password)
