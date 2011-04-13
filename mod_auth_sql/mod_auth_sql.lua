@@ -60,6 +60,7 @@ local function getsql(sql, ...)
 	if params.driver == "PostgreSQL" then
 		sql = sql:gsub("`", "\"");
 	end
+	if not test_connection() then connect() end
 	-- do prepared statement stuff
 	local stmt, err = connection:prepare(sql);
 	if not stmt and not test_connection() then error("connection failed"); end
