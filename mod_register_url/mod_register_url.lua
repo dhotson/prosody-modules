@@ -7,14 +7,18 @@ local st = require "util.stanza";
 function reg_redirect(event)
 	local ip_wl = module:get_option("registration_whitelist") or { "127.0.0.1" };
 	local url = module:get_option("registration_url");
-	local test_ip;
+	local no_wl = module:get_option("no_registration_whitelist") or false;
+	if type(no_wl) ~= boolean then no_wl = false end
+	local test_ip = false;
 
-	for i,ip in ipairs(ip_wl) do 
-		if event.origin.ip == ip then test_ip = true; end
-		break; 
+	if not no_wl then
+		for i,ip in ipairs(ip_wl) do
+			if event.origin.ip == ip then test_ip = true; end
+			break;
+		end
 	end
 	
-	if not test_ip and url ~= nil then
+	if not test_ip and url ~= nil or no_wl and url ~= nil then
 		local reply = st.reply(event.stanza);
 		reply:tag("query", {xmlns = "jabber:iq:register"})
 			:tag("instructions"):text("Please visit "..url.." to register an account on this server."):up()
