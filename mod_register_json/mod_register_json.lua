@@ -9,6 +9,7 @@ local jid_split = require "util.jid".split;
 local usermanager = require "core.usermanager";
 local b64_decode = require "util.encodings".base64.decode;
 local json_decode = require "util.json".decode;
+local httpserver = require "net.httpserver";
 local os_time = os.time;
 
 module.host = "*" -- HTTP/BOSH Servlets need to be global.
@@ -106,15 +107,25 @@ end
 
 -- Set it up!
 local function setup()
-	local port = module:get_option("reg_servlet_port") or 9280;
-	local base_name = module:get_option("reg_servlet_base") or "register_account";
-	local ssl_cert = module:get_option("reg_servlet_sslcert") or false;
-	local ssl_key = module:get_option("reg_servlet_sslkey") or false;
-	if not ssl_cert or not ssl_key then
-		require "net.httpserver".new_from_config({ port = port }, handle_req, { base = base_name });
+	local ports = module:get_option("reg_servlet_ports") or { 9280 };
+	local port_number, base_name, ssl_table;
+	for _, opts in ipairs(ports) do
+		if type(opts) == "number" then
+			port_number, base_name = opts, "register_account";
+		elseif type(opts) == "table" then
+			port_number, base_name, ssl_table = opts.port or 9280, opts.path or "register_account", opts.ssl or nil;
+		elseif type(opts) == "string" then
+			base_name, port_number = opts, 9280;
+		end
+	end
+	
+	if ssl_table == nil then
+		ports = { { port = port_number } };
+		httpserver.new_from_config(ports, handle_req, { base = base_name });
 	else
-		if module:get_option("reg_servlet_port") == nil then port = 9443; end
-		require "net.httpserver".new_from_config({ port = port; ssl = { key = ssl_key, certificate = ssl_cert }; }, handle_req, { base = base_name });
+		if port_number == 9280 then port_number = 9443; end
+		ports = { { port = port_number, ssl = ssl_table } };
+		httpserver.new_from_config(ports, handle_req, { base = base_name });
 	end
 end
 
