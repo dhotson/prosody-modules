@@ -8,7 +8,6 @@ local nodeprep = require "util.encodings".stringprep.nodeprep;
 
 local DBI;
 local connection;
-local host,user,store = module.host;
 local params = module:get_option("sql");
 
 local resolve_relative_path = require "core.configmanager".resolve_relative_path;
@@ -36,7 +35,7 @@ local function connect()
 			return nil, err;
 		end
 		module:log("debug", "Successfully connected to database");
-		dbh:autocommit(false); -- don't commit automatically
+		dbh:autocommit(true); -- don't run in transaction
 		connection = dbh;
 		return connection;
 	end
@@ -60,7 +59,7 @@ local function getsql(sql, ...)
 	if params.driver == "PostgreSQL" then
 		sql = sql:gsub("`", "\"");
 	end
-	if not test_connection() then connect() end
+	if not test_connection() then connect(); end
 	-- do prepared statement stuff
 	local stmt, err = connection:prepare(sql);
 	if not stmt and not test_connection() then error("connection failed"); end
@@ -75,20 +74,24 @@ end
 
 function new_default_provider(host)
 	local provider = { name = "sql" };
-	log("debug", "initializing default authentication provider for host '%s'", host);
+	module:log("debug", "initializing default authentication provider for host '%s'", host);
 
 	function provider.test_password(username, password)
-		log("debug", "test password '%s' for user %s at host %s", password, username, module.host);
+		module:log("debug", "test_password '%s' for user %s at host %s", password, username, host);
 
 		local stmt, err = getsql("SELECT `username` FROM `authreg` WHERE `username`=? AND `password`=? AND `realm`=?",
-			username, password, module.host);
+			username, password, host);
 
 		if stmt ~= nil then
-			if #stmt:rows(true) > 0 then
+			local count = 0;
+			for row in stmt:rows(true) do
+				count = count + 1;
+			end
+			if count > 0 then
 				return true;
 			end
 		else
-			log("error", "QUERY ERROR: %s %s", err, debug.traceback());
+			module:log("error", "QUERY ERROR: %s %s", err, debug.traceback());
 			return nil, err;
 		end
 
@@ -96,10 +99,10 @@ function new_default_provider(host)
 	end
 
 	function provider.get_password(username)
-		log("debug", "get_password for username '%s' at host '%s'", username, module.host);
+		module:log("debug", "get_password for username '%s' at host '%s'", username, host);
 
 		local stmt, err = getsql("SELECT `password` FROM `authreg` WHERE `username`=? AND `realm`=?",
-			username, module.host);
+			username, host);
 
 		local password = nil;
 		if stmt ~= nil then
@@ -107,7 +110,7 @@ function new_default_provider(host)
 				password = row.password;
 			end
 		else
-			log("error", "QUERY ERROR: %s %s", err, debug.traceback());
+			module:log("error", "QUERY ERROR: %s %s", err, debug.traceback());
 			return nil;
 		end
 
@@ -119,17 +122,21 @@ function new_default_provider(host)
 	end
 
 	function provider.user_exists(username)
-		log("debug", "test user %s existence at host %s", username, module.host);
+		module:log("debug", "test user %s existence at host %s", username, host);
 
 		local stmt, err = getsql("SELECT `username` FROM `authreg` WHERE `username`=? AND `realm`=?",
-			username, module.host);
+			username, host);
 
 		if stmt ~= nil then
-			if #stmt:rows(true) > 0 then
+			local count = 0;
+			for row in stmt:rows(true) do
+				count = count + 1;
+			end
+			if count > 0 then
 				return true;
 			end
 		else
-			log("error", "QUERY ERROR: %s %s", err, debug.traceback());
+			module:log("error", "QUERY ERROR: %s %s", err, debug.traceback());
 			return nil, err;
 		end
 
@@ -141,12 +148,12 @@ function new_default_provider(host)
 	end
 
 	function provider.get_sasl_handler()
-		local realm = module:get_option("sasl_realm") or module.host;
+		local realm = module:get_option("sasl_realm") or host;
 		local getpass_authentication_profile = {
 			plain = function(sasl, username, realm)
 				local prepped_username = nodeprep(username);
 				if not prepped_username then
-					log("debug", "NODEprep failed on username: %s", username);
+					module:log("debug", "NODEprep failed on username: %s", username);
 					return "", nil;
 				end
 				local password = usermanager.get_password(prepped_username, realm);
