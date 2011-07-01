@@ -8,6 +8,7 @@ local new_sasl = require "util.sasl".new;
 local nodeprep = require "util.encodings".stringprep.nodeprep;
 local DBI = require "DBI"
 local md5 = require "util.hashes".md5;
+local uuid_gen = require "util.uuid".generate;
 
 local connection;
 local params = module:get_option("sql");
@@ -71,6 +72,11 @@ local function getsql(sql, ...)
 	
 	return stmt;
 end
+local function setsql(sql, ...)
+	local stmt, err = getsql(sql, ...);
+	if not stmt then return stmt, err; end
+	return stmt:affected();
+end
 
 local function get_password(username)
 	local stmt, err = getsql("SELECT `user_password` FROM `phpbb_users` WHERE `username`=?", username);
@@ -83,8 +89,7 @@ end
 
 local itoa64 = "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
-local function hashEncode64(input)
-	local count = 16;
+local function hashEncode64(input, count)
 	local output = "";
 	local i, value = 0, 0;
 
@@ -122,7 +127,7 @@ local function hashEncode64(input)
 	end
 	return output;
 end
-local function hashCryptPrivate(password, genSalt, itoa64)
+local function hashCryptPrivate(password, genSalt)
 	local output = "*";
 	if not genSalt:match("^%$H%$") then return output; end
 
@@ -143,13 +148,29 @@ local function hashCryptPrivate(password, genSalt, itoa64)
 	end
 
 	output = genSalt:sub(1, 12);
-	output = output .. hashEncode64(hash);
+	output = output .. hashEncode64(hash, 16);
 
 	return output;
 end
-local function phpbbCheckHash(password, hash)
-	return #hash == 34 and hashCryptPrivate(password, hash, itoa64) == hash;
+local function hashGensaltPrivate(input)
+	local iteration_count_log2 = 6;
+	local output = "$H$";
+	local idx = math.min(iteration_count_log2 + 5, 30) + 1;
+	output = output .. itoa64:sub(idx, idx);
+	output = output .. hashEncode64(input, 6);
+	return output;
 end
+local function phpbbCheckHash(password, hash)
+	return #hash == 34 and hashCryptPrivate(password, hash) == hash;
+end
+local function phpbbHash(password)
+	local random = uuid_gen():sub(-6);
+	local salt = hashGensaltPrivate(random);
+	local hash = hashCryptPrivate(password, salt);
+	if #hash == 34 then return hash; end
+	return md5(password, true);
+end
+
 
 provider = { name = "phpbb3" };
 
@@ -167,7 +188,9 @@ function provider.get_password(username)
 	return nil, "Getting password is not supported.";
 end
 function provider.set_password(username, password)
-	return nil, "Setting password is not supported.";
+	local hash = phpbbHash(password);
+	local stmt, err = setsql("UPDATE `phpbb_users` SET `user_password`=? WHERE `username`=?", hash, username);
+	return stmt and true, err;
 end
 function provider.create_user(username, password)
 	return nil, "Account creation/modification not supported.";
