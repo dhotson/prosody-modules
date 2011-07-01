@@ -176,7 +176,7 @@ end
 
 function provider.get_sasl_handler()
 	local profile = {
-		plain_test = function(username, password, realm)
+		plain_test = function(sasl, username, password, realm)
 			-- TODO stringprep
 			return provider.test_password(username, password), true;
 		end;
