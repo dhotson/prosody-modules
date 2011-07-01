@@ -154,8 +154,7 @@ end
 provider = { name = "phpbb3" };
 
 function provider.test_password(username, password)
-	module:log("debug", "test_password '%s' for user %s", password, username);
-
+	--module:log("debug", "test_password '%s' for user %s", tostring(password), tostring(username));
 	local hash = get_password(username);
 	return hash and phpbbCheckHash(password, hash);
 end
