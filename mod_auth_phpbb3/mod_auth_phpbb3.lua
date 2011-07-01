@@ -157,7 +157,7 @@ function provider.test_password(username, password)
 	module:log("debug", "test_password '%s' for user %s", password, username);
 
 	local hash = get_password(username);
-	return phpbbCheckHash(password, hash);
+	return hash and phpbbCheckHash(password, hash);
 end
 function provider.user_exists(username)
 	module:log("debug", "test user %s existence", username);
