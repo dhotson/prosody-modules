@@ -660,41 +660,29 @@ local function parseDay(bareRoomJid, roomSubject, bare_day)
 end
 
 function handle_request(method, body, request)
-	local host, node, day = request.url.path:match("^/muc_log/([^/]*)/?([^/]*)/?([^/]*)/?$");
+	local host, node, day, more = request.url.path:match("^/muc_log/+([^/]*)/*([^/]*)/*([^/]*)/*(.*)$");
+	if more ~= "" then return { status = "404 Not found", body = "Unknown URL" }; end
 	if host == "" then host = nil; end
 	if node == "" then node = nil; end
 	if day  == "" then day  = nil; end
 
 	node = urldecode(node);
 
-	if muc_hosts ~= nil and html.doc ~= nil then
-		if node ~= nil and host ~= nil then
-			local bare = node .. "@" .. host;
-			if prosody.hosts[host] ~= nil and prosody.hosts[host].muc ~= nil then
-				if prosody.hosts[host].muc.rooms[bare] ~= nil then
-					local room = prosody.hosts[host].muc.rooms[bare];
-					if day == nil then
-						return createDoc(generateDayListSiteContentByRoom(bare));
-					else
-						local subject = ""
-						if room._data ~= nil and room._data.subject ~= nil then
-							subject = room._data.subject;
-						end
-						return createDoc(parseDay(bare, subject, day));
-					end
-				else
-					return createDoc(generateRoomListSiteContent(host));
-				end
-			else
-				return createDoc(generateComponentListSiteContent());
-			end
-		elseif host ~= nil then
-			return createDoc(generateRoomListSiteContent(host));
-		else
-			return createDoc(generateComponentListSiteContent());
-		end
+	assert(muc_hosts and html.doc, "MUC hosts or theme not loaded");
+
+	if host and not(hosts[host] and hosts[host].modules.muc) then return { status = "404 Not found", body = "No such MUC component" }; end
+	if host and node and not(muc_hosts[host].modules.muc.rooms[node.."@"..host]) then return { status = "404 Not found", body = "No such MUC room" }; end
+
+	if not host then -- main component list
+		return createDoc(generateComponentListSiteContent());
+	elseif not node then -- room list for component
+		return createDoc(generateRoomListSiteContent(host));
+	elseif not day then -- room's listing
+		return createDoc(generateDayListSiteContentByRoom(node.."@"..host));
+	else
+		local room = muc_hosts[host].modules.muc.rooms[node.."@"..host];
+		return createDoc(parseDay(node.."@"..host, room._data.subject or "", day:gsub("%-", "")));
 	end
-	return;
 end
 
 -- Compatibility: Lua-5.1
