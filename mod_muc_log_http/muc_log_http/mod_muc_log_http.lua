@@ -100,38 +100,6 @@ local function htmlEscape(t)
 	return t;
 end
 
-function splitUrl(url)
-	local tmp = url:sub(string.len("/muc_log/") + 1);
-	local day = nil;
-	local room = nil;
-	local component = nil;
-	local at = nil;
-	local slash = nil;
-	local slash2 = nil;
-
-	slash = tmp:find("/");
-	if slash then
-		component = tmp:sub(1, slash - 1);
-		if tmp:len() > slash then
-			room = tmp:sub(slash + 1);
-			slash = room:find("/");
-			if slash then
-				tmp = room;
-				room = tmp:sub(1, slash - 1);
-				if tmp:len() > slash then
-					day = tmp:sub(slash + 1);
-					slash = day:find("/");
-					if slash then
-						day = day:sub(1, slash - 1);
-					end
-				end
-			end
-		end
-	end
-
-	return room, component, day;
-end
-
 local function generateComponentListSiteContent()
 	local components = "";
 	for component,muc_host in pairs(muc_hosts or {}) do
@@ -693,7 +661,10 @@ local function parseDay(bareRoomJid, roomSubject, bare_day)
 end
 
 function handle_request(method, body, request)
-	local node, host, day = splitUrl(request.url.path);
+	local host, node, day = request.url.path:match("^/muc_log/([^/]*)/?([^/]*)/?([^/]*)/?$");
+	if host == "" then host = nil; end
+	if node == "" then node = nil; end
+	if day  == "" then day  = nil; end
 
 	node = urldecode(node);
 
