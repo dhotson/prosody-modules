@@ -316,16 +316,14 @@ local function generateDayListSiteContentByRoom(bareRoomJid)
 		end
 	end
 
-	if days ~= "" then
-		tmp = html.days.body:gsub("###DAYS_STUFF###", days);
-		tmp = tmp:gsub("###PREVIOUS_ROOM###", previousRoom == "" and node or previousRoom);
-		tmp = tmp:gsub("###NEXT_ROOM###", nextRoom == "" and node or nextRoom);
-		tmp = tmp:gsub("###ROOMS###", rooms);
-		tmp = tmp:gsub("###ROOMTOPIC###", topic);
-		tmp = tmp:gsub("###SINCE###", since);
-		tmp = tmp:gsub("###TO###", to);
-		return tmp:gsub("###JID###", bareRoomJid);
-	end
+	tmp = html.days.body:gsub("###DAYS_STUFF###", days);
+	tmp = tmp:gsub("###PREVIOUS_ROOM###", previousRoom == "" and node or previousRoom);
+	tmp = tmp:gsub("###NEXT_ROOM###", nextRoom == "" and node or nextRoom);
+	tmp = tmp:gsub("###ROOMS###", rooms);
+	tmp = tmp:gsub("###ROOMTOPIC###", topic);
+	tmp = tmp:gsub("###SINCE###", since);
+	tmp = tmp:gsub("###TO###", to);
+	return tmp:gsub("###JID###", bareRoomJid);
 end
 
 local function parseIqStanza(stanza, timeStuff, nick)
