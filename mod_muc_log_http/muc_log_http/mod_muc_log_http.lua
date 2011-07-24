@@ -653,7 +653,7 @@ function handle_request(method, body, request)
 	assert(muc_hosts and html.doc, "MUC hosts or theme not loaded");
 
 	if host and not(hosts[host] and hosts[host].modules.muc) then return { status = "404 Not found", body = "No such MUC component" }; end
-	if host and node and not(muc_hosts[host].modules.muc.rooms[node.."@"..host]) then return { status = "404 Not found", body = "No such MUC room" }; end
+	if host and node and not(hosts[host].modules.muc.rooms[node.."@"..host]) then return { status = "404 Not found", body = "No such MUC room" }; end
 
 	if not host then -- main component list
 		return createDoc(generateComponentListSiteContent());
