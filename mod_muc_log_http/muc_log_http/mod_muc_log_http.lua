@@ -137,9 +137,7 @@ local function generateComponentListSiteContent()
 	for component,muc_host in pairs(muc_hosts or {}) do
 		components = components .. html.components.bit:gsub("###COMPONENT###", component);
 	end
-	if components ~= "" then
-		return html.components.body:gsub("###COMPONENTS_STUFF###", components);
-	end
+	return html.components.body:gsub("###COMPONENTS_STUFF###", components);
 end
 
 local function generateRoomListSiteContent(component)
