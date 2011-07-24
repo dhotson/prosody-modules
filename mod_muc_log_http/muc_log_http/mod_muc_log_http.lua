@@ -71,10 +71,9 @@ local function checkDatastorePathExists(node, host, today, create)
 end
 
 function createDoc(body)
-	if body then
-		body = body:gsub("%%", "%%%%");
-		return html.doc:gsub("###BODY_STUFF###", body);
-	end
+	assert(body, "<nil> HTTP response");
+	body = body:gsub("%%", "%%%%");
+	return html.doc:gsub("###BODY_STUFF###", body);
 end
 
 function urlunescape (escapedUrl)
