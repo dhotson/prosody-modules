@@ -291,9 +291,7 @@ local function generateDayListSiteContentByRoom(bareRoomJid)
 		end
 	end
 	if attributes ~= nil and room ~= nil then
-		local first = 1;
 		local alreadyDoneYears = {};
-		local temptime = {day=0, month=0, year=0};
 		topic = room._data.subject or "(no subject)"
 		if topic:len() > 135 then
 			topic = topic:sub(1, topic:find(" ", 120)) .. " ..."
@@ -303,19 +301,14 @@ local function generateDayListSiteContentByRoom(bareRoomJid)
 		table.sort(folders);
 		for _, folder in ipairs(folders) do
 			local year, month, day = folder:match("^(%d%d)(%d%d)(%d%d)");
-			if year ~= nil and alreadyDoneYears[year] == nil then
-				temptime.day = tonumber(day)
-				temptime.month = tonumber(month)
-				temptime.year = 2000 + tonumber(year)
-				if first == 1 then
-					to = tostring(os_date("%B %Y", os_time(temptime)))
-					first = 0
+			if year then
+				to = tostring(os_date("%B %Y", os_time({ day=tonumber(day), month=tonumber(month), year=2000+tonumber(year) })));
+				if since == "" then since = to; end
+				if not alreadyDoneYears[year] then
+					module:log("debug", "creating overview for: %s", to);
+					days = createYear(year, {callback=perDayCallback, path=path, room=node}) .. days;
+					alreadyDoneYears[year] = true;
 				end
-
-				since = tostring(os_date("%B %Y", os_time(temptime)))
-				module:log("debug", "creating overview for: " .. tostring(since))
-				days = createYear(year, {callback=perDayCallback, path=path, room=node}) .. days;
-				alreadyDoneYears[year] = true;
 			end
 		end
 	end
