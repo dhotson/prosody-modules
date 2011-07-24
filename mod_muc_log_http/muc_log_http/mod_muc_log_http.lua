@@ -21,7 +21,6 @@ local datamanager = require "util.datamanager";
 local data_load, data_getpath = datamanager.load, datamanager.getpath;
 local datastore = "muc_log";
 local urlBase = "muc_log";
-local muc_hosts = {};
 local config = nil;
 local tostring = _G.tostring;
 local tonumber = _G.tonumber;
@@ -101,8 +100,10 @@ end
 
 local function generateComponentListSiteContent()
 	local components = "";
-	for component,muc_host in pairs(muc_hosts or {}) do
-		components = components .. html.components.bit:gsub("###COMPONENT###", component);
+	for component,host in pairs(hosts) do
+		if host.modules.muc and host.modules.muc_log then
+			components = components .. html.components.bit:gsub("###COMPONENT###", component);
+		end
 	end
 	return html.components.body:gsub("###COMPONENTS_STUFF###", components);
 end
@@ -265,7 +266,7 @@ local function generateDayListSiteContentByRoom(bareRoomJid)
 
 	path = path:gsub("/[^/]*$", "");
 	attributes = lfs.attributes(path);
-	if muc_hosts ~= nil and muc_hosts[host] and prosody.hosts[host] ~= nil and prosody.hosts[host].muc ~= nil and prosody.hosts[host].muc.rooms[bareRoomJid] ~= nil then
+	do
 		local found = 0;
 		for jid, room in pairs(prosody.hosts[host].muc.rooms) do
 			local node = splitJid(jid)
@@ -648,9 +649,9 @@ function handle_request(method, body, request)
 
 	node = urldecode(node);
 
-	assert(muc_hosts and html.doc, "MUC hosts or theme not loaded");
+	assert(html.doc, "MUC hosts or theme not loaded");
 
-	if host and not(hosts[host] and hosts[host].modules.muc) then return { status = "404 Not found", body = "No such MUC component" }; end
+	if host and not(hosts[host] and hosts[host].modules.muc and hosts[host].modules.muc_log) then return { status = "404 Not found", body = "No such MUC component" }; end
 	if host and node and not(hosts[host].modules.muc.rooms[node.."@"..host]) then return { status = "404 Not found", body = "No such MUC room" }; end
 
 	if not host then -- main component list
@@ -744,37 +745,4 @@ function module.load()
 	-- module:log("debug", (require "util.serialization").serialize(html));
 
 	httpserver.new_from_config({ config.http_port or true }, handle_request, { base = urlBase, ssl = false, port = 5290 });
-
-	for jid, host in pairs(prosody.hosts) do
-		if host.muc then
-			local enabledModules = config_get(jid, "core", "modules_enabled");
-			if enabledModules then
-				for _,mod in ipairs(enabledModules) do
-					if(mod == "muc_log") then
-						module:log("debug", "component: %s", tostring(jid));
-						muc_hosts[jid] = true;
-						break;
-					end
-				end
-			end
-		end
-	end
-	module:log("debug", "loaded mod_muc_log_http");
 end
-
-function module.unload()
-	muc_hosts = nil;
-	module:log("debug", "unloaded mod_muc_log_http");
-end
-
-module:hook("component-activated", function(component, config)
-	if config.core and config.core.modules_enabled then
-		for _,mod in ipairs(config.core.modules_enabled) do
-			if(mod == "muc_log") then
-				module:log("debug", "component: %s", tostring(component));
-				muc_hosts[component] = true;
-				break;
-			end
-		end
-	end
-end);
