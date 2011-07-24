@@ -660,7 +660,7 @@ function handle_request(method, body, request)
 	elseif not day then -- room's listing
 		return createDoc(generateDayListSiteContentByRoom(node.."@"..host));
 	else
-		local room = muc_hosts[host].modules.muc.rooms[node.."@"..host];
+		local room = hosts[host].modules.muc.rooms[node.."@"..host];
 		return createDoc(parseDay(node.."@"..host, room._data.subject or "", day:gsub("%-", "")));
 	end
 end
