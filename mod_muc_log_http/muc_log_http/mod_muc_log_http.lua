@@ -69,19 +69,6 @@ local function checkDatastorePathExists(node, host, today, create)
 	return false;
 end
 
-function createDoc(body)
-	assert(body, "<nil> HTTP response");
-	body = body:gsub("%%", "%%%%");
-	return html.doc:gsub("###BODY_STUFF###", body);
-end
-
-function urlunescape (escapedUrl)
-	escapedUrl = escapedUrl:gsub("+", " ")
-	escapedUrl = escapedUrl:gsub("%%(%x%x)", function(h) return strchar(tonumber(h,16)) end)
-	escapedUrl = escapedUrl:gsub("\r\n", "\n")
-	return escapedUrl
-end
-
 local function htmlEscape(t)
 	if t then
 		t = t:gsub("<", "&lt;");
@@ -98,6 +85,20 @@ local function htmlEscape(t)
 	return t;
 end
 
+function createDoc(body, title)
+	assert(body, "<nil> HTTP response");
+	body = body:gsub("%%", "%%%%");
+	return html.doc:gsub("###BODY_STUFF###", body)
+		:gsub("<title>muc_log</title>", "<title>"..(title and htmlEscape(title) or "Chatroom logs").."</title>");
+end
+
+function urlunescape (escapedUrl)
+	escapedUrl = escapedUrl:gsub("+", " ")
+	escapedUrl = escapedUrl:gsub("%%(%x%x)", function(h) return strchar(tonumber(h,16)) end)
+	escapedUrl = escapedUrl:gsub("\r\n", "\n")
+	return escapedUrl
+end
+
 local function generateComponentListSiteContent()
 	local components = "";
 	for component,host in pairs(hosts) do
@@ -105,7 +106,7 @@ local function generateComponentListSiteContent()
 			components = components .. html.components.bit:gsub("###COMPONENT###", component);
 		end
 	end
-	return html.components.body:gsub("###COMPONENTS_STUFF###", components);
+	return (html.components.body:gsub("###COMPONENTS_STUFF###", components));
 end
 
 local function generateRoomListSiteContent(component)
@@ -117,7 +118,7 @@ local function generateRoomListSiteContent(component)
 				rooms = rooms .. html.rooms.bit:gsub("###ROOM###", node):gsub("###COMPONENT###", component);
 			end
 		end
-		return html.rooms.body:gsub("###ROOMS_STUFF###", rooms):gsub("###COMPONENT###", component);
+		return html.rooms.body:gsub("###ROOMS_STUFF###", rooms):gsub("###COMPONENT###", component), "Chatroom logs for "..component;
 	end
 end
 
@@ -320,7 +321,7 @@ local function generateDayListSiteContentByRoom(bareRoomJid)
 	tmp = tmp:gsub("###ROOMTOPIC###", topic);
 	tmp = tmp:gsub("###SINCE###", since);
 	tmp = tmp:gsub("###TO###", to);
-	return tmp:gsub("###JID###", bareRoomJid);
+	return tmp:gsub("###JID###", bareRoomJid), "Chatroom logs for "..bareRoomJid;
 end
 
 local function parseIqStanza(stanza, timeStuff, nick)
@@ -631,7 +632,7 @@ local function parseDay(bareRoomJid, roomSubject, bare_day)
 			tmp = tmp:gsub("###NEXT_LINK###", nextDay or "");
 			tmp = tmp:gsub("###PREVIOUS_LINK###", previousDay or "");
 
-			return tmp;
+			return tmp, "Chatroom logs for "..bareRoomJid.." ("..tostring(os_date("%A, %B %d, %Y", os_time(temptime)))..")";
 		end
 	end
 end
