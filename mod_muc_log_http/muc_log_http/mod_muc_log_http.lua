@@ -298,7 +298,10 @@ local function generateDayListSiteContentByRoom(bareRoomJid)
 		if topic:len() > 135 then
 			topic = topic:sub(1, topic:find(" ", 120)) .. " ..."
 		end
-		for folder in lfs.dir(path) do
+		local folders = {};
+		for folder in lfs.dir(path) do table.insert(folders, folder); end
+		table.sort(folders);
+		for _, folder in ipairs(folders) do
 			local year, month, day = folder:match("^(%d%d)(%d%d)(%d%d)");
 			if year ~= nil and alreadyDoneYears[year] == nil then
 				temptime.day = tonumber(day)
