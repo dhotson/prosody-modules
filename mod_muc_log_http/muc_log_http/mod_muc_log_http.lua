@@ -121,35 +121,19 @@ local function generateRoomListSiteContent(component)
 end
 
 -- Calendar stuff
-local function getDaysForMonth(month, year)
-	local daysCount = 30;
-	local leapyear = false;
-
-	if year%4 == 0 and year%100 == 0 then
-		if year%400 == 0 then
-			leapyear = true;
-		else
-			leapyear = false; -- turn of the century but not a leapyear
-		end
-	elseif year%4 == 0 then
-		leapyear = true;
+local function get_days_for_month(month, year)
+	if month == 2 then
+		local is_leap_year = (year % 4 == 0 and year % 100 ~= 0) or year % 400 == 0;
+		return is_leap_year and 29 or 28;
+	elseif (month < 8 and month%2 == 1) or (month >= 8 and month%2 == 0) then
+		return 31;
 	end
-
-	if month == 2 and leapyear then
-		daysCount = 29;
-	elseif month == 2 and not leapyear then
-		daysCount = 28;
-	elseif  month < 8 and month%2 == 1 or
-		month >= 8 and month%2 == 0
-	then
-		daysCount = 31;
-	end
-	return daysCount;
+	return 30;
 end
 
 local function createMonth(month, year, dayCallback)
 	local htmlStr = html.month.header;
-	local days = getDaysForMonth(month, year);
+	local days = get_days_for_month(month, year);
 	local time = os_time{year=year, month=month, day=1};
 	local dow = tostring(os_date("%a", time))
 	local title = tostring(os_date("%B", time));
