@@ -116,9 +116,7 @@ local function generateRoomListSiteContent(component)
 				rooms = rooms .. html.rooms.bit:gsub("###ROOM###", node):gsub("###COMPONENT###", component);
 			end
 		end
-		if rooms ~= "" then
-			return html.rooms.body:gsub("###ROOMS_STUFF###", rooms):gsub("###COMPONENT###", component);
-		end
+		return html.rooms.body:gsub("###ROOMS_STUFF###", rooms):gsub("###COMPONENT###", component);
 	end
 end
 
