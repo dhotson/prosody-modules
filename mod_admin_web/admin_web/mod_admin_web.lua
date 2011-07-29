@@ -10,7 +10,9 @@
 -- </session>
 
 -- <session xmlns="http://prosody.im/streams/s2s" jid="example.com">
---   <encrypted/>
+--   <encrypted>
+--     <valid/> / <invalid/>
+--   </encrypted>
 --   <compressed/>
 --   <in/> / <out/>
 -- </session>
@@ -86,7 +88,11 @@ function add_host(session, type, host)
 	local item = st.stanza("item", { id = id }):tag("session", {xmlns = xmlns_s2s_session, jid = name})
 		:tag(type):up();
 	if session.secure then
-		item:tag("encrypted"):up();
+		if session.cert_identity_status == "valid" then
+			item:tag("encrypted"):tag("valid"):up():up();
+		else
+			item:tag("encrypted"):tag("invalid"):up():up();
+		end
 	end
 	if session.compressed then
 		item:tag("compressed"):up();

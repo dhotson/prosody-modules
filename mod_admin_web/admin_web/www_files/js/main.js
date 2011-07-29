@@ -25,15 +25,19 @@ function rawOutput(data) {
 }
 
 function _cbNewS2S(e) {
-    var items, entry, retract, id, jid;
+    var items, entry, tmp, retract, id, jid;
     items = e.getElementsByTagName('item');
     for (i = 0; i < items.length; i++) {
         id = items[i].attributes['id'].value;
         jid = items[i].getElementsByTagName('session')[0].attributes['jid'].value;
 
         entry = $('<li id="' + id + '">' + jid + '</li>');
-        if (items[i].getElementsByTagName('encrypted')[0]) {
-            entry.append('<img src="images/encrypted.png" title="encrypted" alt=" (encrypted)" />');
+        if (tmp = items[i].getElementsByTagName('encrypted')[0]) {
+            if (tmp.getElementsByTagName('valid')[0]) {
+                entry.append('<img src="images/secure.png" title="encrypted (certificate valid)" alt=" (secure) (encrypted)" />');
+            } else {
+                entry.append('<img src="images/encrypted.png" title="encrypted (certificate invalid)" alt=" (encrypted)" />');
+            }
         }
         if (items[i].getElementsByTagName('compressed')[0]) {
             entry.append('<img src="images/compressed.png" title="compressed" alt=" (compressed)" />');
