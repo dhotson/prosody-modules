@@ -5,8 +5,8 @@
 local log = require "util.logger".init("auth_sql");
 local new_sasl = require "util.sasl".new;
 local nodeprep = require "util.encodings".stringprep.nodeprep;
+local DBI = require "DBI"
 
-local DBI;
 local connection;
 local params = module:get_option("sql");
 
@@ -42,8 +42,6 @@ local function connect()
 end
 
 do -- process options to get a db connection
-	DBI = require "DBI";
-
 	params = params or { driver = "SQLite3" };
 	
 	if params.driver == "SQLite3" then
@@ -72,102 +70,64 @@ local function getsql(sql, ...)
 	return stmt;
 end
 
-function new_default_provider(host)
-	local provider = { name = "sql" };
-	module:log("debug", "initializing default authentication provider for host '%s'", host);
 
-	function provider.test_password(username, password)
-		module:log("debug", "test_password '%s' for user %s at host %s", password, username, host);
+provider = { name = "sql" };
 
-		local stmt, err = getsql("SELECT `username` FROM `authreg` WHERE `username`=? AND `password`=? AND `realm`=?",
-			username, password, host);
+function provider.test_password(username, password)
+	local stmt, err = getsql("SELECT `username` FROM `authreg` WHERE `username`=? AND `password`=? AND `realm`=?",
+		username, password, module.host);
 
-		if stmt ~= nil then
-			local count = 0;
-			for row in stmt:rows(true) do
-				count = count + 1;
-			end
-			if count > 0 then
-				return true;
-			end
-		else
-			module:log("error", "QUERY ERROR: %s %s", err, debug.traceback());
-			return nil, err;
-		end
+	if not stmt then return nil, err; end
 
-		return false;
+	for row in stmt:rows(true) do
+		return true;
 	end
-
-	function provider.get_password(username)
-		module:log("debug", "get_password for username '%s' at host '%s'", username, host);
-
-		local stmt, err = getsql("SELECT `password` FROM `authreg` WHERE `username`=? AND `realm`=?",
-			username, host);
-
-		local password = nil;
-		if stmt ~= nil then
-			for row in stmt:rows(true) do
-				password = row.password;
-			end
-		else
-			module:log("error", "QUERY ERROR: %s %s", err, debug.traceback());
-			return nil;
-		end
-
-		return password;
-	end
-
-	function provider.set_password(username, password)
-		return nil, "Setting password is not supported.";
-	end
-
-	function provider.user_exists(username)
-		module:log("debug", "test user %s existence at host %s", username, host);
-
-		local stmt, err = getsql("SELECT `username` FROM `authreg` WHERE `username`=? AND `realm`=?",
-			username, host);
-
-		if stmt ~= nil then
-			local count = 0;
-			for row in stmt:rows(true) do
-				count = count + 1;
-			end
-			if count > 0 then
-				return true;
-			end
-		else
-			module:log("error", "QUERY ERROR: %s %s", err, debug.traceback());
-			return nil, err;
-		end
-
-		return false;
-	end
-
-	function provider.create_user(username, password)
-		return nil, "Account creation/modification not supported.";
-	end
-
-	function provider.get_sasl_handler()
-		local realm = module:get_option("sasl_realm") or host;
-		local getpass_authentication_profile = {
-			plain = function(sasl, username, realm)
-				local prepped_username = nodeprep(username);
-				if not prepped_username then
-					module:log("debug", "NODEprep failed on username: %s", username);
-					return "", nil;
-				end
-				local password = usermanager.get_password(prepped_username, realm);
-				if not password then
-					return "", nil;
-				end
-				return password, true;
-			end
-		};
-		return new_sasl(realm, getpass_authentication_profile);
-	end
-
-	return provider;
 end
 
-module:add_item("auth-provider", new_default_provider(module.host));
+function provider.get_password(username)
+	local stmt, err = getsql("SELECT `password` FROM `authreg` WHERE `username`=? AND `realm`=?",
+		username, module.host);
 
+	if not stmt then return nil, err; end
+
+	for row in stmt:rows(true) do
+		return row.password;
+	end
+end
+
+function provider.set_password(username, password)
+	return nil, "Setting password is not supported.";
+end
+
+function provider.user_exists(username)
+	local stmt, err = getsql("SELECT `username` FROM `authreg` WHERE `username`=? AND `realm`=?",
+		username, module.host);
+
+	if not stmt then return nil, err; end
+
+	for row in stmt:rows(true) do
+		return true;
+	end
+end
+
+function provider.create_user(username, password)
+	return nil, "Account creation/modification not supported.";
+end
+
+function provider.get_sasl_handler()
+	local profile = {
+		plain = function(sasl, username, realm)
+			local prepped_username = nodeprep(username);
+			if not prepped_username then
+				module:log("debug", "NODEprep failed on username: %s", username);
+				return "", nil;
+			end
+			local password = provider.get_password(prepped_username);
+			if not password then return "", nil; end
+			return password, true;
+		end
+	};
+	return new_sasl(module.host, profile);
+end
+
+module:add_item("auth-provider", provider);
