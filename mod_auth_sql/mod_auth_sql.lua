@@ -1,5 +1,6 @@
 -- Simple SQL Authentication module for Prosody IM
 -- Copyright (C) 2011 Tomasz Sterna <tomek@xiaoka.com>
+-- Copyright (C) 2011 Waqas Hussain <waqas20@gmail.com>
 --
 
 local log = require "util.logger".init("auth_sql");
@@ -70,50 +71,33 @@ local function getsql(sql, ...)
 	return stmt;
 end
 
+local function get_password(username)
+	local stmt, err = getsql("SELECT `password` FROM `authreg` WHERE `username`=? AND `realm`=?", username, module.host);
+	if stmt then
+		for row in stmt:rows(true) do
+			return row.password;
+		end
+	end
+end
+
 
 provider = { name = "sql" };
 
 function provider.test_password(username, password)
-	local stmt, err = getsql("SELECT `username` FROM `authreg` WHERE `username`=? AND `password`=? AND `realm`=?",
-		username, password, module.host);
-
-	if not stmt then return nil, err; end
-
-	for row in stmt:rows(true) do
-		return true;
-	end
+	return password and get_password(username) == password;
 end
-
 function provider.get_password(username)
-	local stmt, err = getsql("SELECT `password` FROM `authreg` WHERE `username`=? AND `realm`=?",
-		username, module.host);
-
-	if not stmt then return nil, err; end
-
-	for row in stmt:rows(true) do
-		return row.password;
-	end
+	return get_password(username);
 end
-
 function provider.set_password(username, password)
 	return nil, "Setting password is not supported.";
 end
-
 function provider.user_exists(username)
-	local stmt, err = getsql("SELECT `username` FROM `authreg` WHERE `username`=? AND `realm`=?",
-		username, module.host);
-
-	if not stmt then return nil, err; end
-
-	for row in stmt:rows(true) do
-		return true;
-	end
+	return get_password(username) and true;
 end
-
 function provider.create_user(username, password)
 	return nil, "Account creation/modification not supported.";
 end
-
 function provider.get_sasl_handler()
 	local profile = {
 		plain = function(sasl, username, realm)
@@ -122,7 +106,7 @@ function provider.get_sasl_handler()
 				module:log("debug", "NODEprep failed on username: %s", username);
 				return "", nil;
 			end
-			local password = provider.get_password(prepped_username);
+			local password = get_password(prepped_username);
 			if not password then return "", nil; end
 			return password, true;
 		end
