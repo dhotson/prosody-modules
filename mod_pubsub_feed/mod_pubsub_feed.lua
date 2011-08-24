@@ -54,9 +54,25 @@ local config = module:get_option("feeds") or {
 };
 local refresh_interval = module:get_option_number("feed_pull_interval", 15) * 60;
 local use_pubsubhubub = module:get_option_boolean("use_pubsubhubub", true); -- HTTP by default or not?
+local http_hostname = module:get_option_string("pubsubhubub_httphost", module.host);
 local feed_list = { }
 for node, url in pairs(config) do
 	feed_list[node] = { url = url; node = node; last_update = 0 };
+end
+
+local ports = module:get_option("feeds_ports") or { 5280 };
+if not next(ports) then
+	ports = { 5280 };
+end
+local port_number, base_name, secure;
+for _, opts in ipairs(ports) do
+	if type(opts) == "number" then
+		port_number, base_name = opts, "callback";
+	elseif type(opts) == "table" then
+		port_number, base_name, secure = opts.port or 5280, opts.path or "callback", opts.ssl or nil;
+	elseif type(opts) == "string" then
+		base_name, port_number = opts, 5280;
+	end
 end
 
 local response_codes = {
@@ -165,11 +181,15 @@ function refresh_feeds()
 	return refresh_interval;
 end
 
+local function format_url(secure, host, port, path, node)
+	return ("%s://%s:%d/%s?node=%s"):format(secure and "https" or "http", host, port, path, urlencode(node));
+end	
+
 function subscribe(feed)
 	feed.token = uuid();
 	feed.secret = uuid();
 	local _body, body = {
-		["hub.callback"] = "http://"..module.host..":5280/callback?node=" .. urlencode(feed.node); --FIXME figure out your own hostname reliably?
+		["hub.callback"] = format_url(secure, http_hostname, port_number, base_name, feed.node);
 		["hub.mode"] = "subscribe"; --TODO unsubscribe
 		["hub.topic"] = feed.url;
 		["hub.verify"] = "async";
@@ -251,7 +271,7 @@ end
 function init()
 	module:log("debug", "initiating", module.name);
 	if use_pubsubhubub then
-		httpserver.new{ port = 5280, base = "callback", handler = handle_http_request }
+		httpserver.new{ port = port_number, base = base_name, handler = handle_http_request }
 	end
 	add_task(0, refresh_feeds);
 end
