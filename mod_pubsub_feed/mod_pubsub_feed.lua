@@ -137,7 +137,8 @@ end
 function fetch(item, callback) -- HTTP Pull
 	local headers = { };
 	if item.data and item.last_update then
-		headers["If-Modified-Since"] = date("!%a, %d %b %Y %T %Z", item.last_update);
+		headers["If-Modified-Since"] = date("!%a, %d %b %Y %H:%M:%S %Z", item.last_update);
+		--COMPAT We could have saved 6 bytes here, but Microsoft apparently hates %T, so you got this gigantic comment instead.
 	end
 	http.request(item.url, { headers = headers }, function(data, code, req) 
 		if code == 200 then
