@@ -26,27 +26,17 @@ local t_insert = table.insert;
 local add_task = require "util.timer".add_task;
 local date, time = os.date, os.time;
 local dt_parse, dt_datetime = require "util.datetime".parse, require "util.datetime".datetime;
-local http = require "net.http";
-local parse_feed = require "feeds".feed_from_string;
-local st = require "util.stanza";
-local httpserver = require "net.httpserver";
-local formencode = require "net.http".formencode;
-local dump = require "util.serialization".serialize;
 local uuid = require "util.uuid".generate;
 local hmac_sha1 = require "util.hmac".sha1;
+local parse_feed = require "feeds".feed_from_string;
+local st = require "util.stanza";
 
-local urldecode = require "net.http".urldecode;
-local urlencode = require "net.http".urlencode;
-local urlparams = --require "net.http".getQueryParams or whatever MattJ names it, FIXME
-function(s)
-	if not s:match("=") then return urldecode(s); end
-	local r = {}
-	s:gsub("([^=&]*)=([^&]*)", function(k,v)
-		r[ urldecode(k) ] = urldecode(v);
-		return nil
-	end)
-	return r
-end;
+local http = require "net.http";
+local httpserver = require "net.httpserver";
+local formdecode = http.formdecode;
+local formencode = http.formencode;
+local urldecode  = http.urldecode;
+local urlencode  = http.urlencode;
 
 local config = module:get_option("feeds") or {
 	planet_jabber = "http://planet.jabber.org/atom.xml";
@@ -54,24 +44,29 @@ local config = module:get_option("feeds") or {
 };
 local refresh_interval = module:get_option_number("feed_pull_interval", 15) * 60;
 local use_pubsubhubub = module:get_option_boolean("use_pubsubhubub", true); -- HTTP by default or not?
-local http_hostname = module:get_option_string("pubsubhubub_httphost", module.host);
+local httphost = module:get_option_string("pubsubhubub_httphost", module.host); -- If module.host IN A doesn't point to this server, use this to override.
 local feed_list = { }
 for node, url in pairs(config) do
 	feed_list[node] = { url = url; node = node; last_update = 0 };
 end
+-- TODO module:hook("config-reloaded", above loop);
+-- Also, keeping it somewhere persistent in order to avoid duplicated publishes?
 
-local ports = module:get_option("feeds_ports") or { 5280 };
-if not next(ports) then
-	ports = { 5280 };
-end
-local port_number, base_name, secure;
-for _, opts in ipairs(ports) do
-	if type(opts) == "number" then
-		port_number, base_name = opts, "callback";
-	elseif type(opts) == "table" then
-		port_number, base_name, secure = opts.port or 5280, opts.path or "callback", opts.ssl or nil;
-	elseif type(opts) == "string" then
-		base_name, port_number = opts, 5280;
+-- Thanks to Maranda for this
+local port, base, ssl = 5280, "callback", false;
+local ports = module:get_option("feeds_ports") or { port = port, base = base, ssl = ssl };
+-- FIXME If ports isn't a table, this will cause an error
+local _, first_port = next(ports); -- We base the callback URL on the first port config
+if first_port then
+	if type(first_port) == "number" then
+		port = first_port;
+	elseif type(first_port) == "table" then
+		port, base, ssl =
+			first_port.port or port,
+			first_port.path or base,
+			first_port.ssl or ssl;
+	elseif type(first_port) == "string" then
+		base = first_port;
 	end
 end
 
@@ -102,18 +97,16 @@ function update_entry(item)
 	for _, entry in ipairs(feed) do
 		entry.attr.xmlns = "http://www.w3.org/2005/Atom";
 
-		local e_published = entry:get_child("published");
-		e_published = e_published and e_published:get_text();
+		local e_published = entry:get_child_text("published");
 		e_published = e_published and dt_parse(e_published);
-		local e_updated = entry:get_child("updated");
-		e_updated = e_updated and e_updated:get_text();
+		local e_updated = entry:get_child_text("updated");
 		e_updated = e_updated and dt_parse(e_updated);
 
 		local timestamp = e_updated or e_published or nil;
 		--module:log("debug", "timestamp is %s, item.last_update is %s", tostring(timestamp), tostring(item.last_update));
 		if not timestamp or not item.last_update or timestamp > item.last_update then
-			local id = entry:get_child("id");
-			id = id and id:get_text() or item.url.."#"..dt_datetime(timestamp); -- Missing id, so make one up
+			local id = entry:get_child_text("id");
+			id = id or item.url.."#"..dt_datetime(timestamp); -- Missing id, so make one up
 			local xitem = st.stanza("item", { id = id }):add_child(entry);
 			-- TODO Put data from /feed into item/source
 
@@ -188,19 +181,15 @@ end
 function subscribe(feed)
 	feed.token = uuid();
 	feed.secret = uuid();
-	local _body, body = {
-		["hub.callback"] = format_url(secure, http_hostname, port_number, base_name, feed.node);
+	local body = formencode{
+		["hub.callback"] = format_url(ssl, httphost, port, base, feed.node);
 		["hub.mode"] = "subscribe"; --TODO unsubscribe
 		["hub.topic"] = feed.url;
 		["hub.verify"] = "async";
 		["hub.verify_token"] = feed.token;
 		["hub.secret"] = feed.secret;
 		--["hub.lease_seconds"] = "";
-	}, { };
-	for name, value in pairs(_body) do
-		t_insert(body, { name = name, value = value });
-	end --FIXME Why do I have to do this?
-	body = formencode(body);
+	};
 
 	--module:log("debug", "subscription request, body: %s", body);
 
@@ -216,7 +205,7 @@ function handle_http_request(method, body, request)
 	--module:log("debug", "%s request to %s%s with body %s", method, request.url.path, request.url.query and "?" .. request.url.query or "", #body > 0 and body or "empty");
 	local query = request.url.query or {};
 	if query and type(query) == "string" then
-		query = urlparams(query);
+		query = formdecode(query);
 		--module:log("debug", "GET data: %s", dump(query));
 	end
 	--module:log("debug", "Headers: %s", dump(request.headers));
@@ -270,8 +259,7 @@ end
 function init()
 	module:log("debug", "initiating", module.name);
 	if use_pubsubhubub then
-		module:log("debug", "Starting http server on %s", format_url(secure, http_hostname, port_number, base_name, "NODE"));
-		--httpserver.new{ port = port_number, ssl = secure, type = (ssl and "ssl") or "tcp", base = base_name, handler = handle_http_request }
+		module:log("debug", "Starting http server on %s", format_url(ssl, httphost, port, base, "NODE"));
 		httpserver.new_from_config( ports, handle_http_request, { base = "callback" } );
 	end
 	add_task(0, refresh_feeds);
@@ -280,5 +268,5 @@ end
 if prosody.start_time then -- already started
 	init();
 else
-	prosody.events.add_handler("server-started", init);
+	module:hook_global("server-started", init);
 end
