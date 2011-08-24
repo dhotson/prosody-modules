@@ -214,7 +214,7 @@ end
 
 function handle_http_request(method, body, request)
 	--module:log("debug", "%s request to %s%s with body %s", method, request.url.path, request.url.query and "?" .. request.url.query or "", #body > 0 and body or "empty");
-	local query = request.url.query;
+	local query = request.url.query or {};
 	if query and type(query) == "string" then
 		query = urlparams(query);
 		--module:log("debug", "GET data: %s", dump(query));
@@ -245,7 +245,6 @@ function handle_http_request(method, body, request)
 		end
 		return http_response(400);
 	elseif method == "POST" then
-		-- TODO http://pubsubhubbub.googlecode.com/svn/trunk/pubsubhubbub-core-0.3.html#authednotify
 		if #body > 0 and feed_list[query.node] then
 			module:log("debug", "got %d bytes PuSHed for %s", #body, query.node);
 			local feed = feed_list[query.node];
@@ -271,7 +270,9 @@ end
 function init()
 	module:log("debug", "initiating", module.name);
 	if use_pubsubhubub then
-		httpserver.new{ port = port_number, base = base_name, handler = handle_http_request }
+		module:log("debug", "Starting http server on %s", format_url(secure, http_hostname, port_number, base_name, "NODE"));
+		--httpserver.new{ port = port_number, ssl = secure, type = (ssl and "ssl") or "tcp", base = base_name, handler = handle_http_request }
+		httpserver.new_from_config( ports, handle_http_request, { base = "callback" } );
 	end
 	add_task(0, refresh_feeds);
 end
