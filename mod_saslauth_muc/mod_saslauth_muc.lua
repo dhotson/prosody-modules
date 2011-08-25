@@ -34,8 +34,8 @@ local function create_handler_for(room_jid, jid)
 		local muc = hosts[module.host].modules.muc;
 		local room = muc and muc.rooms[room_jid];
 		local password = room and room:get_password();
-		local ret = password and true or false;
-		return password, true;
+		local ret = password and true or nil;
+		return password or "", ret;
 	end });
 	_rooms[room_jid][jid].timeout = os_time() + timeout;
 	return _rooms[room_jid][jid];
