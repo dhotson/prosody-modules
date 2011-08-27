@@ -52,6 +52,12 @@ end
 -- TODO module:hook("config-reloaded", above loop);
 -- Also, keeping it somewhere persistent in order to avoid duplicated publishes?
 
+-- Used to kill the timer
+local module_unloaded = false;
+function module.unload()
+	module_unloaded = true;
+end
+
 -- Thanks to Maranda for this
 local port, base, ssl = 5280, "callback", false;
 local ports = module:get_option("feeds_ports") or { port = port, base = base, ssl = ssl };
@@ -76,6 +82,7 @@ local response_codes = {
 	["400"] = "Bad Request";
 	["403"] = "Forbidden";
 	["404"] = "Not Found";
+	["500"] = "Internal Server Error";
 	["501"] = "Not Implemented";
 };
 
@@ -162,6 +169,7 @@ function fetch(item, callback) -- HTTP Pull
 end
 
 function refresh_feeds()
+	if module_unloaded then return end
 	--module:log("debug", "Refreshing feeds");
 	for node, item in pairs(feed_list) do
 		--FIXME Don't fetch feeds which have a subscription
@@ -202,6 +210,11 @@ function subscribe(feed)
 end
 
 function handle_http_request(method, body, request)
+	if module_unloaded then
+		module:log("warn", "Received a HTTP request after module unload");
+		return http_response(500)
+		-- FIXME if this happens.
+	end
 	--module:log("debug", "%s request to %s%s with body %s", method, request.url.path, request.url.query and "?" .. request.url.query or "", #body > 0 and body or "empty");
 	local query = request.url.query or {};
 	if query and type(query) == "string" then
