@@ -5,6 +5,7 @@
 local st = require "util.stanza";
 
 function reg_redirect(event)
+	local stanza, origin = event.stanza, event.origin;
 	local ip_wl = module:get_option("registration_whitelist") or { "127.0.0.1" };
 	local url = module:get_option("registration_url");
 	local no_wl = module:get_option_boolean("no_registration_whitelist", false);
@@ -12,19 +13,22 @@ function reg_redirect(event)
 
 	if not no_wl then
 		for i,ip in ipairs(ip_wl) do
-			if event.origin.ip == ip then test_ip = true; end
+			if origin.ip == ip then test_ip = true; end
 			break;
 		end
 	end
 	
-	if not test_ip and url ~= nil or no_wl and url ~= nil then
+	if stanza.attr.type == "get" then
 		local reply = st.reply(event.stanza);
-		reply:tag("query", {xmlns = "jabber:iq:register"})
+		reply:query("jabber:iq:register")
 			:tag("instructions"):text("Please visit "..url.." to register an account on this server."):up()
-			:tag("x", {xmlns = "jabber:x:oob"}):up()
-				:tag("url"):text(url):up();
-		event.origin.send(reply);
+			:tag("x", {xmlns = "jabber:x:oob"})
+				:tag("url"):text(url);
+		origin.send(reply);
 		return true;
+	else
+		origin.send(st.error_reply(stanza, "cancel", "not-authorized"))
+		return true
 	end
 end
 
