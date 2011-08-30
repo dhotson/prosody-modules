@@ -7,8 +7,7 @@ local st = require "util.stanza";
 function reg_redirect(event)
 	local ip_wl = module:get_option("registration_whitelist") or { "127.0.0.1" };
 	local url = module:get_option("registration_url");
-	local no_wl = module:get_option("no_registration_whitelist") or false;
-	if type(no_wl) ~= boolean then no_wl = false end
+	local no_wl = module:get_option_boolean("no_registration_whitelist", false);
 	local test_ip = false;
 
 	if not no_wl then
