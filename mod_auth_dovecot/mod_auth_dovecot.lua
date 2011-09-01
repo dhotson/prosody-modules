@@ -16,6 +16,7 @@ local sha1 = require "util.hashes".sha1;
 
 local prosody = prosody;
 local socket_path = module:get_option_string("dovecot_auth_socket", "/var/run/dovecot/auth-login");
+local append_host = module:get_option_boolean("auth_append_host", false);
 
 function new_provider(host)
 	local provider = { name = "dovecot", request_id = 0 };
@@ -125,7 +126,9 @@ function new_provider(host)
 		end
 		
 		-- Send auth data
-		username = username .. "@" .. module.host; -- FIXME: this is actually a hack for my server
+		if append_host then
+			username = username .. "@" .. module.host;
+		end
 		local b64 = base64.encode(username .. "\0" .. username .. "\0" .. password);
 		provider.request_id = provider.request_id + 1 % 4294967296
 		
