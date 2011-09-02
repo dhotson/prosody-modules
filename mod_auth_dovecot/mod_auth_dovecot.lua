@@ -1,8 +1,9 @@
 -- Dovecot authentication backend for Prosody
 --
 -- Copyright (C) 2010 Javier Torres
--- Copyright (C) 2008-2010 Matthew Wild
--- Copyright (C) 2008-2010 Waqas Hussain
+-- Copyright (C) 2010-2010 Matthew Wild
+-- Copyright (C) 2010-2010 Waqas Hussain
+-- Copyright (C) 2010 Kim Alvefur
 --
 
 local socket_unix = require "socket.unix";
