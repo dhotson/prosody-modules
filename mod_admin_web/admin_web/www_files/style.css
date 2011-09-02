@@ -1,0 +1,76 @@
+label {
+  margin-right: 0.5em
+}
+
+input, textarea, select {
+  margin: 0.25em;
+  margin-left: 1em
+}
+
+body {
+  padding: 1em;
+  background: #f29b00;
+  color: #000000
+}
+
+a {
+  color: #0000FF
+}
+
+#log_container {
+  clear: both;
+  display: none
+}
+
+.container {
+  margin: 2em;
+  padding: 0.5em;
+  border: solid;
+  float: left
+}
+
+#left {
+  float: left;
+  margin-right: 2em;
+  padding: 1em;
+  border: solid 1px;
+  background: #6197DF;
+  color: #000000
+}
+
+#selector {
+  padding: 1em;
+  border: solid 1px;
+  background: #6197DF;
+  color: #000000
+}
+
+#right {
+  display: none;
+  float: left
+}
+
+#main {
+  margin-top: 1em
+}
+
+#cred input[type="submit"] {
+  margin-left: 0em
+}
+
+#cred fieldset {
+  border: 0px
+}
+
+#menu {
+  display: none
+}
+
+#menu ul {
+  list-style-type: none;
+  padding: 0px;
+}
+
+#menu li {
+  font-size: 20pt
+}

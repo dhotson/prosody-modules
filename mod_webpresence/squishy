@@ -1,0 +1,14 @@
+
+Option "minify-level" "full"
+
+Resource "icons/status_online.png"
+Resource "icons/status_away.png"
+Resource "icons/status_xa.png"
+Resource "icons/status_dnd.png"
+Resource "icons/status_chat.png"
+Resource "icons/status_offline.png"
+
+Main "mod_webpresence.in.lua"
+
+Output "mod_webpresence.lua"
+
