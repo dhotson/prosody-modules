@@ -6,6 +6,7 @@
 local log = require "util.logger".init("auth_sql");
 local new_sasl = require "util.sasl".new;
 local nodeprep = require "util.encodings".stringprep.nodeprep;
+local saslprep = require "util.encodings".stringprep.saslprep;
 local DBI = require "DBI"
 local md5 = require "util.hashes".md5;
 local uuid_gen = require "util.uuid".generate;
@@ -79,7 +80,7 @@ local function setsql(sql, ...)
 end
 
 local function get_password(username)
-	local stmt, err = getsql("SELECT `user_password` FROM `phpbb_users` WHERE `username`=?", username);
+	local stmt, err = getsql("SELECT `user_password` FROM `phpbb_users` WHERE `username_clean`=?", username);
 	if stmt then
 		for row in stmt:rows(true) do
 			return row.user_password;
@@ -196,14 +197,55 @@ function provider.create_user(username, password)
 	return nil, "Account creation/modification not supported.";
 end
 
+local escapes = {
+	[" "] = "\\20";
+	['"'] = "\\22";
+	["&"] = "\\26";
+	["'"] = "\\27";
+	["/"] = "\\2f";
+	[":"] = "\\3a";
+	["<"] = "\\3c";
+	[">"] = "\\3e";
+	["@"] = "\\40";
+	["\\"] = "\\5c";
+};
+local unescapes = {};
+for k,v in pairs(escapes) do unescapes[v] = k; end
+local function jid_escape(s) return s and (s:gsub(".", escapes)); end
+local function jid_unescape(s) return s and (s:gsub("\\%x%x", unescapes)); end
+
 function provider.get_sasl_handler()
-	local profile = {
-		plain_test = function(sasl, username, password, realm)
-			-- TODO stringprep
-			return provider.test_password(username, password), true;
-		end;
-	};
-	return new_sasl(module.host, profile);
+	local sasl = {};
+	function sasl:clean_clone() return provider.get_sasl_handler(); end
+	function sasl:mechanisms() return { PLAIN = true; }; end
+	function sasl:select(mechanism)
+		if not self.selected and mechanism == "PLAIN" then
+			self.selected = mechanism;
+			return true;
+		end
+	end
+	function sasl:process(message)
+		if not message then return "failure", "malformed-request"; end
+		local authorization, authentication, password = message:match("^([^%z]*)%z([^%z]+)%z([^%z]+)");
+		if not authorization then return "failure", "malformed-request"; end
+		authentication = saslprep(authentication);
+		password = saslprep(password);
+		if (not password) or (password == "") or (not authentication) or (authentication == "") then
+			return "failure", "malformed-request", "Invalid username or password.";
+		end
+		local function test(authentication)
+			local prepped = nodeprep(authentication);
+			local normalized = jid_unescape(prepped);
+			return normalized and provider.test_password(normalized, password) and prepped;
+		end
+		local username = test(authentication) or test(jid_escape(authentication));
+		if username then
+			self.username = username;
+			return "success";
+		end
+		return "failure", "not-authorized", "Unable to authorize you with the authentication credentials you've sent.";
+	end
+	return sasl;
 end
 
 module:add_item("auth-provider", provider);
