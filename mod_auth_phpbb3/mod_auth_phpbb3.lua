@@ -178,6 +178,7 @@ provider = { name = "phpbb3" };
 function provider.test_password(username, password)
 	--module:log("debug", "test_password '%s' for user %s", tostring(password), tostring(username));
 	local hash = get_password(username);
+	if hash and #hash == 32 then return hash == md5(password, true); end -- legacy PHPBB2 hash
 	return hash and phpbbCheckHash(password, hash);
 end
 function provider.user_exists(username)
