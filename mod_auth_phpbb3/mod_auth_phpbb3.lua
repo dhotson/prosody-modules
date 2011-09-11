@@ -88,8 +88,8 @@ local function get_password(username)
 	end
 end
 
-local itoa64 = "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
+local itoa64 = "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 local function hashEncode64(input, count)
 	local output = "";
 	local i, value = 0, 0;
@@ -162,9 +162,10 @@ local function hashGensaltPrivate(input)
 	return output;
 end
 local function phpbbCheckHash(password, hash)
+	if #hash == 32 then return hash == md5(password, true); end -- legacy PHPBB2 hash
 	return #hash == 34 and hashCryptPrivate(password, hash) == hash;
 end
-local function phpbbHash(password)
+local function phpbbCreateHash(password)
 	local random = uuid_gen():sub(-6);
 	local salt = hashGensaltPrivate(random);
 	local hash = hashCryptPrivate(password, salt);
@@ -176,9 +177,7 @@ end
 provider = { name = "phpbb3" };
 
 function provider.test_password(username, password)
-	--module:log("debug", "test_password '%s' for user %s", tostring(password), tostring(username));
 	local hash = get_password(username);
-	if hash and #hash == 32 then return hash == md5(password, true); end -- legacy PHPBB2 hash
 	return hash and phpbbCheckHash(password, hash);
 end
 function provider.user_exists(username)
@@ -190,7 +189,7 @@ function provider.get_password(username)
 	return nil, "Getting password is not supported.";
 end
 function provider.set_password(username, password)
-	local hash = phpbbHash(password);
+	local hash = phpbbCreateHash(password);
 	local stmt, err = setsql("UPDATE `phpbb_users` SET `user_password`=? WHERE `username`=?", hash, username);
 	return stmt and true, err;
 end
