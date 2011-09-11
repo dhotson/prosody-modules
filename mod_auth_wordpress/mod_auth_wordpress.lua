@@ -13,6 +13,7 @@ local uuid_gen = require "util.uuid".generate;
 
 local connection;
 local params = module:get_option("sql");
+local table_prefix = module:get_option_string("wordpress_table_prefix", "wp_");
 
 local resolve_relative_path = require "core.configmanager".resolve_relative_path;
 
@@ -80,7 +81,7 @@ local function setsql(sql, ...)
 end
 
 local function get_password(username)
-	local stmt, err = getsql("SELECT `user_pass` FROM `wp_users` WHERE `user_login`=?", username);
+	local stmt, err = getsql("SELECT `user_pass` FROM `"..table_prefix.."users` WHERE `user_login`=?", username);
 	if stmt then
 		for row in stmt:rows(true) do
 			return row.user_password;
@@ -190,7 +191,7 @@ function provider.get_password(username)
 end
 function provider.set_password(username, password)
 	local hash = wordpressCreateHash(password);
-	local stmt, err = setsql("UPDATE `wp_users` SET `user_pass`=? WHERE `user_login`=?", hash, username);
+	local stmt, err = setsql("UPDATE `"..table_prefix.."users` SET `user_pass`=? WHERE `user_login`=?", hash, username);
 	return stmt and true, err;
 end
 function provider.create_user(username, password)
