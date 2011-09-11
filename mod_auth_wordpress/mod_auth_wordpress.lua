@@ -155,7 +155,7 @@ local function hashCryptPrivate(password, genSalt)
 end
 local function hashGensaltPrivate(input)
 	local iteration_count_log2 = 6;
-	local output = "$H$";
+	local output = "$P$";
 	local idx = math.min(iteration_count_log2 + 5, 30) + 1;
 	output = output .. itoa64:sub(idx, idx);
 	output = output .. hashEncode64(input, 6);
