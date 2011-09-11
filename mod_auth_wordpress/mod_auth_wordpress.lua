@@ -161,11 +161,11 @@ local function hashGensaltPrivate(input)
 	output = output .. hashEncode64(input, 6);
 	return output;
 end
-local function phpbbCheckHash(password, hash)
-	if #hash == 32 then return hash == md5(password, true); end -- legacy PHPBB2 hash
+local function wordpressCheckHash(password, hash)
+	if #hash == 32 then return hash == md5(password, true); end
 	return #hash == 34 and hashCryptPrivate(password, hash) == hash;
 end
-local function phpbbCreateHash(password)
+local function wordpressCreateHash(password)
 	local random = uuid_gen():sub(-6);
 	local salt = hashGensaltPrivate(random);
 	local hash = hashCryptPrivate(password, salt);
@@ -178,7 +178,7 @@ provider = { name = "wordpress" };
 
 function provider.test_password(username, password)
 	local hash = get_password(username);
-	return hash and phpbbCheckHash(password, hash);
+	return hash and wordpressCheckHash(password, hash);
 end
 function provider.user_exists(username)
 	module:log("debug", "test user %s existence", username);
@@ -189,7 +189,7 @@ function provider.get_password(username)
 	return nil, "Getting password is not supported.";
 end
 function provider.set_password(username, password)
-	local hash = phpbbCreateHash(password);
+	local hash = wordpressCreateHash(password);
 	local stmt, err = setsql("UPDATE `wp_users` SET `user_pass`=? WHERE `user_login`=?", hash, username);
 	return stmt and true, err;
 end
