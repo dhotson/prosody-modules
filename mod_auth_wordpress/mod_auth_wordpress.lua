@@ -84,7 +84,7 @@ local function get_password(username)
 	local stmt, err = getsql("SELECT `user_pass` FROM `"..table_prefix.."users` WHERE `user_login`=?", username);
 	if stmt then
 		for row in stmt:rows(true) do
-			return row.user_password;
+			return row.user_pass;
 		end
 	end
 end
