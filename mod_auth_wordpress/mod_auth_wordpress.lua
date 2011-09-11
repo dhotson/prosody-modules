@@ -1,6 +1,7 @@
 -- Wordpress authentication backend for Prosody
 --
 -- Copyright (C) 2011 Waqas Hussain
+-- Copyright (C) 2011 Kim Alvefur
 --
 
 local log = require "util.logger".init("auth_sql");
