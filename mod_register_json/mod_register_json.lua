@@ -94,9 +94,17 @@ local function handle_req(method, body, request)
 
 			-- We first check if the supplied username for registration is already there.
 			if not usermanager.user_exists(req_body["username"], req_body["host"]) then
-				usermanager.create_user(req_body["username"], req_body["password"], req_body["host"]);
-				module:log("debug", "%s registration data submission for %s is successful", user, req_body["username"]);
-				return http_response(200, "Done.");
+				-- Sanity checks for the username.
+				if req_body["username"]:find(" ") or req_body["username"]:find("@") or req_body["username"]:find("<") or
+				   req_body["username"]:find(">") or req_body["username"]:find("\"") or req_body["username"]:find("\'") or
+				   req_body["username"]:find("/") then
+					module:log("debug", "%s supplied an username containing invalid characters: %s", user, req_body["username"]);
+					return http_response(406, "Supplied username contains invalid characters, see RFC 6122.");
+				else
+					usermanager.create_user(req_body["username"], req_body["password"], req_body["host"]);
+					module:log("debug", "%s registration data submission for %s is successful", user, req_body["username"]);
+					return http_response(200, "Done.");
+				end
 			else
 				module:log("debug", "%s registration data submission for %s failed (user already exists)", user, req_body["username"]);
 				return http_response(409, "User already exists.");
