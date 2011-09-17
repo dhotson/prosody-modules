@@ -6,7 +6,7 @@
 -- Copyright (C) 2011 Kim Alvefur
 --
 
-local socket_unix = require "socket.unix";
+pcall(require, "socket.unix");
 local datamanager = require "util.datamanager";
 local usermanager = require "core.usermanager";
 local log = require "util.logger".init("auth_dovecot");
@@ -17,7 +17,12 @@ local sha1 = require "util.hashes".sha1;
 
 local prosody = prosody;
 local socket_path = module:get_option_string("dovecot_auth_socket", "/var/run/dovecot/auth-login");
+local socket_host = module:get_option_string("dovecot_auth_host", "127.0.0.1");
+local socket_port = module:get_option_string("dovecot_auth_port");
 local append_host = module:get_option_boolean("auth_append_host", false);
+if not socket_port and not socket.unix then
+	error("LuaSocket was not compiled with UNIX socket support. Try using Dovecot 2.x with inet_listener support, or recompile LuaSocket with UNIX socket support.");
+end
 
 function new_provider(host)
 	local provider = { name = "dovecot", request_id = 0 };
@@ -40,13 +45,24 @@ function new_provider(host)
 		-- Destroy old socket
 		provider:close();
 		
-		conn = socket.unix();
-		
-		-- Create a connection to dovecot socket
-		log("debug", "connecting to dovecot socket at '%s'", socket_path);
-		local ok, err = conn:connect(socket_path);
+		local ok, err;
+		if socket_port then
+			log("debug", "connecting to dovecot TCP socket at '%s':'%s'", socket_host, socket_port);
+			conn = socket.tcp();
+			ok, err = conn:connect(socket_host, socket_port);
+		elseif socket.unix then
+			log("debug", "connecting to dovecot UNIX socket at '%s'", socket_path);
+			conn = socket.unix();
+			ok, err = conn:connect(socket_path);
+		else
+			err = "luasocket was not compiled with UNIX sockets support";
+		end
 		if not ok then
-			log("error", "error connecting to dovecot socket at '%s'. error was '%s'. check permissions", socket_path, err);
+			if socket_port then
+				log("error", "error connecting to dovecot TCP socket at '%s':'%s'. error was '%s'. check permissions", socket_host, socket_port, err);
+			else
+				log("error", "error connecting to dovecot UNIX socket at '%s'. error was '%s'. check permissions", socket_path, err);
+			end
 			provider:close();
 			return false;
 		end
