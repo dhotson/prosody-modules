@@ -4,8 +4,6 @@
 local jid_bare = require "util.jid".bare
 local httpserver = require "net.httpserver"
 
-module.host = "*" -- Needs to be global for stats web wise.
-
 local ports = module:get_option_array("stanza_counter_ports" or {{ port = 5280 }})
 
 -- http handlers
