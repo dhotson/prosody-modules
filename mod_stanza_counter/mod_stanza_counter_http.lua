@@ -26,7 +26,7 @@ end
 local function req(method, body, request)
 	if not prosody.stanza_counter then
 		local err500 = r_err:format("500", "Stats not found, is the counter module loaded?")
-		return res(500, err500)
+		return res(500, err500) end
 	if method == "GET" then
 		local forge_res = r_200:format(prosody.stanza_counter.iq["incoming"],
 					       prosody.stanza_counter.iq["outgoing"],
