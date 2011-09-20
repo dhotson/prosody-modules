@@ -27,7 +27,7 @@ local r_200 = "\n
 <strong>Outgoing Presences</strong>: %d<p>\n
 </body>\n
 \n
-</html>"
+</html>\n"
 
 local r_405 = "\n
 <html>\n
@@ -39,7 +39,8 @@ local r_405 = "\n
 <body>\n
 <h3>Bad Method ... I only support GET.</h3>\n
 </body>\n
-\n"
+\n
+</html>\n"
 
 local function res(code, r, h)
 	local response = {
