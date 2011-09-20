@@ -6,41 +6,13 @@ local httpserver = require "net.httpserver"
 
 module.host = "*" -- Needs to be global for stats web wise.
 
-local ports = module:get_option_array("stanza_counter_ports" or {{ port = 5280; base = "stanza-counter" }})
+local ports = module:get_option_array("stanza_counter_ports" or {{ port = 5280 }})
 
 -- http handlers
 
-local r_200 = "\n
-<html>\n
-<head>\n
-<title>Prosody's Stanza Counter</title>\n
-<meta name=\"robots\" content=\"noindex, nofollow\" />\n
-</head>\n
-\n
-<body>\n
-<h3>Incoming and Outgoing stanzas divided per type</h3>\n
-<p><strong>Incoming IQs</strong>: %d<br/>\n
-<strong>Outgoing IQs</strong>: %d<br/>\n
-<strong>Incoming Messages</strong>: %d<br/>\n
-<strong>Outgoing Messages</strong>: %d<br/>\n
-<strong>Incoming Presences</strong>: %d<br/>\n
-<strong>Outgoing Presences</strong>: %d<p>\n
-</body>\n
-\n
-</html>\n"
+local r_200 = "\n<html>\n<head>\n<title>Prosody's Stanza Counter</title>\n<meta name=\"robots\" content=\"noindex, nofollow\" />\n</head>\n\n<body>\n<h3>Incoming and Outgoing stanzas divided per type</h3>\n<p><strong>Incoming IQs</strong>: %d<br/>\n<strong>Outgoing IQs</strong>: %d<br/>\n<strong>Incoming Messages</strong>: %d<br/>\n<strong>Outgoing Messages</strong>: %d<br/>\n<strong>Incoming Presences</strong>: %d<br/>\n<strong>Outgoing Presences</strong>: %d<p>\n</body>\n\n</html>\n"
 
-local r_405 = "\n
-<html>\n
-<head>\n
-<title>Prosody's Stanza Counter - Error</title>\n
-<meta name=\"robots\" content=\"noindex, nofollow\" />\n
-</head>\n
-\n
-<body>\n
-<h3>Bad Method ... I only support GET.</h3>\n
-</body>\n
-\n
-</html>\n"
+local r_405 = "\n<html>\n<head>\n<title>Prosody's Stanza Counter - Error</title>\n<meta name=\"robots\" content=\"noindex, nofollow\" />\n</head>\n\n<body>\n<h3>Bad Method ... I only support GET.</h3>\n</body>\n\n</html>\n"
 
 local function res(code, r, h)
 	local response = {
@@ -53,7 +25,7 @@ local function res(code, r, h)
 end
 
 local function req(method, body, request)
-	if method = "GET" then
+	if method == "GET" then
 		local forge_res = r_200:format(prosody.stanza_counter.iq["incoming"],
 					       prosody.stanza_counter.iq["outgoing"],
 					       prosody.stanza_counter.message["incoming"],
@@ -78,7 +50,7 @@ end
 
 -- init http interface
 local function init_web()
-	httpserver.new_from_config(ports, req)
+	httpserver.new_from_config(ports, req, { base = "stanza-counter" })
 end
 
 -- Setup on server start
@@ -91,7 +63,7 @@ local function iq_callback(check)
 	return function(self)
 		local origin, stanza = self.origin, self.stanza
 		if not prosody.stanza_counter then init_counter() end
-		if check
+		if check then
 			if not stanza.attr.to or hosts[jid_bare(stanza.attr.to)] then return nil;
 			else
 				prosody.stanza_counter.iq["outgoing"] = prosody.stanza_counter.iq["outgoing"] + 1
@@ -102,11 +74,11 @@ local function iq_callback(check)
 	end
 end
 
-local function message_callback(check)
+local function mes_callback(check)
 	return function(self)
 		local origin, stanza = self.origin, self.stanza
 		if not prosody.stanza_counter then init_counter() end
-		if check
+		if check then
 			if not stanza.attr.to or hosts[jid_bare(stanza.attr.to)] then return nil;
 			else
 				prosody.stanza_counter.message["outgoing"] = prosody.stanza_counter.message["outgoing"] + 1
@@ -117,11 +89,11 @@ local function message_callback(check)
 	end
 end
 
-local function presence_callback(check)
+local function pre_callback(check)
 	return function(self)
 		local origin, stanza = self.origin, self.stanza
 		if not prosody.stanza_counter then init_counter() end
-		if check
+		if check then
 			if not stanza.attr.to or hosts[jid_bare(stanza.attr.to)] then return nil;
 			else
 				prosody.stanza_counter.presence["outgoing"] = prosody.stanza_counter.presence["outgoing"] + 1
