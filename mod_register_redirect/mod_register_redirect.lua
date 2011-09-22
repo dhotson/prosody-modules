@@ -28,7 +28,7 @@ function reg_redirect(event)
 				elseif url:match("^(%w+)[:].*$") == "mailto" then
 					inst_text = "Please send an e-mail at "..url:match("^%w+[:](.*)$").." to register an account on this server."
 				elseif url:match("^(%w+)[:].*$") == "xmpp" then
-					inst_text = "Please contact "..module:get_host().." server administrator via xmpp to register an account on this server at: "..url:match("^%w√+[:](.*)$")
+					inst_text = "Please contact "..module:get_host().." server administrator via xmpp to register an account on this server at: "..url:match("^%w+[:](.*)$")
 				else
 					module:log("error", "This module supports only http/https, mailto or xmpp as URL formats.")
 					module:log("error", "If you want to use personalized instructions without an Out-Of-Band method,")
