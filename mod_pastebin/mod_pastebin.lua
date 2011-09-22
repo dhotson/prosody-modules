@@ -6,6 +6,8 @@ local os_time = os.time;
 local t_insert, t_remove = table.insert, table.remove;
 local add_task = require "util.timer".add_task;
 
+local pastebin_private_messages = module:get_option_boolean("pastebin_private_messages", hosts[module.host].type ~= "component");
+
 local function drop_invalid_utf8(seq)
 	local start = seq:byte();
 	module:log("utf8: %d, %d", start, #seq);
@@ -93,6 +95,9 @@ function check_message(data)
 end
 
 module:hook("message/bare", check_message);
+if pastebin_private_messages then
+	module:hook("message/full", check_message);
+end
 
 function expire_pastes(time)
 	time = time or os_time(); -- COMPAT with 0.5
