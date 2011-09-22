@@ -8,16 +8,16 @@ local cman = require "core.configmanager";
 function reg_redirect(event)
 	local stanza, origin = event.stanza, event.origin;
 	local ip_wl = module:get_option("registration_whitelist") or { "127.0.0.1" };
-	local url = module:get_option_string("registration_url" or nil);
-	local inst_text = module:get_option_string("registration_text" or nil);
-	local oob = module:get_option_boolean("registration_oob" or true);
-	local admins_g = cman.get("*", core, "admins");
-	local admins_l = cman.get(module:get_host(), core, "admins");
+	local url = module:get_option_string("registration_url", nil);
+	local inst_text = module:get_option_string("registration_text", nil);
+	local oob = module:get_option_boolean("registration_oob", true);
+	local admins_g = cman.get("*", "core", "admins");
+	local admins_l = cman.get(module:get_host(), "core", "admins");
 	local no_wl = module:get_option_boolean("no_registration_whitelist", false);
 	local test_ip = false;
 
 	if type(admins_g) ~= "table" then admins_g = nil; end
-	if type(admins_l) ~= "table" then admins_g = nil; end
+	if type(admins_l) ~= "table" then admins_l = nil; end
 
 	-- perform checks to set default responses and sanity checks.
 	if not inst_text then
@@ -28,7 +28,7 @@ function reg_redirect(event)
 				elseif url:match("^(%w+)[:].*$") == "mailto" then
 					inst_text = "Please send an e-mail at "..url:match("^%w+[:](.*)$").." to register an account on this server."
 				elseif url:match("^(%w+)[:].*$") == "xmpp" then
-					inst_text = "Please contact "..module:get_host().." server administrator via xmpp to register an account on this server at: "..url:match("^%w+[:](.*)$")
+					inst_text = "Please contact "..module:get_host().."'s server administrator via xmpp to register an account on this server at: "..url:match("^%w+[:](.*)$")
 				else
 					module:log("error", "This module supports only http/https, mailto or xmpp as URL formats.")
 					module:log("error", "If you want to use personalized instructions without an Out-Of-Band method,")
@@ -42,11 +42,11 @@ function reg_redirect(event)
 		else
 			if admins_l then
 				local ajid; for _,v in ipairs(admins_l) do ajid = v; break; end
-				inst_text = "Please contact "..module:get_host().." server administrator via xmpp to register an account on this server at: "..ajid
+				inst_text = "Please contact "..module:get_host().."'s server administrator via xmpp to register an account on this server at: "..ajid
 			else
 				if admins_g then
 					local ajid; for _,v in ipairs(admins_g) do ajid = v; break; end
-					inst_text = "Please contact "..module:get_host().." server administrator via xmpp to register an account on this server at: "..ajid
+					inst_text = "Please contact "..module:get_host().."'s server administrator via xmpp to register an account on this server at: "..ajid
 				else
 					module:log("error", "Please be sure to, _at the very least_, configure one server administrator either global or hostwise...")
 					module:log("error", "if you want to use this module, or read it's configuration wiki at: http://code.google.com/p/prosody-modules/wiki/mod_register_redirect")
