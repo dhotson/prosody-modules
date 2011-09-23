@@ -21,15 +21,15 @@ end
 
 local pastebin_private_messages = module:get_option_boolean("pastebin_private_messages", hosts[module.host].type ~= "component");
 local max_summary_length = module:get_option_number("pastebin_summary_length", 150);
-local length_threshold = config.get(module.host, "core", "pastebin_threshold") or 500;
-local line_threshold = config.get(module.host, "core", "pastebin_line_threshold") or 4;
+local length_threshold = module:get_option_number("pastebin_threshold", 500);
+local line_threshold = module:get_option_number("pastebin_line_threshold", 4);
 
-local base_url = config.get(module.host, "core", "pastebin_url");
+local base_url = module:get_option_string("pastebin_url");
 
 -- Seconds a paste should live for in seconds (config is in hours), default 24 hours
-local expire_after = math.floor((config.get(module.host, "core", "pastebin_expire_after") or 24) * 3600);
+local expire_after = math.floor(module:get_option_number("pastebin_expire_after", 24) * 3600);
 
-local trigger_string = config.get(module.host, "core", "pastebin_trigger");
+local trigger_string = module:get_option_string("pastebin_trigger");
 trigger_string = (trigger_string and trigger_string .. " ");
 
 local pastes = {};
@@ -113,7 +113,7 @@ function expire_pastes(time)
 end
 
 
-local ports = config.get(module.host, "core", "pastebin_ports") or { 5280 };
+local ports = module:get_option("pastebin_ports", { 5280 });
 for _, options in ipairs(ports) do
 	local port, base, ssl, interface = 5280, "pastebin", false, nil;
 	if type(options) == "number" then
