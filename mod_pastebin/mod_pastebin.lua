@@ -20,9 +20,10 @@ local function drop_invalid_utf8(seq)
 end
 
 local pastebin_private_messages = module:get_option_boolean("pastebin_private_messages", hosts[module.host].type ~= "component");
-local max_summary_length = module:get_option_number("pastebin_summary_length", 150);
 local length_threshold = module:get_option_number("pastebin_threshold", 500);
 local line_threshold = module:get_option_number("pastebin_line_threshold", 4);
+local max_summary_length = module:get_option_number("pastebin_summary_length", 150);
+local html_preview = module:get_option_boolean("pastebin_html_preview", true);
 
 local base_url = module:get_option_string("pastebin_url");
 
@@ -87,12 +88,19 @@ function check_message(data)
 		local url = pastebin_text(body);
 		module:log("debug", "Pasted message as %s", url);		
 		--module:log("debug", " stanza[bodyindex] = %q", tostring( stanza[bodyindex]));
-		local summary = body:sub(1, max_summary_length):gsub(utf8_pattern, drop_invalid_utf8) or "";
-		stanza[bodyindex][1] = summary:match("^([^\n:]*:?)").." "..url;
-		local html = st.stanza("html", { xmlns = xmlns_xhtmlim }):tag("body", { xmlns = xmlns_xhtml });
-		html:tag("p"):text(summary):up();
-		html:tag("a", { href = url }):text("[...]"):up();
-		stanza[htmlindex or #stanza+1] = html;
+		local summary = (body:sub(1, max_summary_length):gsub(utf8_pattern, drop_invalid_utf8) or ""):match("[^\n]+") or "";
+		summary = summary:match("^%s*(.-)%s*$");
+		local summary_prefixed = summary:match("[,:]$");
+		stanza[bodyindex][1] = (summary_prefixed and (summary.." ") or "")..url;
+		
+		if html_preview then
+			local line_count = select(2, body:gsub("\n", "%0"));
+			local link_text = ("[view %spaste (%d line%s)]"):format(summary_prefixed and "" or "rest of ", line_count, line_count == 1 and "" or "s");
+			local html = st.stanza("html", { xmlns = xmlns_xhtmlim }):tag("body", { xmlns = xmlns_xhtml });
+			html:tag("p"):text(summary.." "):up();
+			html:tag("a", { href = url }):text(link_text):up();
+			stanza[htmlindex or #stanza+1] = html;
+		end
 	end
 end
 
