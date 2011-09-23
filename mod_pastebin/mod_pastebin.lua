@@ -6,8 +6,7 @@ local os_time = os.time;
 local t_insert, t_remove = table.insert, table.remove;
 local add_task = require "util.timer".add_task;
 
-local pastebin_private_messages = module:get_option_boolean("pastebin_private_messages", hosts[module.host].type ~= "component");
-
+local utf8_pattern = "[\194-\244][\128-\191]*$";
 local function drop_invalid_utf8(seq)
 	local start = seq:byte();
 	module:log("utf8: %d, %d", start, #seq);
@@ -20,6 +19,8 @@ local function drop_invalid_utf8(seq)
 	return seq;
 end
 
+local pastebin_private_messages = module:get_option_boolean("pastebin_private_messages", hosts[module.host].type ~= "component");
+local max_summary_length = module:get_option_number("pastebin_summary_length", 150);
 local length_threshold = config.get(module.host, "core", "pastebin_threshold") or 500;
 local line_threshold = config.get(module.host, "core", "pastebin_line_threshold") or 4;
 
@@ -86,9 +87,10 @@ function check_message(data)
 		local url = pastebin_text(body);
 		module:log("debug", "Pasted message as %s", url);		
 		--module:log("debug", " stanza[bodyindex] = %q", tostring( stanza[bodyindex]));
-		stanza[bodyindex][1] = url;
+		local summary = body:sub(1, max_summary_length):gsub(utf8_pattern, drop_invalid_utf8) or "";
+		stanza[bodyindex][1] = summary:match("^([^\n:]*:?)").." "..url;
 		local html = st.stanza("html", { xmlns = xmlns_xhtmlim }):tag("body", { xmlns = xmlns_xhtml });
-		html:tag("p"):text(body:sub(1,150):gsub("[\194-\244][\128-\191]*$", drop_invalid_utf8)):up();
+		html:tag("p"):text(summary):up();
 		html:tag("a", { href = url }):text("[...]"):up();
 		stanza[htmlindex or #stanza+1] = html;
 	end
