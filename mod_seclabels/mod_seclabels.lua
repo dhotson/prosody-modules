@@ -21,12 +21,12 @@ local default_labels = {
 	};
 };
 local catalog_name, catalog_desc, labels;
-function get_conf() 
+local function get_conf() 
 	catalog_name = module:get_option_string("security_catalog_name", "Default");
 	catalog_desc = module:get_option_string("security_catalog_desc", "My labels");
 	labels = module:get_option("security_labels", default_labels);
 end
-module:hook("config-reloaded",get_conf);
+module:hook_global("config-reloaded",get_conf);
 get_conf();
 
 function handle_catalog_request(request)
@@ -74,6 +74,14 @@ function handle_catalog_request(request)
 			end
 		end
 	end
+	-- TODO query remote servers
+	--[[ FIXME later
+	labels = module:fire_event("sec-label-catalog", {
+			to = catalog_request.attr.to,
+			request = request; -- or just origin?
+			labels = labels;
+		}) or labels;
+		--]]
 	add_labels(reply, labels, "");
 	request.origin.send(reply);
 	return true;
