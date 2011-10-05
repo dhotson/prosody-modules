@@ -11,12 +11,20 @@ module:hook("account-disco-info", function(event)
 	stanza:tag('feature', {var=xmlns_label_catalog}):up();
 end);
 
-local labels = {
+local default_labels = {
 	Classified = {
 		SECRET = { color = "black", bgcolor = "aqua", label = "THISISSECRET" };
 		PUBLIC = { label = "THISISPUBLIC" };
 	};
 };
+local catalog_name, catalog_desc, labels;
+function get_conf() 
+	catalog_name = module:get_option_string("security_catalog_name", "Default");
+	catalog_desc = module:get_option_string("security_catalog_desc", "My labels");
+	labels = module:get_option("security_labels", default_labels);
+end
+module:hook("config-reloaded",get_conf);
+get_conf();
 
 module:hook("iq/self/"..xmlns_label_catalog..":catalog", function (request)
 	local catalog_request = request.stanza.tags[1];
@@ -24,8 +32,8 @@ module:hook("iq/self/"..xmlns_label_catalog..":catalog", function (request)
 		:tag("catalog", {
 			xmlns = xmlns_label_catalog,
 			to = catalog_request.attr.to,
-			name = "Default",
-			desc = "My labels"
+			name = catalog_name,
+			desc = catalog_desc
 		});
 	
 	local function add_labels(catalog, labels, selector)
