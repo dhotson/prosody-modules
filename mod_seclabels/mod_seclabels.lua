@@ -15,6 +15,11 @@ module:hook("account-disco-info", function(event) -- COMPAT
 end);
 
 local default_labels = {
+	{
+		name = "Unclassified",
+		label = true,
+		default = true,
+	},
 	Classified = {
 		SECRET = { color = "black", bgcolor = "aqua", label = "THISISSECRET" };
 		PUBLIC = { label = "THISISPUBLIC" };
@@ -40,37 +45,46 @@ function handle_catalog_request(request)
 		});
 	
 	local function add_labels(catalog, labels, selector)
-		for name, value in pairs(labels) do
-			if value.label then
+		local function add_item(item, name)
+			local name = name or item.name;
+			if item.label then
 				if catalog_request.attr.xmlns == xmlns_label_catalog then
 					catalog:tag("item", {
 						selector = selector..name,
-						default = value.default and "true" or nil,
+						default = item.default and "true" or nil,
 					}):tag("securitylabel", { xmlns = xmlns_label })
 				else -- COMPAT
 					catalog:tag("securitylabel", {
 						xmlns = xmlns_label,
 						selector = selector..name,
-						default = value.default and "true" or nil,
+						default = item.default and "true" or nil,
 					})
 				end
-				if value.name or value.color or value.bgcolor then
+				if item.display or item.color or item.bgcolor then
 					catalog:tag("displaymarking", {
-						fgcolor = value.color,
-						bgcolor = value.bgcolor,
-					}):text(value.name or name):up();
+						fgcolor = item.color,
+						bgcolor = item.bgcolor,
+					}):text(item.display or name):up();
 				end
-				if type(value.label) == "string" then
-					catalog:tag("label"):text(value.label):up();
-				elseif type(value.label) == "table" then
-					catalog:tag("label"):add_child(value.label):up();
+				if type(item.label) == "string" then
+					catalog:tag("label"):text(item.label):up();
+				elseif type(item.label) == "table" then
+					catalog:tag("label"):add_child(item.label):up();
 				end
 				catalog:up();
 				if catalog_request.attr.xmlns == xmlns_label_catalog then
 					catalog:up();
 				end
 			else
-				add_labels(catalog, value, (selector or "")..name.."|");
+				add_labels(catalog, item, (selector or "")..name.."|");
+			end
+		end
+		for i = 1,#labels do
+			add_item(labels[i])
+		end
+		for name, child in pairs(labels) do
+			if type(name) == "string" then
+				add_item(child, name)
 			end
 		end
 	end
