@@ -136,3 +136,11 @@ for _, options in ipairs(ports) do
 	
 	httpserver.new{ port = port, base = base, handler = handle_request, ssl = ssl }
 end
+
+function module.save()
+	return { pastes = pastes };
+end
+
+function module.restore(data)
+	pastes = data.pastes or pastes;
+end
