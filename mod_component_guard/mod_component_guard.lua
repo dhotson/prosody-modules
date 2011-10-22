@@ -56,7 +56,7 @@ end
 local function handle_activation (host)
 	if guard_blockall:contains(host) or guard_protect:contains(host) then
 		if hosts[host] and hosts[host].events then
-			hosts[host].events.add_handler("stanza/jabber:server:dialback:result", sdr_hook);
+			hosts[host].events.add_handler("stanza/jabber:server:dialback:result", sdr_hook, 100);
                 	module:log ("debug", "adding component protection for: "..host);
 		end
 	end
