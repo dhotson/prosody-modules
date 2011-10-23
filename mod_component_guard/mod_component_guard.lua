@@ -1,8 +1,8 @@
 -- Block or restrict by blacklist remote access to local components.
 
-local guard_blockall = module:get_option_set("component_guard_blockall")
-local guard_protect = module:get_option_set("component_guard_components")
-local guard_block_bl = module:get_option_set("component_guard_blacklist")
+local guard_blockall = module:get_option_set("component_guard_blockall", {})
+local guard_protect = module:get_option_set("component_guard_components", {})
+local guard_block_bl = module:get_option_set("component_guard_blacklist", {})
 
 local s2smanager = require "core.s2smanager";
 local config = require "core.configmanager";
