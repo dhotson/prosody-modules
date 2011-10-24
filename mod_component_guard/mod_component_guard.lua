@@ -1,5 +1,7 @@
 -- Block or restrict by blacklist remote access to local components.
 
+module:set_global()
+
 local guard_blockall = module:get_option_set("component_guard_blockall", {})
 local guard_protect = module:get_option_set("component_guard_components", {})
 local guard_block_bl = module:get_option_set("component_guard_blacklist", {})
@@ -81,23 +83,20 @@ local function reload()
 end
 
 local function setup()
-	module:log ("debug", "initializing component guard module...");
+        module:log ("debug", "initializing component guard module...");
 
-	prosody.events.remove_handler("component-activated", handle_activation);
-	prosody.events.add_handler("component-activated", handle_activation);
-	prosody.events.remove_handler("component-deactivated", handle_deactivation);
-	prosody.events.add_handler("component-deactivated", handle_deactivation);
-	prosody.events.remove_handler("config-reloaded", reload);
-	prosody.events.add_handler("config-reloaded", reload);
+        module:hook ("component-activated", handle_activation);
+        module:hook ("component-deactivated", handle_deactivation);
+        module:hook ("config-reloaded", reload);
 
-	for n,table in pairs(hosts) do
-		if table.type == "component" then
-			if guard_blockall:contains(n) or guard_protect:contains(n) then
-				hosts[n].events.remove_handler("stanza/jabber:server:dialback:result", sdr_hook);
-				handle_activation(n);
-			end
-		end
-	end
+        for n,table in pairs(hosts) do
+                if table.type == "component" then
+                        if guard_blockall:contains(n) or guard_protect:contains(n) then
+                                hosts[n].events.remove_handler("stanza/jabber:server:dialback:result", sdr_hook);
+                                handle_activation(n);
+                        end
+                end
+        end
 end
 
 if prosody.start_time then
