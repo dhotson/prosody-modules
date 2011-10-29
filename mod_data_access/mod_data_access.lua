@@ -1,19 +1,26 @@
 -- HTTP Access to datamanager
 -- By Kim Alvefur <zash@zash.se>
 
-local t_concat = table.concat;
 local jid_prep = require "util.jid".prep;
 local jid_split = require "util.jid".split;
 local um_test_pw = require "core.usermanager".test_password;
 local is_admin = require "core.usermanager".is_admin
 local dm_load = require "util.datamanager".load;
-local dm_store = require "util.datamanager".store;
 local dm_list_load = require "util.datamanager".list_load;
-local dm_list_append = require "util.datamanager".list_append;
 local b64_decode = require "util.encodings".base64.decode;
-local http = require "net.http";
-local urldecode  = http.urldecode;
-local urlencode  = http.urlencode;
+--local urldecode = require "net.http".urldecode;
+--[[local urlparams = --require "net.http".getQueryParams or whatever MattJ names it
+function(s)
+	if not s:match("=") then return urldecode(s); end
+	local r = {}
+	s:gsub("([^=&]*)=([^&]*)", function(k,v)
+		r[ urldecode(k) ] = urldecode(v);
+		return nil
+	end)
+	return r
+end;
+--]]
+
 local function http_response(code, message, extra_headers)
 	local response = {
 		status = code .. " " .. message;
@@ -26,29 +33,15 @@ local encoders = {
 	lua = require "util.serialization".serialize,
 	json = require "util.json".encode
 };
-local decoders = {
-	lua = require "util.serialization".deserialize,
-	json = require "util.json".decode,
-};
-local content_type_map = {
-	["text/x-lua"] = "lua"; lua = "text/x-lua";
-	["application/json"] = "json"; json = "application/json";
-}
 --[[
 encoders.xml = function(data)
 	return "<?xml version='1.0' encoding='utf-8'?><todo:write-this-serializer/>";
 end --]]
 
-local allowed_methods = {
-	GET = true, "GET",
-	PUT = true, "PUT",
-	POST = true, "POST",
-}
-
 local function handle_request(method, body, request)
-	if not allowed_methods[method] then
-		return http_response(405, "Method Not Allowed", {["Allow"] = t_concat(allowed_methods, ", ")});
-	end
+	if request.method ~= "GET" then
+		return http_response(405, "Method Not Allowed", {["Allow"] = "GET"});
+	end -- TODO Maybe PUT?
 
 	if not request.headers["authorization"] then
 		return http_response(401, "Unauthorized",
@@ -85,59 +78,29 @@ local function handle_request(method, body, request)
 		return http_response(404, "Not Found");
 	end
 
-	local p_host, p_user, p_store, p_type = unpack(path);
-	
-	if not p_store or not p_store:match("^[%a_]+$") then
-		return http_response(404, "Not Found");
-	end
-
 	if user_host ~= path[1] or user_node ~= path[2] then
 		-- To only give admins acces to anything, move the inside of this block after authz
-		module:log("debug", "%s wants access to %s@%s[%s], is admin?", user, p_user, p_host, p_store)
-		if not is_admin(user, p_host) then
+		module:log("debug", "%s wants access to %s@%s[%s], is admin?", user, path[2], path[1], path[3])
+		if not is_admin(user, path[1]) then
 			return http_response(403, "Forbidden");
 		end
 	end
 
-	if method == "GET" then
-		local data = dm_load(p_user, p_host, p_store);
+	local data = dm_load(path[2], path[1], path[3]);
+	
+	data = data or dm_list_load(path[2], path[1], path[3]);
 
-		data = data or dm_load_list(p_user, p_host, p_store);
-
-		--TODO Use the Accept header
-		content_type = p_type or "json";
-		if data and encoders[content_type] then 
-			return {
-				status = "200 OK",
-				body = encoders[content_type](data) .. "\n",
-				headers = {["content-type"] = content_type_map[content_type].."; charset=utf-8"}
-			};
-		else
-			return http_response(404, "Not Found");
-		end
-	else -- POST or PUT
-		if not body then
-			return http_response(400, "Bad Request")
-		end
-		local content_type, content = request.headers["content-type"], body;
-		content_type = content_type and content_type_map[content_type]
-		module:log("debug", "%s: %s", content_type, tostring(content));
-		content = content_type and decoders[content_type] and decoders[content_type](content);
-		module:log("debug", "%s: %s", type(content), tostring(content));
-		if not content then
-			return http_response(400, "Bad Request")
-		end
-		local ok, err
-		if method == "PUT" then
-			ok, err = dm_store(p_user, p_host, p_store, content);
-		elseif method == "POST" then
-			ok, err = dm_list_append(p_user, p_host, p_store, content);
-		end
-		if ok then
-			return http_response(201, "Created", { Location = t_concat({"/data",p_host,p_user,p_store}, "/") });
-		else
-			return { status = "500 Internal Server Error", body = err }
-		end
+	if data and encoders[path[4] or "json"] then 
+		return {
+			status = "200 OK",
+			body = encoders[path[4] or "json"](data) .. "\n",
+			headers = {["content-type"] = "text/plain; charset=utf-8"}
+			--headers = {["content-type"] = encoders[data[4] or "json"].mime .. "; charset=utf-8"}
+			-- FIXME a little nicer that the above
+			-- Also, would be cooler to use the Accept header, but parsing it ...
+		};
+	else
+		return http_response(404, "Not Found");
 	end
 end
 
