@@ -61,7 +61,7 @@ function c2s_message_handler(event)
 							type = orig_type,
 						}
 					:tag("forwarded", { xmlns = xmlns_forward })
-						:tag("received", { xmlns = xmlns_carbons }):up()
+						:tag("sent", { xmlns = xmlns_carbons }):up()
 							:add_child(msg);
 				core_route_stanza(origin, fwd);
 			end
@@ -92,8 +92,9 @@ function s2c_message_handler(event)
 		no_carbon_to[resource] = true;
 	else
 		local top_resources = user_sessions.top_resources;
-		for i=1,top_resources do
-			no_carbon_to[top_resources[i]] = true;
+		for i, session in ipairs(top_resources) do
+			no_carbon_to[session.resource] = true;
+			module:log("debug", "not going to send to /%s", resource);
 		end
 	end
 
@@ -123,7 +124,7 @@ end
 module:hook("pre-message/bare", c2s_message_handler, 1);
 module:hook("pre-message/full", c2s_message_handler, 1);
 -- Stanszas to local clients
-module:hook("message/bare", s2c_message_handler, 1); -- this will suck
+module:hook("message/bare", s2c_message_handler, 1);
 module:hook("message/full", s2c_message_handler, 1);
 
 module:add_feature(xmlns_carbons);
