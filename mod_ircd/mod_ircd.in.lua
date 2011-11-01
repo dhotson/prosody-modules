@@ -54,6 +54,51 @@ c.send = core_post_stanza;
 local jid = require "util.jid";
 local nodeprep = require "util.encodings".stringprep.nodeprep;
 
+local function utf8_clean (s)
+	local push, join = table.insert, table.concat;
+	local r, i = {}, 1;
+	if not(s and #s > 0) then
+		return ""
+	end
+	while true do
+		local c = s:sub(i,i)
+		local b = c:byte();
+		local w = (
+			(b >= 9   and b <= 10  and 0) or
+			(b >= 32  and b <= 126 and 0) or
+			(b >= 192 and b <= 223 and 1) or
+			(b >= 224 and b <= 239 and 2) or
+			(b >= 240 and b <= 247 and 3) or
+			(b >= 248 and b <= 251 and 4) or
+			(b >= 251 and b <= 252 and 5) or nil
+		)
+		if not w then
+			push(r, "?")
+		else
+			local n = i + w;
+			if w == 0 then
+				push(r, c);
+			elseif n > #s then
+				push(r, ("?"):format(b));
+			else
+				local e = s:sub(i+1,n);
+				if e:match('^[\128-\191]*$') then
+					push(r, c);
+					push(r, e);
+					i = n;
+				else
+					push(r, ("?"):format(b));
+				end
+			end
+		end
+		i = i + 1;
+		if i > #s then
+			break
+		end
+	end
+	return join(r);
+end
+
 local function parse_line(line)
 	local ret = {};
 	if line:sub(1,1) == ":" then
@@ -128,7 +173,7 @@ function irc_listener.onincoming(conn, data)
 			if not session.nick then
 				if not (command == "USER" or command == "NICK") then
 					module:log("debug", "Client tried to send command %s before registering", command);
-					return session.send{from=muc_server, 451, command, "You have not registered"}
+					return session.send{from=muc_server, "451", command, "You have not registered"}
 				end
 			end
 			if commands[command] then
@@ -137,7 +182,7 @@ function irc_listener.onincoming(conn, data)
 					return session.send(ret);
 				end
 			else
-				session.send{from=muc_server, 421, session.nick, command, "Unknown command"};
+				session.send{from=muc_server, "421", session.nick, command, "Unknown command"};
 				return module:log("debug", "Unknown command: %s", command);
 			end
 		end
@@ -174,14 +219,14 @@ end
 
 function commands.NICK(session, args)
 	if session.nick then
-		session.send(":"..muc_server.." 484 * "..nick.." :I'm afraid I can't let you do that, "..session.nick);
+		session.send{from = muc_server, "484", "*", nick, "I'm afraid I can't let you do that"};
 		--TODO Loop throug all rooms and change nick, with help from Verse.
 		return;
 	end
 	local nick = args[1];
 	nick = nick:gsub("[^%w_]","");
 	if nicks[nick] then
-		session.send{from=muc_server, 433, nick, "The nickname "..nick.." is already in use"};
+		session.send{from=muc_server, "433", nick, "The nickname "..nick.." is already in use"};
 		return;
 	end
 	local full_jid = jid.join(nick, component_jid, "ircd");
@@ -190,8 +235,11 @@ function commands.NICK(session, args)
 	session.nick = nick;
 	session.full_jid = full_jid;
 	session.type = "c2s";
-	session.send{from = muc_server, 001, nick, "Welcome to XMPP via the "..session.host.." gateway "..session.nick};
-	session.send{from=nick, "MODE", nick, "+i"}; -- why
+	session.send{from = muc_server, "001", nick, "Welcome to IRC gateway to XMPP!"};
+	session.send{from = muc_server, "002", nick, module.host.." running Prosody "..prosody.version};
+	session.send{from = muc_server, "003", nick, os.date(nil, prosody.start_time)}
+	session.send{from = muc_server, "004", table.concat({muc_server, "alpha", "i", "ov"}, " ")};
+	session.send{from = nick, "MODE", nick, "+i"}; -- why
 end
 
 function commands.USER(session, params)
@@ -280,7 +328,7 @@ function commands.PRIVMSG(session, args)
 		if message:sub(1,8) == "\1ACTION " then
 			message = "/me ".. message:sub(9,-2)
 		end
-		-- TODO clean out invalid chars
+		message = utf8_clean(message);
 		if channel:sub(1,1) == "#" then
 			if session.rooms[channel] then
 				module:log("debug", "%s sending PRIVMSG \"%s\" to %s", session.nick, message, channel);
@@ -322,14 +370,15 @@ function commands.WHO(session, args)
 	end
 end
 
-function commands._MODE(session, args) -- FIXME
+function commands.MODE(session, args) -- FIXME
 	local channel, target = unpack(args);
 	if target then
 		-- do stuff?
 		--room:set_affiliation(...)
+		session.send{from=muc_server, "324", session.nick, channel, "+i"}
 	else
 		-- What's 324? And +J ?
-		session.send{from=muc_server, 324, session.nick, channel, "+J"}
+		session.send{from=muc_server, "324", session.nick, channel, "+J"}
 	end
 end
 
