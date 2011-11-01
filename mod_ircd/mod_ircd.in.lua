@@ -249,6 +249,7 @@ end
 
 function commands.JOIN(session, args)
 	local channel = args[1];
+	if not channel then return end
 	local room_jid = irc2muc(channel);
 	print(session.full_jid);
 	local room, err = c:join_room(room_jid, session.nick, { source = session.full_jid } );
