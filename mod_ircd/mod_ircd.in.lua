@@ -129,16 +129,32 @@ local function muc2irc(room)
 	local channel, _, nick = jid.split(room);
 	return "#"..channel, nick;
 end
-local rolemap = {
-	moderator = "@",
-	participant = "+",
+local role_map = {
+        moderator = "@",
+        participant = "",
+        visitor = "",
+        none = ""
 }
-local modemap = {
-	moderator = "o",
-	participant = "v",
+local aff_map = {
+	owner = "~",
+	administrator = "&",
+	member = "+",
+	none = ""
+}
+local role_modemap = {
+        moderator = "o",
+        participant = "",
+        visitor = "",
+        none = ""
+}
+local aff_modemap = {
+	owner = "q",
+	administrator = "a",
+	member = "v",
+	none = ""
 }
 
-local irc_listener = { default_port = 6667, default_mode = "*l" };
+local irc_listener = { default_port = 7000, default_mode = "*l" };
 
 local sessions = {};
 local jids = {};
@@ -231,15 +247,28 @@ function commands.NICK(session, args)
 	end
 	local full_jid = jid.join(nick, component_jid, "ircd");
 	jids[full_jid] = session;
+	jids[full_jid]["ar_last"] = {};
 	nicks[nick] = session;
 	session.nick = nick;
 	session.full_jid = full_jid;
 	session.type = "c2s";
-	session.send{from = muc_server, "001", nick, "Welcome to IRC gateway to XMPP!"};
-	session.send{from = muc_server, "002", nick, module.host.." running Prosody "..prosody.version};
+	
+	session.send{from = muc_server, "001", nick, "Welcome in the IRC to MUC XMPP Gateway, "..nick};
+	session.send{from = muc_server, "002", nick, "Your host is "..muc_server.." running Prosody "..prosody.version};
 	session.send{from = muc_server, "003", nick, os.date(nil, prosody.start_time)}
-	session.send{from = muc_server, "004", table.concat({muc_server, "alpha", "i", "ov"}, " ")};
-	session.send{from = nick, "MODE", nick, "+i"}; -- why
+	session.send{from = muc_server, "004", table.concat({muc_server, "alpha", "i", "aoqv"}, " ")};
+	session.send{from = muc_server, "375", nick, "- "..muc_server.." Message of the day -"};
+	session.send{from = muc_server, "372", nick, "-"};
+	session.send{from = muc_server, "372", nick, "- Please be warned that this is only a partial irc implementation,"};
+	session.send{from = muc_server, "372", nick, "- it's made to facilitate users transiting away from irc to XMPP."};
+	session.send{from = muc_server, "372", nick, "-"};
+	session.send{from = muc_server, "372", nick, "- Prosody is _NOT_ an IRC Server and it never will."};
+	session.send{from = muc_server, "372", nick, "- We also would like to remind you that this plugin is provided as is,"};
+	session.send{from = muc_server, "372", nick, "- it's still an Alpha and it's still a work in progress, use it at your sole"};
+	session.send{from = muc_server, "372", nick, "- risk as there's a not so little chance something will break."};
+	
+	session.send{from = nick, "MODE", nick, "+i"}; -- why -> Invisible mode setting, 
+						       --        enforce by default on most servers (since the source host doesn't show it's sensible to have it "set")
 end
 
 function commands.USER(session, params)
@@ -247,21 +276,38 @@ function commands.USER(session, params)
 	-- Empty command for now
 end
 
+local function mode_map(am, rm, nicks)
+	local rnick;
+	local c_modes;
+	c_modes = aff_modemap[am]..role_modemap[rm]
+	rnick = string.rep(nicks.." ", c_modes:len())
+	if c_modes == "" then return nil, nil end
+	return c_modes, rnick
+end
+
 function commands.JOIN(session, args)
 	local channel = args[1];
 	if not channel then return end
 	local room_jid = irc2muc(channel);
 	print(session.full_jid);
+	if not jids[session.full_jid].ar_last[room_jid] then jids[session.full_jid].ar_last[room_jid] = {}; end
 	local room, err = c:join_room(room_jid, session.nick, { source = session.full_jid } );
 	if not room then
-		return ":"..session.host.." ERR :Could not join room: "..err
+		return ":"..muc_server.." ERR :Could not join room: "..err
 	end
 	session.rooms[channel] = room;
 	room.channel = channel;
 	room.session = session;
 	session.send{from=session.nick, "JOIN", channel};
-	session.send{from=muc_server, 332, session.nick, channel ,"Connection in progress..."};
-
+	if room.subject then
+	       	session.send{from=muc_server, 332, session.nick, channel ,room.subject};
+        end
+	commands.NAMES(session, channel);
+	
+	room:hook("subject-changed", function(changed) 
+	       	session.send((":%s TOPIC %s :%s"):format(changed.by, channel, changed.to or ""));
+	end);
+	
 	room:hook("message", function(event)
 		if not event.body then return end
 		local nick, body = event.nick, event.body;
@@ -274,52 +320,92 @@ function commands.JOIN(session, args)
 			--FIXME PM's probably won't work
 		end
 	end);
+	
+	room:hook("presence", function(ar)
+		local c_modes;
+		local rnick;
+		if ar.nick and not jids[session.full_jid].ar_last[ar.room_jid][ar.nick] then jids[session.full_jid].ar_last[ar.room_jid][ar.nick] = {} end
+		local x_ar = ar.stanza:get_child("x", "http://jabber.org/protocol/muc#user")
+		if x_ar then
+		local xar_item = x_ar:get_child("item")
+			if xar_item and xar_item.attr and ar.stanza.attr.type ~= "unavailable" then
+		                if xar_item.attr.affiliation and xar_item.attr.role then
+					if not jids[session.full_jid].ar_last[ar.room_jid][ar.nick]["affiliation"] and
+					   not jids[session.full_jid].ar_last[ar.room_jid][ar.nick]["role"] then
+						jids[session.full_jid].ar_last[ar.room_jid][ar.nick]["affiliation"] = xar_item.attr.affiliation
+						jids[session.full_jid].ar_last[ar.room_jid][ar.nick]["role"] = xar_item.attr.role
+						c_modes, rnick = mode_map(xar_item.attr.affiliation, xar_item.attr.role, ar.nick);
+						if c_modes and rnick then session.send((":%s MODE %s +%s"):format(muc_server, channel, c_modes.." "..rnick)); end
+					else
+						c_modes, rnick = mode_map(jids[session.full_jid].ar_last[ar.room_jid][ar.nick]["affiliation"], jids[session.full_jid].ar_last[ar.room_jid][ar.nick]["role"], ar.nick);
+						if c_modes and rnick then session.send((":%s MODE %s -%s"):format(muc_server, channel, c_modes.." "..rnick)); end
+						jids[session.full_jid].ar_last[ar.room_jid][ar.nick]["affiliation"] = xar_item.attr.affiliation
+						jids[session.full_jid].ar_last[ar.room_jid][ar.nick]["role"] = xar_item.attr.role
+						c_modes, rnick = mode_map(xar_item.attr.affiliation, xar_item.attr.role, ar.nick);
+						if c_modes and rnick then session.send((":%s MODE %s +%s"):format(muc_server, channel, c_modes.." "..rnick)); end
+					end
+				end
+			end
+		 end
+	end, -1);
 end
 
 c:hook("groupchat/joined", function(room)
 	local session = room.session or jids[room.opts.source];
-	local channel = room.channel;
+        local channel = "#"..room.jid:match("^(.*)@");
 	session.send{from=session.nick.."!"..session.nick, "JOIN", channel};
-	session.send((":%s!%s JOIN %s :"):format(session.nick, session.nick, channel));
 	if room.topic then
 		session.send{from=muc_server, 332, room.topic};
 	end
 	commands.NAMES(session, channel)
-	if session.nick.role then
-		session.send{from=muc_server, "MODE", channel, session.nick, modemap[session.nick.role], session.nick}
-	end
 	room:hook("occupant-joined", function(nick)
 		session.send{from=nick.nick.."!"..nick.nick, "JOIN", channel};
-		if nick.role and modemap[nick.role] then
-			session.send{from=nick.nick.."!"..nick.nick, "MODE", channel, modemap[nick.role], nick.nick};
-		end
 	end);
 	room:hook("occupant-left", function(nick)
-		session.send{from=nick.nick.."!"..nick.nick, "PART", room.channel};
+		jids[session.full_jid].ar_last[nick.room_jid][nick.nick] = nil;
+		session.send{from=nick.nick.."!"..nick.nick, "PART", channel};
 	end);
 end);
 
 function commands.NAMES(session, channel)
 	local nicks = { };
 	local room = session.rooms[channel];
+	local symbols_map = {
+		owner = "~",
+		administrator = "&",
+		moderator = "@",
+		member = "+"
+	}
+		
 	if not room then return end
 	-- TODO Break this out into commands.NAMES
 	for nick, n in pairs(room.occupants) do
-		if n.role and rolemap[n.role] then
-			nick = rolemap[n.role] .. nick;
+                if n.affiliation == "owner" and n.role == "moderator" then
+			nick = symbols_map[n.affiliation]..nick;
+                elseif n.affiliation == "administrator" and n.role == "moderator" then
+			nick = symbols_map[n.affiliation]..nick;
+		elseif n.affiliation == "member" and n.role == "moderator" then
+			nick = symbols_map[n.role]..nick;
+		elseif n.affiliation == "member" and n.role == "partecipant" then
+			nick = symbols_map[n.affiliation]..nick;
+		elseif n.affiliation == "none" and n.role == "moderator" then
+			nick = symbols_map[n.role]..nick;
 		end
 		table.insert(nicks, nick);
 	end
 	nicks = table.concat(nicks, " ");
-	session.send((":%s 353 %s = %s :%s"):format(session.host, session.nick, channel, nicks));
-	session.send((":%s 366 %s %s :End of /NAMES list."):format(session.host, session.nick, channel));
-	session.send(":"..session.host.." 353 "..session.nick.." = "..channel.." :"..nicks);
+	session.send((":%s 353 %s = %s :%s"):format(muc_server, session.nick, channel, nicks));
+	session.send((":%s 366 %s %s :End of /NAMES list."):format(muc_server, session.nick, channel));
+	session.send(":"..muc_server.." 353 "..session.nick.." = "..channel.." :"..nicks);
 end
 
 function commands.PART(session, args)
 	local channel, part_message = unpack(args);
+	local room = channel and nodeprep(channel:match("^#(%w+)")) or nil;
+	if not room then return end
 	channel = channel:match("^([%S]*)");
 	session.rooms[channel]:leave(part_message);
+	jids[session.full_jid].ar_last[room.."@"..muc_server] = nil;
 	session.send(":"..session.nick.." PART :"..channel);
 end
 
@@ -357,6 +443,22 @@ end
 
 function commands.PING(session, args)
 	session.send{from=muc_server, "PONG", args[1]};
+end
+
+function commands.TOPIC(session, message)
+	if not message then return end
+	local channel, topic = message:match("^(%S+) :(.*)$");
+	if not channel then
+		channel = message:match("^(%S+)");
+	end
+	if not channel then return end
+	local room = session.rooms[channel];
+	if topic then
+		room:set_subject(topic)
+		session.send((":%s TOPIC %s :%s"):format(session.nick, channel, room.subject or ""));
+	else
+		session.send((":%s TOPIC %s :%s"):format(session.nick, channel, room.subject or ""));
+	end
 end
 
 function commands.WHO(session, args)
@@ -412,5 +514,3 @@ module:hook("module-unloaded", desetup)
 
 --print("Starting loop...")
 --verse.loop()
-
-
