@@ -101,7 +101,8 @@ function irc_listener.onincoming(conn, data)
 			command = command:upper();
 			if not session.nick then
 				if not (command == "USER" or command == "NICK") then
-					session.send(":" .. session.host .. " 451 " .. command .. " :You have not registered")
+                                        session.send(":" .. muc_server .. " 451 " .. command .. " :You have not registered")
+                                        return true;
 				end
 			end
 			if commands[command] then
@@ -110,7 +111,7 @@ function irc_listener.onincoming(conn, data)
 					session.send(ret.."\r\n");
 				end
 			else
-				session.send(":" .. session.host .. " 421 " .. session.nick .. " " .. command .. " :Unknown command")
+                                session.send(":" .. muc_server .. " 421 " .. session.nick .. " " .. command .. " :Unknown command")
 				module:log("debug", "Unknown command: %s", command);
 			end
 		end
@@ -135,7 +136,7 @@ end
 
 function commands.NICK(session, nick)
 	if session.nick then
-		session.send(":"..session.host.." 484 * "..nick.." :I'm afraid I can't let you do that, "..nick);
+                session.send(":"..muc_server.." 484 * "..nick.." :I'm afraid I can't let you do that, "..nick);
 		--TODO Loop throug all rooms and change nick, with help from Verse.
 		return;
 	end
@@ -274,29 +275,19 @@ function commands.RAW(session, data)
 	--c:send(data)
 end
 
+local function desetup()
+	require "net.connlisteners".deregister("irc");
+end
+
 --c:hook("ready", function ()
 	require "net.connlisteners".register("irc", irc_listener);
 	require "net.connlisteners".start("irc");
 --end);
 
+module:hook("module-unloaded", desetup)
+
+
 --print("Starting loop...")
 --verse.loop()
 
---[[ TODO
-
-This is so close to working as a Prosody plugin you know ^^
-Zash: :D
-MattJ: That component function can go
-Prosody fires events now
-but verse fires "message" where Prosody fires "message/bare"
-[20:59:50] 
-Easy... don't connect_component
-hook "message/*" and presence, and whatever
-and call c:event("message", ...)
-module:hook("message/bare", function (e) c:event("message", e.stanza) end)
-as an example
-That's so bad ^^
-and override c:send() to core_post_stanza...
-
---]]
 
