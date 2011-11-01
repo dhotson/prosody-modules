@@ -255,8 +255,8 @@ function commands.NICK(session, args)
 	
 	session.send{from = muc_server, "001", nick, "Welcome in the IRC to MUC XMPP Gateway, "..nick};
 	session.send{from = muc_server, "002", nick, "Your host is "..muc_server.." running Prosody "..prosody.version};
-	session.send{from = muc_server, "003", nick, os.date(nil, prosody.start_time)}
-	session.send{from = muc_server, "004", table.concat({muc_server, "alpha", "i", "aoqv"}, " ")};
+	session.send{from = muc_server, "003", nick, "This server was created: "..os.date(nil, prosody.start_time)}
+	session.send{from = muc_server, "004", nick, table.concat({muc_server, "mod_ircd(alpha-0.8)", "i", "aoqv"}, " ")};
 	session.send{from = muc_server, "375", nick, "- "..muc_server.." Message of the day -"};
 	session.send{from = muc_server, "372", nick, "-"};
 	session.send{from = muc_server, "372", nick, "- Please be warned that this is only a partial irc implementation,"};
