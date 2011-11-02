@@ -362,7 +362,7 @@ c:hook("groupchat/joined", function(room)
 		session.send{from=nick.nick.."!"..nick.nick, "JOIN", channel};
 	end);
 	room:hook("occupant-left", function(nick)
-		jids[session.full_jid].ar_last[nick.room_jid][nick.nick] = nil;
+		jids[session.full_jid].ar_last[nick.jid:match("^(.*)/")][nick.nick] = nil; -- ugly
 		session.send{from=nick.nick.."!"..nick.nick, "PART", channel};
 	end);
 end);
