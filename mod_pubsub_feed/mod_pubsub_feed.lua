@@ -38,25 +38,46 @@ local formencode = http.formencode;
 local urldecode  = http.urldecode;
 local urlencode  = http.urlencode;
 
-local config = module:get_option("feeds") or {
-	planet_jabber = "http://planet.jabber.org/atom.xml";
-	prosody_blog = "http://blog.prosody.im/feed/atom.xml";
-};
-local refresh_interval = module:get_option_number("feed_pull_interval", 15) * 60;
-local use_pubsubhubub = module:get_option_boolean("use_pubsubhubub", true); -- HTTP by default or not?
-local httphost = module:get_option_string("pubsubhubub_httphost", module.host); -- If module.host IN A doesn't point to this server, use this to override.
-local feed_list = { }
-for node, url in pairs(config) do
-	feed_list[node] = { url = url; node = node; last_update = 0 };
+local feed_list = {};
+local refresh_interval;
+
+-- Dynamicaly reloadable config.
+local function update_config()
+	local config = module:get_option("feeds") or {
+		planet_jabber = "http://planet.jabber.org/atom.xml";
+		prosody_blog = "http://blog.prosody.im/feed/atom.xml";
+	};
+	refresh_interval = module:get_option_number("feed_pull_interval", 15) * 60;
+	local new_feed_list = {};
+	for node, url in pairs(config) do
+		new_feed_list[node] = true;
+		if not feed_list[node] then
+			feed_list[node] = { url = url; node = node; last_update = 0 };
+		else
+			feed_list[node].url = url;
+		end
+	end
+	for node in pairs(feed_list) do
+		if not new_feed_list[node] then
+			feed_list[node] = nil;
+		end
+	end
 end
--- TODO module:hook("config-reloaded", above loop);
--- Also, keeping it somewhere persistent in order to avoid duplicated publishes?
+update_config();
+module:hook("config-reloaded", update_config);
 
 -- Used to kill the timer
 local module_unloaded = false;
 function module.unload()
 	module_unloaded = true;
 end
+
+-- Config stuff that can't be reloaded, since it would need to re-bind HTTP stuff.
+
+-- If module.host IN A doesn't point to this server, use this to override.
+local httphost = module:get_option_string("pubsubhubub_httphost", module.host);
+-- HTTP by default or not?
+local use_pubsubhubub = module:get_option_boolean("use_pubsubhubub", true);
 
 -- Thanks to Maranda for this
 local port, base, ssl = 5280, "callback", false;
@@ -169,12 +190,13 @@ function fetch(item, callback) -- HTTP Pull
 end
 
 function refresh_feeds()
+	local now = time();
 	if module_unloaded then return end
 	--module:log("debug", "Refreshing feeds");
 	for node, item in pairs(feed_list) do
 		--FIXME Don't fetch feeds which have a subscription
 		-- Otoho, what if the subscription expires or breaks?
-		if item.last_update + refresh_interval < time() then 
+		if item.last_update + refresh_interval < now then 
 			module:log("debug", "checking %s", item.node);
 			fetch(item, update_entry);
 		end
