@@ -7,10 +7,10 @@
 
 local st = require "util.stanza";
 local dm = require "util.datamanager";
-local jid = require "util.jid";
-local datetime = require "util.datetime";
-local um = require "core.usermanager";
-local rom = require "core.rostermanager";
+local jid_compare, jid_split, jid_bare = require "util.jid".compare, require "util.jid".bare, require "util.jid".split;
+local datetime = require "util.datetime".datetime;
+local user_exists = require "core.usermanager".user_exists;
+local is_contact_subscribed = require "core.rostermanager".is_contact_subscribed;
 
 local PREFS_DIR = "archive_muc_prefs";
 local ARCHIVE_DIR = "archive_muc";
@@ -48,10 +48,8 @@ local function store_prefs(data, node, host)
     dm.store(node, host, PREFS_DIR, st.preserialize(data));
 end
 
-local date_time = datetime.datetime;
-
 local function match_jid(rule, id)
-    return not rule or jid.compare(id, rule);
+    return not rule or jid_compare(id, rule);
 end
 
 local function is_earlier(start, coll_start)
@@ -138,10 +136,6 @@ local function is_in(list, jid)
     return false;
 end
 
-local function is_in_roster(node, host, id)
-    return rom.is_contact_subscribed(node, host, jid.bare(id));
-end
-
 local function apply_pref(node, host, jid)
     local pref = load_prefs(node, host);
     if not pref then
@@ -157,7 +151,7 @@ local function apply_pref(node, host, jid)
     end
     local default = pref.attr['default'];
     if default == 'roster' then
-        return is_in_roster(node, host, jid);
+        return is_contact_subscribed(node, host, jid_bare(jid));
     elseif default == 'always' then
         return true;
     elseif default == 'never' then
@@ -168,7 +162,7 @@ end
 
 local function store_msg(msg, node, host)
     local forwarded = st.stanza('forwarded', {xmlns='urn:xmpp:forward:tmp'});
-    forwarded:tag('delay', {xmlns='urn:xmpp:delay',stamp=date_time()}):up();
+    forwarded:tag('delay', {xmlns='urn:xmpp:delay',stamp=datetime()}):up();
     forwarded:add_child(msg);
     dm.list_append(node, host, ARCHIVE_DIR, st.preserialize(forwarded));
 end
@@ -178,12 +172,12 @@ local function msg_handler(data)
     local origin, stanza = data.origin, data.stanza;
     local body = stanza:child_with_name("body");
     if body then
-        local from_node, from_host = jid.split(stanza.attr.from);
-        local to_node, to_host = jid.split(stanza.attr.to);
-        if um.user_exists(from_node, from_host) and apply_pref(from_node, from_host, stanza.attr.to) then
+        local from_node, from_host = jid_split(stanza.attr.from);
+        local to_node, to_host = jid_split(stanza.attr.to);
+        if user_exists(from_node, from_host) and apply_pref(from_node, from_host, stanza.attr.to) then
             store_msg(stanza, from_node, from_host);
         end
-        if um.user_exists(to_node, to_host) and apply_pref(to_node, to_host, stanza.attr.from) then
+        if user_exists(to_node, to_host) and apply_pref(to_node, to_host, stanza.attr.from) then
             store_msg(stanza, to_node, to_host);
         end
     end
