@@ -17,6 +17,8 @@ local ARCHIVE_DIR = "archive_muc";
 
 local AUTO_MUC_ARCHIVING_ENABLED = module:get_option_boolean("auto_muc_archiving_enabled", true);
 
+local NULL = {};
+
 module:add_feature("urn:xmpp:archive#preferences");
 module:add_feature("urn:xmpp:archive#management");
 
