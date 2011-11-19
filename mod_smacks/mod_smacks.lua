@@ -167,10 +167,17 @@ function sessionmanager.destroy_session(session, err)
 		else
 			local hibernate_time = os_time(); -- Track the time we went into hibernation
 			session.hibernating = hibernate_time;
+			local resumption_token = session.resumption_token;
 			timer.add_task(resume_timeout, function ()
+				-- We need to check the current resumption token for this resource
+				-- matches the smacks session this timer is for in case it changed
+				-- (for example, the client may have bound a new resource and
+				-- started a new smacks session, or not be using smacks)
+				local curr_session = hosts[session.host].sessions[session.username].sessions[session.resource];
+				if curr_session.resumption_token == resumption_token
 				-- Check the hibernate time still matches what we think it is,
 				-- otherwise the session resumed and re-hibernated.
-				if session.hibernating == hibernate_time then
+				and session.hibernating == hibernate_time then
 					session_registry[session.resumption_token] = nil;
 					session.resumption_token = nil;
 					-- This recursion back into our destroy handler is to
