@@ -305,7 +305,7 @@ function commands.JOIN(session, args)
 	commands.NAMES(session, channel);
 	
 	room:hook("subject-changed", function(changed) 
-	       	session.send((":%s TOPIC %s :%s"):format(changed.by, channel, changed.to or ""));
+	       	session.send((":%s TOPIC %s :%s"):format(changed.by.nick, channel, changed.to or ""));
 	end);
 	
 	room:hook("message", function(event)
@@ -447,17 +447,13 @@ end
 
 function commands.TOPIC(session, message)
 	if not message then return end
-	local channel, topic = message:match("^(%S+) :(.*)$");
-	if not channel then
-		channel = message:match("^(%S+)");
-	end
+	local channel, topic = message[1], message[2]; 
 	if not channel then return end
 	local room = session.rooms[channel];
+
 	if topic then
 		room:set_subject(topic)
-		session.send((":%s TOPIC %s :%s"):format(session.nick, channel, room.subject or ""));
-	else
-		session.send((":%s TOPIC %s :%s"):format(session.nick, channel, room.subject or ""));
+		session.send((":%s TOPIC %s :%s"):format(room.nick, room.channel, room.subject or ""));
 	end
 end
 
