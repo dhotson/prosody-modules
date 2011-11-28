@@ -8,8 +8,13 @@ local _module = module
 module = _G.module
 local module = _module
 --
-local component_jid, component_secret, muc_server =
-      module.host, nil, module:get_option("conference_server");
+local component_jid, component_secret, muc_server, port_number =
+      module.host, nil, module:get_option_string("conference_server"), module:get_option_number("listener_port", 7000);
+
+if not muc_server then
+	module:log ("error", "You need to set the MUC server! halting.")
+	return false;
+end
 
 package.loaded["util.sha1"] = require "util.encodings";
 local verse = require "verse"
@@ -154,7 +159,7 @@ local aff_modemap = {
 	none = ""
 }
 
-local irc_listener = { default_port = 7000, default_mode = "*l" };
+local irc_listener = { default_port = port_number, default_mode = "*l" };
 
 local sessions = {};
 local jids = {};
@@ -447,7 +452,9 @@ end
 
 function commands.TOPIC(session, message)
 	if not message then return end
-	local channel, topic = message[1], message[2]; 
+	local channel, topic = message[1], message[2];
+	channel = utf8_clean(channel);
+	topic = utf8_clean(topic);
 	if not channel then return end
 	local room = session.rooms[channel];
 
