@@ -458,10 +458,7 @@ function commands.TOPIC(session, message)
 	if not channel then return end
 	local room = session.rooms[channel];
 
-	if topic then
-		room:set_subject(topic)
-		session.send((":%s TOPIC %s :%s"):format(room.nick, room.channel, room.subject or ""));
-	end
+	if topic and room.occupants[room.nick]["role"] == "moderator" then room:set_subject(topic); end
 end
 
 function commands.WHO(session, args)
