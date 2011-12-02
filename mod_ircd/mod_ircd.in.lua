@@ -244,7 +244,7 @@ local function check_username(un)
 	if count > 0 then return tostring(un)..tostring(result); else return tostring(un); end
 end
 local function change_nick_st(fulljid, roomjid, tonick)
-	return st.presence({ from = fulljid, to = newjid, type = "unavailable" }):tag("status"):text("Changing nickname to: "..tonick):up();
+	return st.presence({ from = fulljid, to = roomjid, type = "unavailable" }):tag("status"):text("Changing nickname to: "..tonick):up();
 end
 local function set_t_data(session, full_jid)
 	session.full_jid = full_jid;
