@@ -455,9 +455,9 @@ c:hook("groupchat/joined", function(room)
 			session.nicks_changing[newnick] = { nick.nick, (nicks[nick.nick] and nicks[nick.nick].username or "xmpp") }; return;
 		end
 		
-		local self_change;
+		local self_change = false;
 		for _, data in pairs(session.nicks_changing) do
-			if data[1] == nick.nick then self_change = nick.nick; break; end
+			if data[1] == nick.nick then self_change = true; break; end
 		end
 		if self_change then return; end
 		session.send{from=nick.nick.."!"..(nicks[nick.nick] and nicks[nick.nick].username or "xmpp"), "PART", channel};
