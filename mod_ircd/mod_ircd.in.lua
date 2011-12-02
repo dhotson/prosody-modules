@@ -149,6 +149,7 @@ local jids = {};
 local commands = {};
 
 local nicks = {};
+local usernames = {};
 
 local st = require "util.stanza";
 
@@ -163,8 +164,7 @@ function irc_listener.onincoming(conn, data)
 	if not session then
 		session = { conn = conn, host = component_jid, reset_stream = function () end,
 			close = irc_close_session, log = logger.init("irc"..(conn.id or "1")),
-			rooms = {},
-			roster = {} };
+			rooms = {}, roster = {}, has_un = false };
 		sessions[conn] = session;
 		
 		function session.data(data)
@@ -175,10 +175,10 @@ function irc_listener.onincoming(conn, data)
 				return;
 			end
 			command = command:upper();
-			if not session.nick then
+			if not session.username and not session.nick then
 				if not (command == "USER" or command == "NICK") then
 					module:log("debug", "Client tried to send command %s before registering", command);
-					return session.send{from=muc_server, "451", command, "You have not registered"}
+					return session.send{from=muc_server, "451", command, "You have not completed the registration."}
 				end
 			end
 			if commands[command] then
@@ -221,6 +221,9 @@ function irc_listener.ondisconnect(conn, error)
 		if session.full_jid then
 			jids[session.full_jid] = nil;
 		end
+		if session.username then
+			usernames[session.username] = nil;
+		end
 	end
 	sessions[conn] = nil;
 end
@@ -228,55 +231,31 @@ end
 local function nick_inuse(nick)
 	if nicks[nick] then return true else return false end
 end
-local function change_nick_st(jid, room_jid, newnick)
-	return st.presence({ xmlns = xmlns_client, from = jid, to = room_jid, type = "unavailable" }):tag("status"):text("Changing nickname to "..newnick):up();
-end
+local function check_username(un)
+	local count = 0;
+	local result;
 
-function commands.NICK(session, args)
-	local nick = args[1];
-	nick = nick:gsub("[^%w_]","");
-	local full_jid = jid.join(nick, component_jid, "ircd");
-	
-	if session.nick and not nick_inuse(nick) then -- changing nick
-		local oldnick = session.nick;
-		local old_full_jid = session.full_jid;
-		local old_ar_last = jids[old_full_jid]["ar_last"];
-		local old_nicks_changing = jids[old_full_jid]["nicks_changing"];
-		
-		-- update and replace session data
-		session.nick = nick;
-		session.full_jid = full_jid;
-		jids[old_full_jid] = nil; nicks[oldnick] = nil;
-		nicks[nick] = session;
-		jids[full_jid] = session;
-		jids[full_jid]["ar_last"] = old_ar_last;
-		jids[full_jid]["nicks_changing"] = old_nicks_changing;
-		
-		session.send{from=oldnick, "NICK", nick};
-		
-		-- broadcast changes if required, todo: something better then forcing parting and rejoining
-		if session.rooms then
-			for id, room in pairs(session.rooms) do
-				session.nicks_changing[session.nick] = oldnick;
-				room:send(change_nick_st(old_full_jid, room.jid.."/"..oldnick, session.nick));
-				commands.JOIN(session, { id });
-			end
-			session.nicks_changing[session.nick] = nil;
-		end
-		
-		return;
-	elseif nick_inuse(nick) then
-		session.send{from=muc_server, "433", nick, "The nickname "..nick.." is already in use"}; return;
+	for name, given in pairs(usernames) do
+		if un == given then count = count + 1; end
 	end
 	
+	result = count + 1;
+	
+	if count > 0 then return tostring(un)..tostring(result); else return tostring(un); end
+end
+local function change_nick_st(fulljid, roomjid, tonick)
+	return st.presence({ from = fulljid, to = newjid, type = "unavailable" }):tag("status"):text("Changing nickname to: "..tonick):up();
+end
+local function set_t_data(session, full_jid)
+	session.full_jid = full_jid;
 	jids[full_jid] = session;
 	jids[full_jid]["ar_last"] = {};
 	jids[full_jid]["nicks_changing"] = {};
-	nicks[nick] = session;
-	session.nick = nick;
-	session.full_jid = full_jid;
-	session.type = "c2s";
-	
+
+	if session.nick then nicks[session.nick] = session; end
+end
+local function send_motd(session)
+	local nick = session.nick;
 	session.send{from = muc_server, "001", nick, "Welcome in the IRC to MUC XMPP Gateway, "..nick};
 	session.send{from = muc_server, "002", nick, "Your host is "..muc_server.." running Prosody "..prosody.version};
 	session.send{from = muc_server, "003", nick, "This server was created the "..os.date(nil, prosody.start_time)}
@@ -295,7 +274,77 @@ function commands.NICK(session, args)
 						       --        enforce by default on most servers (since the source host doesn't show it's sensible to have it "set")
 end
 
-function commands.USER(session, params) -- To be done.
+function commands.NICK(session, args)
+	local nick = args[1];
+	nick = nick:gsub("[^%w_]","");
+	
+	if session.nick and not nick_inuse(nick) then -- changing nick
+		local oldnick = session.nick;
+		
+		-- update and replace session data
+		session.nick = nick;
+		nicks[oldnick] = nil;
+		nicks[nick] = session;
+		
+		session.send{from=oldnick.."!"..nicks[nick].username, "NICK", nick};
+		
+		-- broadcast changes if required
+		if session.rooms then
+			for id, room in pairs(session.rooms) do
+				session.nicks_changing[session.nick] = { oldnick, session.username };
+				
+				local node = jid.split(room.jid);
+				local oldjid = jid.join(node, muc_server, session.nick);
+				local room_name = room.jid
+				
+				room:send(change_nick_st(session.full_jid, jid.join(node, muc_server, oldnick), session.nick));
+				local room, err = c:join_room(room_name, session.nick, { source = session.full_jid } );
+				if not room then
+					session.send{from=nick.nick.."!"..session.username, "PART", id};
+					return ":"..muc_server.." ERR :Failed to change nick and rejoin: "..err
+				end
+			end
+		end
+		
+		return;
+	elseif nick_inuse(nick) then
+		session.send{from=muc_server, "433", nick, "The nickname "..nick.." is already in use"}; return;
+	end
+	
+	session.nick = nick;
+	session.type = "c2s";
+	nicks[nick] = session;
+	
+	-- Some choppy clients send in NICK before USER, that needs to be handled
+	if session.username then
+		set_t_data(session, jid.join(session.username, component_jid, "ircd"));
+	end
+	
+	if session.username and session.nick then -- send MOTD
+		send_motd(session);
+	end
+end
+
+function commands.USER(session, params)
+	local username = params[1];
+
+	if not session.has_un then
+		local un_checked = check_username(username);
+	
+		usernames[un_checked] = username;
+		session.username = un_checked;
+		session.has_un = true;
+		
+		if not session.full_jid then
+			set_t_data(session, jid.join(session.username, component_jid, "ircd"));
+		end
+	else
+		return session.send{from=muc_server, "462", "USER", "You may not re-register."}
+	end
+	
+	if session.username and session.nick then -- send MOTD
+		send_motd(session);
+	end
 end
 
 local function mode_map(am, rm, nicks)
@@ -324,7 +373,7 @@ function commands.JOIN(session, args)
         if session.nicks_changing[session.nick] then -- my own nick is changing
         	commands.NAMES(session, channel);
         else
-        	session.send{from=session.nick, "JOIN", channel};
+        	session.send{from=session.nick.."!"..session.username, "JOIN", channel};
         	if room.subject then
         	        session.send{from=muc_server, 332, session.nick, channel, room.subject};
         	end
@@ -383,10 +432,10 @@ c:hook("groupchat/joined", function(room)
         
 	room:hook("occupant-joined", function(nick)
 		if session.nicks_changing[nick.nick] then
-			session.send{from=session.nicks_changing[nick.nick], "NICK", nick.nick};
+			session.send{from=session.nicks_changing[nick.nick][1].."!"..(session.nicks_changing[nick.nick][2] or "xmpp"), "NICK", nick.nick};
 			session.nicks_changing[nick.nick] = nil;
 		else
-			session.send{from=nick.nick, "JOIN", channel};
+			session.send{from=nick.nick.."!"..(nicks[nick.nick] and nicks[nick.nick].username or "xmpp"), "JOIN", channel};
 		end
 	end);
 	room:hook("occupant-left", function(nick)
@@ -396,22 +445,29 @@ c:hook("groupchat/joined", function(room)
 		nick.presence:get_child("x","http://jabber.org/protocol/muc#user"):get_child("status") and
 		nick.presence:get_child("x","http://jabber.org/protocol/muc#user"):get_child("status").attr.code;
 		
+		
 		if status_code == "303" then
 			local newnick =
 			nick.presence:get_child("x","http://jabber.org/protocol/muc#user") and
-			nick.presence:get_child("x","http://jabber.org/protocol/muc#user"):get_child("status") and
-			nick.presence:get_child("x","http://jabber.org/protocol/muc#user"):get_child("status"):get_child("item") and
-			nick.presence:get_child("x","http://jabber.org/protocol/muc#user"):get_child("status"):get_child("item").attr.nick;
+			nick.presence:get_child("x","http://jabber.org/protocol/muc#user"):get_child("item") and
+			nick.presence:get_child("x","http://jabber.org/protocol/muc#user"):get_child("item").attr.nick;
 			
-			session.nicks_changing[newnick] = nick.nick; return;
+			session.nicks_changing[newnick] = { nick.nick, (nicks[nick.nick] and nicks[nick.nick].username or "xmpp") }; return;
 		end
-		session.send{from=nick.nick, "PART", channel};
+		
+		local self_change;
+		for _, data in pairs(session.nicks_changing) do
+			if data[1] == nick.nick then self_change = nick.nick; break; end
+		end
+		if self_change then return; end
+		session.send{from=nick.nick.."!"..(nicks[nick.nick] and nicks[nick.nick].username or "xmpp"), "PART", channel};
 	end);
 end);
 
 function commands.NAMES(session, channel)
 	local nicks = { };
 	if type(channel) == "table" then channel = channel[1] end
+	
 	local room = session.rooms[channel];
 	
 	local symbols_map = {
@@ -521,6 +577,7 @@ function commands.QUIT(session, args)
 	end
 	jids[session.full_jid] = nil;
 	nicks[session.nick] = nil;
+	usernames[session.username] = nil;
 	sessions[session.conn] = nil;
 	session:close();
 end
