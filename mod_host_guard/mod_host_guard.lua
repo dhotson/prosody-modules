@@ -78,9 +78,9 @@ end
 
 local function reload()
 	module:log ("debug", "server configuration reloaded, rehashing plugin tables...");
-	guard_blockall = module:get_option_set("host_guard_blockall");
-	guard_protect = module:get_option_set("host_guard_components");
-	guard_block_bl = module:get_option_set("host_guard_blacklist");
+	guard_blockall = module:get_option_set("host_guard_blockall", {});
+	guard_protect = module:get_option_set("host_guard_components", {});
+	guard_block_bl = module:get_option_set("host_guard_blacklist", {});
 end
 
 local function setup()
