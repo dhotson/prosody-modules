@@ -1,10 +1,11 @@
+-- (C) 2011, Marco Cirillo (LW.Org)
 -- Block or restrict by blacklist remote access to local components.
 
 module:set_global()
 
-local guard_blockall = module:get_option_set("component_guard_blockall", {})
-local guard_protect = module:get_option_set("component_guard_components", {})
-local guard_block_bl = module:get_option_set("component_guard_blacklist", {})
+local guard_blockall = module:get_option_set("host_guard_blockall", {})
+local guard_protect = module:get_option_set("host_guard_selective", {})
+local guard_block_bl = module:get_option_set("host_guard_blacklist", {})
 
 local s2smanager = require "core.s2smanager";
 local config = require "core.configmanager";
@@ -15,7 +16,7 @@ function s2smanager.make_connect(session, connect_host, connect_port)
   if not session.s2sValidation then
     if guard_blockall:contains(session.from_host) or
        guard_block_bl:contains(session.to_host) and guard_protect:contains(session.from_host) then
-         module:log("error", "remote service %s attempted to access restricted component %s", session.to_host, session.from_host);
+         module:log("error", "remote service %s attempted to access restricted host %s", session.to_host, session.from_host);
          s2smanager.destroy_session(session, "You're not authorized, good bye.");
          return false;
     end
@@ -35,7 +36,7 @@ function s2smanager.streamopened(session, attr)
 
     if guard_blockall:contains(host) or
        guard_block_bl:contains(from) and guard_protect:contains(host) then
-         module:log("error", "remote service %s attempted to access restricted component %s", from, host);
+         module:log("error", "remote service %s attempted to access restricted host %s", from, host);
          session:close({condition = "policy-violation", text = "You're not authorized, good bye."});
          return false;
     end
@@ -48,7 +49,7 @@ local function sdr_hook (event)
 	if origin.type == "s2sin" or origin.type == "s2sin_unauthed" then
 	   if guard_blockall:contains(stanza.attr.to) or 
 	      guard_block_bl:contains(stanza.attr.from) and guard_protect:contains(stanza.attr.to) then
-                module:log("error", "remote service %s attempted to access restricted component %s", stanza.attr.from, stanza.attr.to);
+                module:log("error", "remote service %s attempted to access restricted host %s", stanza.attr.from, stanza.attr.to);
                 origin:close({condition = "policy-violation", text = "You're not authorized, good bye."});
                 return false;
            end
@@ -61,7 +62,7 @@ local function handle_activation (host)
 	if guard_blockall:contains(host) or guard_protect:contains(host) then
 		if hosts[host] and hosts[host].events then
 			hosts[host].events.add_handler("stanza/jabber:server:dialback:result", sdr_hook, 100);
-                	module:log ("debug", "adding component protection for: "..host);
+                	module:log ("debug", "adding host protection for: "..host);
 		end
 	end
 end
@@ -70,20 +71,20 @@ local function handle_deactivation (host)
 	if guard_blockall:contains(host) or guard_protect:contains(host) then
 		if hosts[host] and hosts[host].events then
 			hosts[host].events.remove_handler("stanza/jabber:server:dialback:result", sdr_hook);
-                	module:log ("debug", "removing component protection for: "..host);
+                	module:log ("debug", "removing host protection for: "..host);
 		end
 	end
 end
 
 local function reload()
 	module:log ("debug", "server configuration reloaded, rehashing plugin tables...");
-	guard_blockall = module:get_option_set("component_guard_blockall");
-	guard_protect = module:get_option_set("component_guard_components");
-	guard_block_bl = module:get_option_set("component_guard_blacklist");
+	guard_blockall = module:get_option_set("host_guard_blockall");
+	guard_protect = module:get_option_set("host_guard_components");
+	guard_block_bl = module:get_option_set("host_guard_blacklist");
 end
 
 local function setup()
-        module:log ("debug", "initializing component guard module...");
+        module:log ("debug", "initializing host guard module...");
 
         module:hook ("component-activated", handle_activation);
         module:hook ("component-deactivated", handle_deactivation);
