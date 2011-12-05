@@ -310,10 +310,8 @@ function commands.NICK(session, args)
         if session.username then
                 set_t_data(session, jid.join(session.username, component_jid, "ircd"));
         end
-       
-        if session.username and session.nick then -- send MOTD
-                send_motd(session);
-        end
+
+	send_motd(session);
 end
 
 function commands.USER(session, params)
@@ -333,9 +331,7 @@ function commands.USER(session, params)
                 return session.send{from=muc_server, "462", "USER", "You may not re-register."}
         end
        
-        if session.username and session.nick then -- send MOTD
-                send_motd(session);
-        end
+	send_motd(session);
 end
 
 function commands.USERHOST(session, params) -- can show only users on the gateway. Needed for some clients to determinate self hostmask.
