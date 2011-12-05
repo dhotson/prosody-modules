@@ -337,7 +337,16 @@ function commands.USER(session, params)
         end
 end
 
-function commands.USERHOST(session, params) -- Empty for now
+function commands.USERHOST(session, params) -- can show only users on the gateway. Needed for some clients to determinate self hostmask.
+	local nick = params[1];
+
+	if not nick then session.send{from=muc_server, "461", "USERHOST", "Not enough parameters"}; return; end
+
+	if nicks[nick] and nicks[nick].nick and nicks[nick].username then
+		session.send{from=muc_server, "302", session.nick, nick.."=+"..nicks[nick].username}; return;
+	else
+		return;
+	end
 end
 
 local function mode_map(am, rm, nicks)
