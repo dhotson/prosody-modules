@@ -335,6 +335,9 @@ function commands.USER(session, params)
         end
 end
 
+function commands.USERHOST(session, params) -- Empty for now
+end
+
 local function mode_map(am, rm, nicks)
         local rnick;
         local c_modes;
