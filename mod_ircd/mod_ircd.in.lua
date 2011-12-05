@@ -252,25 +252,26 @@ local function set_t_data(session, full_jid)
         if session.nick then nicks[session.nick] = session; end
 end
 local function send_motd(session)
-        local nick = session.nick;
-        session.send{from = muc_server, "001", nick, "Welcome in the IRC to MUC XMPP Gateway, "..nick};
-        session.send{from = muc_server, "002", nick, "Your host is "..muc_server.." running Prosody "..prosody.version};
-        session.send{from = muc_server, "003", nick, "This server was created the "..os.date(nil, prosody.start_time)}
-        session.send{from = muc_server, "004", nick, table.concat({muc_server, "mod_ircd(alpha-0.8)", "i", "aoqv"}, " ")};
-        session.send((":%s %s %s %s :%s"):format(muc_server, "005", nick, "CHANTYPES=# PREFIX=(qaov)~&@+", "are supported by this server"));
-	session.send((":%s %s %s %s :%s"):format(muc_server, "005", nick, "STATUSMSG=~&@+", "are supported by this server"));
-        session.send{from = muc_server, "375", nick, "- "..muc_server.." Message of the day -"};
-        session.send{from = muc_server, "372", nick, "-"};
-        session.send{from = muc_server, "372", nick, "- Please be warned that this is only a partial irc implementation,"};
-        session.send{from = muc_server, "372", nick, "- it's made to facilitate users transiting away from irc to XMPP."};
-        session.send{from = muc_server, "372", nick, "-"};
-        session.send{from = muc_server, "372", nick, "- Prosody is _NOT_ an IRC Server and it never will."};
-        session.send{from = muc_server, "372", nick, "- We also would like to remind you that this plugin is provided as is,"};
-        session.send{from = muc_server, "372", nick, "- it's still an Alpha and it's still a work in progress, use it at your sole"};
-        session.send{from = muc_server, "372", nick, "- risk as there's a not so little chance something will break."};
-       
-        session.send{from = nick, "MODE", nick, "+i"}; -- why -> Invisible mode setting,
-                                                       --        enforce by default on most servers (since the source host doesn't show it's sensible to have it "set")
+	local nick = session.nick;
+
+	if session.username and session.nick then -- send MOTD only if username and nick are set
+	        session.send{from = muc_server, "001", nick, "Welcome in the IRC to MUC XMPP Gateway, "..nick};
+	        session.send{from = muc_server, "002", nick, "Your host is "..muc_server.." running Prosody "..prosody.version};
+	        session.send{from = muc_server, "003", nick, "This server was created the "..os.date(nil, prosody.start_time)}
+	        session.send{from = muc_server, "004", nick, table.concat({muc_server, "mod_ircd(alpha-0.8)", "i", "aoqv"}, " ")};
+	        session.send((":%s %s %s %s :%s"):format(muc_server, "005", nick, "CHANTYPES=# PREFIX=(qaov)~&@+", "are supported by this server"));
+		session.send((":%s %s %s %s :%s"):format(muc_server, "005", nick, "STATUSMSG=~&@+", "are supported by this server"));
+	        session.send{from = muc_server, "375", nick, "- "..muc_server.." Message of the day -"};
+	        session.send{from = muc_server, "372", nick, "-"};
+	        session.send{from = muc_server, "372", nick, "- Please be warned that this is only a partial irc implementation,"};
+	        session.send{from = muc_server, "372", nick, "- it's made to facilitate users transiting away from irc to XMPP."};
+	        session.send{from = muc_server, "372", nick, "-"};
+	        session.send{from = muc_server, "372", nick, "- Prosody is _NOT_ an IRC Server and it never will."};
+	        session.send{from = muc_server, "372", nick, "- We also would like to remind you that this plugin is provided as is,"};
+	        session.send{from = muc_server, "372", nick, "- it's still an Alpha and it's still a work in progress, use it at your sole"};
+	        session.send{from = muc_server, "372", nick, "- risk as there's a not so little chance something will break."};
+	        session.send{from = nick, "MODE", nick, "+i"};	-- why -> Invisible mode setting,
+	end							--        enforce by default on most servers (since the source host doesn't show it's sensible to have it "set")
 end
 
 function commands.NICK(session, args)
