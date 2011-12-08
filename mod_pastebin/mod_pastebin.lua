@@ -19,6 +19,11 @@ local function drop_invalid_utf8(seq)
 	return seq;
 end
 
+local function utf8_length(str)
+	local _, count = string.gsub(str, "[^\128-\193]", "");
+	return count;
+end
+
 local pastebin_private_messages = module:get_option_boolean("pastebin_private_messages", hosts[module.host].type ~= "component");
 local length_threshold = module:get_option_number("pastebin_threshold", 500);
 local line_threshold = module:get_option_number("pastebin_line_threshold", 4);
@@ -78,7 +83,8 @@ function check_message(data)
 	--module:log("debug", "Body(%s) length: %d", type(body), #(body or ""));
 	
 	if body and (
-		(#body > length_threshold) or 
+		((#body > length_threshold)
+		 and (length_utf8(body) > length_threshold)) or
 		(trigger_string and body:find(trigger_string, 1, true) == 1) or
 		(select(2, body:gsub("\n", "%0")) >= line_threshold)
 	) then
