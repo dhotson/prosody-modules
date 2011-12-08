@@ -9,7 +9,7 @@ local nodeprep = require "util.encodings".stringprep.nodeprep;
 local DBI = require "DBI"
 
 local connection;
-local params = module:get_option("sql");
+local params = module:get_option("auth_sql", module:get_option("sql"));
 
 local resolve_relative_path = require "core.configmanager".resolve_relative_path;
 
