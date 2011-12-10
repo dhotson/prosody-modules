@@ -9,7 +9,7 @@ local function reload_module(name)
 	end
 end
 
-prosody.events.add_handler("config-reloaded", function ()
+function reload_all()
 	local modules = module:get_option_array("reload_modules");
 	if not modules then
 		module:log("warn", "No modules listed in the config to reload - set reload_modules to a list");
@@ -18,4 +18,16 @@ prosody.events.add_handler("config-reloaded", function ()
 	for _, module in ipairs(modules) do
 		reload_module(module);
 	end
-end);
+end
+
+
+if module.hook_global then
+	module:hook_global("config-reloaded", reload_all);
+else -- COMPAT w/pre-0.9
+	function module.load()
+		prosody.events.add_handler("config-reloaded", reload_all);
+	end
+	function module.unload()
+		prosody.events.remove_handler("config-reloaded", reload_all);
+	end
+end
