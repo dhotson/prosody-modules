@@ -22,7 +22,7 @@ package.loaded["util.sha1"] = require "util.encodings";
 local verse = require "verse"
 require "verse.component"
 require "socket"
-c = verse.new();
+c = verse.new(); -- something interferes with prosody's console logging
 c:add_plugin("groupchat");
 
 local function verse2prosody(e)
@@ -252,26 +252,26 @@ local function set_t_data(session, full_jid)
         if session.nick then nicks[session.nick] = session; end
 end
 local function send_motd(session)
-	local nick = session.nick;
+        local nick = session.nick;
 
-	if session.username and session.nick then -- send MOTD only if username and nick are set
-	        session.send{from = muc_server, "001", nick, "Welcome in the IRC to MUC XMPP Gateway, "..nick};
-	        session.send{from = muc_server, "002", nick, "Your host is "..muc_server.." running Prosody "..prosody.version};
-	        session.send{from = muc_server, "003", nick, "This server was created the "..os.date(nil, prosody.start_time)}
-	        session.send{from = muc_server, "004", nick, table.concat({muc_server, "mod_ircd(alpha-0.8)", "i", "aoqv"}, " ")};
-	        session.send((":%s %s %s %s :%s"):format(muc_server, "005", nick, "CHANTYPES=# PREFIX=(qaov)~&@+", "are supported by this server"));
-		session.send((":%s %s %s %s :%s"):format(muc_server, "005", nick, "STATUSMSG=~&@+", "are supported by this server"));
-	        session.send{from = muc_server, "375", nick, "- "..muc_server.." Message of the day -"};
-	        session.send{from = muc_server, "372", nick, "-"};
-	        session.send{from = muc_server, "372", nick, "- Please be warned that this is only a partial irc implementation,"};
-	        session.send{from = muc_server, "372", nick, "- it's made to facilitate users transiting away from irc to XMPP."};
-	        session.send{from = muc_server, "372", nick, "-"};
-	        session.send{from = muc_server, "372", nick, "- Prosody is _NOT_ an IRC Server and it never will."};
-	        session.send{from = muc_server, "372", nick, "- We also would like to remind you that this plugin is provided as is,"};
-	        session.send{from = muc_server, "372", nick, "- it's still an Alpha and it's still a work in progress, use it at your sole"};
-	        session.send{from = muc_server, "372", nick, "- risk as there's a not so little chance something will break."};
-	        session.send{from = nick, "MODE", nick, "+i"};	-- why -> Invisible mode setting,
-	end							--        enforce by default on most servers (since the source host doesn't show it's sensible to have it "set")
+        if session.username and session.nick then -- send MOTD only if username and nick are set
+                session.send{from = muc_server, "001", nick, "Welcome in the IRC to MUC XMPP Gateway, "..nick};
+                session.send{from = muc_server, "002", nick, "Your host is "..muc_server.." running Prosody "..prosody.version};
+                session.send{from = muc_server, "003", nick, "This server was created the "..os.date(nil, prosody.start_time)}
+                session.send{from = muc_server, "004", nick, table.concat({muc_server, "mod_ircd(alpha-0.8)", "i", "aoqv"}, " ")};
+                session.send((":%s %s %s %s :%s"):format(muc_server, "005", nick, "CHANTYPES=# PREFIX=(qaov)~&@+", "are supported by this server"));
+                session.send((":%s %s %s %s :%s"):format(muc_server, "005", nick, "STATUSMSG=~&@+", "are supported by this server"));
+                session.send{from = muc_server, "375", nick, "- "..muc_server.." Message of the day -"};
+                session.send{from = muc_server, "372", nick, "-"};
+                session.send{from = muc_server, "372", nick, "- Please be warned that this is only a partial irc implementation,"};
+                session.send{from = muc_server, "372", nick, "- it's made to facilitate users transiting away from irc to XMPP."};
+                session.send{from = muc_server, "372", nick, "-"};
+                session.send{from = muc_server, "372", nick, "- Prosody is _NOT_ an IRC Server and it never will."};
+                session.send{from = muc_server, "372", nick, "- We also would like to remind you that this plugin is provided as is,"};
+                session.send{from = muc_server, "372", nick, "- it's still an Alpha and it's still a work in progress, use it at your sole"};
+                session.send{from = muc_server, "372", nick, "- risk as there's a not so little chance something will break."};
+                session.send{from = nick, "MODE", nick, "+i"};  -- why -> Invisible mode setting,
+        end                                                     --        enforce by default on most servers (since the source host doesn't show it's sensible to have it "set")
 end
 
 function commands.NICK(session, args)
@@ -290,8 +290,8 @@ function commands.NICK(session, args)
                
                 -- broadcast changes if required
                 if session.rooms then
-                	session.nicks_changing[nick] = { oldnick, session.username };
-                	
+                        session.nicks_changing[nick] = { oldnick, session.username };
+                        
                         for id, room in pairs(session.rooms) do room:change_nick(nick); end
                         
                         session.nicks_changing[nick] = nil;
@@ -311,7 +311,7 @@ function commands.NICK(session, args)
                 set_t_data(session, jid.join(session.username, component_jid, "ircd"));
         end
 
-	send_motd(session);
+        send_motd(session);
 end
 
 function commands.USER(session, params)
@@ -331,19 +331,19 @@ function commands.USER(session, params)
                 return session.send{from=muc_server, "462", "USER", "You may not re-register."}
         end
        
-	send_motd(session);
+        send_motd(session);
 end
 
 function commands.USERHOST(session, params) -- can show only users on the gateway. Needed for some clients to determinate self hostmask.
-	local nick = params[1];
+        local nick = params[1];
 
-	if not nick then session.send{from=muc_server, "461", "USERHOST", "Not enough parameters"}; return; end
+        if not nick then session.send{from=muc_server, "461", "USERHOST", "Not enough parameters"}; return; end
 
-	if nicks[nick] and nicks[nick].nick and nicks[nick].username then
-		session.send{from=muc_server, "302", session.nick, nick.."=+"..nicks[nick].username}; return;
-	else
-		return;
-	end
+        if nicks[nick] and nicks[nick].nick and nicks[nick].username then
+                session.send{from=muc_server, "302", session.nick, nick.."=+"..nicks[nick].username}; return;
+        else
+                return;
+        end
 end
 
 local function mode_map(am, rm, nicks)
@@ -380,7 +380,7 @@ function commands.JOIN(session, args)
         end
        
         room:hook("subject-changed", function(changed)
-                session.send((":%s TOPIC %s :%s"):format(changed.by.nick, channel, changed.to or ""));
+                session.send{from=changed.by.nick, "TOPIC", channel, changed.to or ""}
         end);
        
         room:hook("message", function(event)
@@ -409,8 +409,8 @@ function commands.JOIN(session, args)
                                            not jids[session.full_jid].ar_last[ar.room_jid][ar.nick]["role"] then
                                                 jids[session.full_jid].ar_last[ar.room_jid][ar.nick]["affiliation"] = xar_item.attr.affiliation
                                                 jids[session.full_jid].ar_last[ar.room_jid][ar.nick]["role"] = xar_item.attr.role
-						n_self_changing = nicks[ar.nick] and nicks[ar.nick].nicks_changing and nicks[ar.nick].nicks_changing[ar.nick]
-						if n_self_changing then return; end                                               
+                                                n_self_changing = nicks[ar.nick] and nicks[ar.nick].nicks_changing and nicks[ar.nick].nicks_changing[ar.nick]
+                                                if n_self_changing then return; end                                               
                                                 c_modes, rnick = mode_map(xar_item.attr.affiliation, xar_item.attr.role, ar.nick);
                                                 if c_modes and rnick then session.send((":%s MODE %s +%s"):format(muc_server, channel, c_modes.." "..rnick)); end
                                         else
@@ -418,8 +418,8 @@ function commands.JOIN(session, args)
                                                 if c_modes and rnick then session.send((":%s MODE %s -%s"):format(muc_server, channel, c_modes.." "..rnick)); end
                                                 jids[session.full_jid].ar_last[ar.room_jid][ar.nick]["affiliation"] = xar_item.attr.affiliation
                                                 jids[session.full_jid].ar_last[ar.room_jid][ar.nick]["role"] = xar_item.attr.role
-						n_self_changing = nicks[ar.nick] and nicks[ar.nick].nicks_changing and nicks[ar.nick].nicks_changing[ar.nick]
-						if n_self_changing then return; end                                                
+                                                n_self_changing = nicks[ar.nick] and nicks[ar.nick].nicks_changing and nicks[ar.nick].nicks_changing[ar.nick]
+                                                if n_self_changing then return; end                                                
                                                 c_modes, rnick = mode_map(xar_item.attr.affiliation, xar_item.attr.role, ar.nick);
                                                 if c_modes and rnick then session.send((":%s MODE %s +%s"):format(muc_server, channel, c_modes.." "..rnick)); end
                                         end
@@ -507,7 +507,7 @@ function commands.PART(session, args)
         channel = channel:match("^([%S]*)");
         session.rooms[channel]:leave(part_message);
         jids[session.full_jid].ar_last[room.."@"..muc_server] = nil;
-        session.send(":"..session.nick.." PART :"..channel);
+        session.send{from=session.nick.."!"..session.username, "PART", channel};
 end
 
 function commands.PRIVMSG(session, args)
