@@ -14,7 +14,8 @@ local keyval_store = {};
 keyval_store.__index = keyval_store;
 
 function keyval_store:get(username)
-	local host, store = module.host, self.store;
+	local host = module.host or "_global";
+	local store = self.store;
 
 	local namespace = params.dbname .. "." .. host;
 	local v = { _id = { store = store ; username = username } };
@@ -28,8 +29,8 @@ function keyval_store:get(username)
 end
 
 function keyval_store:set(username, data)
-	local host, store = module.host, self.store;
-	if not host then return nil , "mongodb cannot currently be used for host-less data" end;
+	local host = module.host or "_global";
+	local store = self.store;
 
 	local namespace = params.dbname .. "." .. host;
 	local v = { _id = { store = store ; username = username } };
