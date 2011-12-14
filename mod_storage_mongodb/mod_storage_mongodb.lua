@@ -5,9 +5,7 @@ local params = assert ( module:get_option("mongodb") , "mongodb configuration no
 
 local mongo = require "mongo";
 
-local conn = mongo.Connection.New ( true );
-conn:connect ( params.server );
-conn:auth ( params );
+local conn
 
 local keyval_store = {};
 keyval_store.__index = keyval_store;
@@ -47,6 +45,12 @@ end
 local driver = { name = "mongodb" };
 
 function driver:open(store, typ)
+	if not conn then
+		conn = assert ( mongo.Connection.New ( true ) );
+		assert ( conn:connect ( params.server ) );
+		assert ( conn:auth ( params ) );
+	end
+
 	if not typ then -- default key-value store
 		return setmetatable({ store = store }, keyval_store);
 	end;
