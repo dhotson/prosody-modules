@@ -1,8 +1,7 @@
 local next = next;
 local setmetatable = setmetatable;
 
-local log = require "util.logger".init("mongodb");
-local params = module:get_option("mongodb");
+local params = assert ( module:get_option("mongodb") , "mongodb configuration not found" );
 
 local mongo = require "mongo";
 
@@ -17,6 +16,7 @@ function keyval_store:get(username)
 	local host = module.host or "_global";
 	local store = self.store;
 
+	-- The database name can't have a period in it (hence it can't be a host/ip)
 	local namespace = params.dbname .. "." .. host;
 	local v = { _id = { store = store ; username = username } };
 
@@ -32,6 +32,7 @@ function keyval_store:set(username, data)
 	local host = module.host or "_global";
 	local store = self.store;
 
+	-- The database name can't have a period in it (hence it can't be a host/ip)
 	local namespace = params.dbname .. "." .. host;
 	local v = { _id = { store = store ; username = username } };
 
