@@ -82,7 +82,7 @@ local function message_handler(event, c2s)
 							}
 						:tag("forwarded", { xmlns = xmlns_forward })
 							:tag(c2s and "sent" or "received", { xmlns = xmlns_carbons }):up()
-								:add_child(msg);
+							:add_child(msg);
 					core_post_stanza(origin, fwd);
 				end
 			end
@@ -97,7 +97,7 @@ end
 -- Stanzas sent by local clients
 module:hook("pre-message/bare", c2s_message_handler, 1);
 module:hook("pre-message/full", c2s_message_handler, 1);
--- Stanszas to local clients
+-- Stanzas to local clients
 module:hook("message/bare", message_handler, 1);
 module:hook("message/full", message_handler, 1);
 
