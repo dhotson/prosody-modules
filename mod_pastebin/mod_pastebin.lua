@@ -84,7 +84,7 @@ function check_message(data)
 	
 	if body and (
 		((#body > length_threshold)
-		 and (length_utf8(body) > length_threshold)) or
+		 and (utf8_length(body) > length_threshold)) or
 		(trigger_string and body:find(trigger_string, 1, true) == 1) or
 		(select(2, body:gsub("\n", "%0")) >= line_threshold)
 	) then
