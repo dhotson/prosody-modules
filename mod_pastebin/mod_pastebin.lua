@@ -100,7 +100,7 @@ function check_message(data)
 		stanza[bodyindex][1] = (summary_prefixed and (summary.." ") or "")..url;
 		
 		if html_preview then
-			local line_count = select(2, body:gsub("\n", "%0"));
+			local line_count = select(2, body:gsub("\n", "%0")) + 1;
 			local link_text = ("[view %spaste (%d line%s)]"):format(summary_prefixed and "" or "rest of ", line_count, line_count == 1 and "" or "s");
 			local html = st.stanza("html", { xmlns = xmlns_xhtmlim }):tag("body", { xmlns = xmlns_xhtml });
 			html:tag("p"):text(summary.." "):up();
