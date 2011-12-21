@@ -143,7 +143,7 @@ for _, options in ipairs(ports) do
 	httpserver.new{ port = port, base = base, handler = handle_request, ssl = ssl }
 end
 
-function module.load()
+local function set_pastes_metatable()
 	if expire_after == 0 then
 		local dm = require "util.datamanager";
 		setmetatable(pastes, {
@@ -163,10 +163,13 @@ function module.load()
 	end
 end
 
+module.load = set_pastes_metatable;
+
 function module.save()
 	return { pastes = pastes };
 end
 
 function module.restore(data)
 	pastes = data.pastes or pastes;
+	set_pastes_metatable();
 end
