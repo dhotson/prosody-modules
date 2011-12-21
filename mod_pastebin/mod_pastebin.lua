@@ -44,24 +44,6 @@ local default_headers = { ["Content-Type"] = "text/plain; charset=utf-8" };
 local xmlns_xhtmlim = "http://jabber.org/protocol/xhtml-im";
 local xmlns_xhtml = "http://www.w3.org/1999/xhtml";
 
-if expire_after == 0 then
-	local dm = require "util.datamanager";
-	setmetatable(pastes, {
-		__index = function (pastes, id)
-			if type(id) == "string" then
-				return dm.load(id, module.host, "pastebin");
-			end
-		end;
-		__newindex = function (pastes, id, data)
-			if type(id) == "string" then
-				dm.store(id, module.host, "pastebin", data);
-			end
-		end;
-	});
-else
-	setmetatable(pastes, nil);
-end
-
 function pastebin_text(text)
 	local uuid = uuid_new();
 	pastes[uuid] = { body = text, time = os_time(), headers = default_headers };
@@ -159,6 +141,26 @@ for _, options in ipairs(ports) do
 	base_url = base_url or ("http://"..module:get_host()..(port ~= 80 and (":"..port) or "").."/"..base.."/");
 	
 	httpserver.new{ port = port, base = base, handler = handle_request, ssl = ssl }
+end
+
+function module.load()
+	if expire_after == 0 then
+		local dm = require "util.datamanager";
+		setmetatable(pastes, {
+			__index = function (pastes, id)
+				if type(id) == "string" then
+					return dm.load(id, module.host, "pastebin");
+				end
+			end;
+			__newindex = function (pastes, id, data)
+				if type(id) == "string" then
+					dm.store(id, module.host, "pastebin", data);
+				end
+			end;
+		});
+	else
+		setmetatable(pastes, nil);
+	end
 end
 
 function module.save()
