@@ -3,7 +3,7 @@
 
 module:set_global()
 
-local ports = module:get_option_array("stanza_counter_http_ports" or {{ port = 5280 }})
+local ports = module:get_option_array("stanza_counter_http_ports", {{ port = 5280 }})
 
 local httpserver = require "net.httpserver"
 
