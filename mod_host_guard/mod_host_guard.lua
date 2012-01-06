@@ -1,5 +1,5 @@
 -- (C) 2011, Marco Cirillo (LW.Org)
--- Block or restrict by blacklist remote access to local components.
+-- Block or restrict by blacklist remote access to local components or hosts.
 
 module:set_global()
 
