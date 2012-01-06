@@ -1,3 +1,8 @@
+-- XEP-0280: Message Carbons implementation for Prosody
+-- Copyright (C) 2011 Kim Alvefur
+--
+-- This file is MIT/X11 licensed.
+
 local st = require "util.stanza";
 local jid_bare = require "util.jid".bare;
 local jid_split = require "util.jid".split;
