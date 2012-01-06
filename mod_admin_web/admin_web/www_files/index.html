@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+	"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>Prosody Webadmin</title>
+<link rel="stylesheet" type="text/css" href="style.css" />
+<meta http-equiv="Content-Type" content="application/xhtml+xml; charset=utf-8" />
+<script type="text/javascript" src="js/jquery-1.6.2.min.js"></script>
+<script type="text/javascript" src="js/strophe.min.js"></script>
+<script type="text/javascript" src="js/adhoc.js"></script>
+<script type="text/javascript" src="js/main.js"></script>
+</head>
+<body>
+<div id='left'>
+  <div id='menu'>
+    <ul>
+      <li id='adhocMenu'><a href="#">General</a></li>
+      <li id='serverMenu'><a href="#">Servers</a></li>
+      <li id='clientMenu'><a href="#">Clients</a></li>
+    </ul>
+  </div>
+  <div id='login'>
+    <form id='cred' name='cred'>
+      <fieldset>
+        <label for='jid'>JID:</label><br/>
+        <input type='text' id='jid' />
+        <br />
+        <label for='pass'>Password:</label><br/>
+        <input type='password' id='pass' />
+        <br />
+        <input type='submit' id='connect' value='connect' />
+      </fieldset>
+    </form>
+  </div>
+</div>
+
+<div id='right'>
+  <span id="selector">Host: <select id="host"></select></span>
+  <div id='main'>
+    <div id="adhoc"></div>
+    <div id="s2sList">
+      <div class="container">
+	Incomming S2S connections:
+	<ul id="s2sin"></ul>
+      </div>
+      <div class="container">
+	Outgoing S2S connections:
+	<ul id="s2sout"></ul>
+      </div>
+    </div>
+    <div id="c2sList">
+      <div class="container">
+	Client connections:
+	<ul id="c2s"></ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id='log_container'>
+  <a id='log_toggle' href='#'>Status Log :</a>
+  <div id='log'></div>
+</div>
+</body>
+</html>
