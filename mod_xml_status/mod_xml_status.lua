@@ -91,12 +91,9 @@ end
 -- http handlers
 
 local function response(code, r, h)
-	local response = {
-		status = code;
-		body = r;
-		}
+	local response = { status = code, body = r }
 	
-        if h then response.headers = h; end
+        if h then response.headers = h end
         return response
 end
 
@@ -116,7 +113,7 @@ local function setup()
 end
 
 if prosody.start_time then
-        setup();
+        setup()
 else
-        module:hook("server-started", setup);
+        module:hook("server-started", setup)
 end
