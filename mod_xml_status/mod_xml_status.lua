@@ -41,11 +41,10 @@ response_table.comps = {
 local function forge_response()
 	local hosts_s = {}; local components = {}; local stats = {}; local hosts_stats = {}; local comps_stats = {}
 
-	-- add headers
-	local result = {}; result[#result+1] = response_table.header; result[#result+1] = response_table.doc_header
-	
-	if show_hosts then for _, name in ipairs(show_hosts) do hosts_s[#hosts_s+1] = name end end
-	if show_comps then for _, name in ipairs(show_comps) do components[#components+1] = name end end
+	local function t_builder(t,r) for _, bstring in ipairs(t) do r[#r+1] = bstring end end
+
+	if show_hosts then t_builder(show_hosts, hosts_s) end
+	if show_comps then t_builder(show_comps, components) end
 	
 	-- build stanza stats if there
 	if prosody.stanza_counter then
@@ -80,12 +79,12 @@ local function forge_response()
 		comps_stats[#comps_stats+1] = response_table.comps.elem_closure
 	end
 
-	-- finish building xml stats document
-	for _, bstring in ipairs(stats) do result[#result+1] = bstring end
-	for _, bstring in ipairs(hosts_stats) do result[#result+1] = bstring end
-	for _, bstring in ipairs(comps_stats) do result[#result+1] = bstring end
-	result[#result+1] = response_table.doc_closure
-
+	-- build xml document
+	local result = {}
+	result[#result+1] = response_table.header; result[#result+1] = response_table.doc_header -- start
+	t_builder(stats, result); t_builder(hosts_stats, result); t_builder(comps_stats, result)
+	result[#result+1] = response_table.doc_closure -- end
+	
 	return table.concat(result, "\n")
 end
 
@@ -101,7 +100,10 @@ local function response(code, r, h)
         return response
 end
 
-local function request(method, body, request)	
+local function request(method, body, request)
+	if not prosody.stanza_counter then
+		local err500 = r_err:format("500", "Internal server error")
+		return response(500, err500) end
 	if method == "GET" then
 		return response(200, forge_response())
 	else
