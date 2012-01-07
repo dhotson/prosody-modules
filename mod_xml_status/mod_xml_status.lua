@@ -101,9 +101,6 @@ local function response(code, r, h)
 end
 
 local function request(method, body, request)
-	if not prosody.stanza_counter then
-		local err500 = r_err:format("500", "Internal server error")
-		return response(500, err500) end
 	if method == "GET" then
 		return response(200, forge_response())
 	else
