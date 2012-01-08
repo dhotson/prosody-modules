@@ -14,7 +14,8 @@ local component_jid, component_secret, muc_server, port_number =
       module.host, nil, module:get_option_string("conference_server"), module:get_option_number("listener_port", 7000);
 
 if not muc_server then
-        module:log ("error", "You need to set the MUC server! halting.")
+        module:log ("error", "You need to set the MUC server in the configuration (conference_server)!")
+	module:log ("error", "Be a good boy or girl and go read the wiki at: http://code.google.com/p/prosody-modules/wiki/mod_ircd")
         return false;
 end
 
