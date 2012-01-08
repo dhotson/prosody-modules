@@ -77,29 +77,30 @@ local function handle_deactivation (host)
 	end
 end
 
+local function init_hosts()
+	for n,table in pairs(hosts) do
+		hosts[n].events.remove_handler("stanza/jabber:server:dialback:result", sdr_hook)
+		if guard_blockall:contains(n) or guard_protect:contains(n) then	handle_activation(n) end
+	end
+end
+
 local function reload()
 	module:log ("debug", "server configuration reloaded, rehashing plugin tables...")
 	guard_blockall = module:get_option_set("host_guard_blockall", {})
 	guard_ball_wl = module:get_option_set("host_guard_blockall_exceptions", {})
-	guard_protect = module:get_option_set("host_guard_components", {})
+	guard_protect = module:get_option_set("host_guard_selective", {})
 	guard_block_bl = module:get_option_set("host_guard_blacklist", {})
+
+	init_hosts()
 end
 
 local function setup()
         module:log ("debug", "initializing host guard module...")
-
-        module:hook ("component-activated", handle_activation)
-        module:hook ("component-deactivated", handle_deactivation)
+        module:hook ("host-activated", handle_activation)
+        module:hook ("host-deactivated", handle_deactivation)
         module:hook ("config-reloaded", reload)
 
-        for n,table in pairs(hosts) do
-                if table.type == "component" then
-                        if guard_blockall:contains(n) or guard_protect:contains(n) then
-                                hosts[n].events.remove_handler("stanza/jabber:server:dialback:result", sdr_hook)
-                                handle_activation(n)
-                        end
-                end
-        end
+        init_hosts()
 end
 
 if prosody.start_time then
