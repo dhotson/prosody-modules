@@ -138,5 +138,5 @@ end
 if prosody.start_time then -- already started
 	setup()
 else
-	prosody.events.add_handler("server-started", setup)
+	module:hook("server-started", setup)
 end
