@@ -14,9 +14,7 @@ local function init_counter()
 end
 
 -- Setup on server start
-local function setup()
-	init_counter();
-end
+local function setup() init_counter() end
 
 -- Basic Stanzas' Counters
 local function iq_callback(check)
@@ -24,7 +22,7 @@ local function iq_callback(check)
 		local origin, stanza = self.origin, self.stanza
 		if not prosody.stanza_counter then init_counter() end
 		if check then
-			if not stanza.attr.to or hosts[jid_bare(stanza.attr.to)] then return nil;
+			if not stanza.attr.to or hosts[jid_bare(stanza.attr.to)] then return nil
 			else
 				prosody.stanza_counter.iq["outgoing"] = prosody.stanza_counter.iq["outgoing"] + 1
 			end
@@ -39,7 +37,7 @@ local function mes_callback(check)
 		local origin, stanza = self.origin, self.stanza
 		if not prosody.stanza_counter then init_counter() end
 		if check then
-			if not stanza.attr.to or hosts[jid_bare(stanza.attr.to)] then return nil;
+			if not stanza.attr.to or hosts[jid_bare(stanza.attr.to)] then return nil
 			else
 				prosody.stanza_counter.message["outgoing"] = prosody.stanza_counter.message["outgoing"] + 1
 			end
@@ -54,7 +52,7 @@ local function pre_callback(check)
 		local origin, stanza = self.origin, self.stanza
 		if not prosody.stanza_counter then init_counter() end
 		if check then
-			if not stanza.attr.to or hosts[jid_bare(stanza.attr.to)] then return nil;
+			if not stanza.attr.to or hosts[jid_bare(stanza.attr.to)] then return nil
 			else
 				prosody.stanza_counter.presence["outgoing"] = prosody.stanza_counter.presence["outgoing"] + 1
 			end
@@ -63,8 +61,6 @@ local function pre_callback(check)
 		end
 	end
 end
-
-
 
 -- Hook all pre-stanza events.
 module:hook("pre-iq/bare", iq_callback(true), 140)
@@ -94,4 +90,3 @@ module:hook("presence/host", pre_callback(false), 140)
 
 -- Hook server start to initialize the counter.
 module:hook("server-started", setup)
-
