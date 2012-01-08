@@ -15,11 +15,11 @@ local r_err = "\n<html>\n<head>\n<title>Prosody's Stanza Counter - Error %s</tit
 
 local function res(code, r, h)
 	local response = {
-		status = code;
-		body = r;
-		}
+		status = code,
+		body = r
+	}
 	
-        if h then response.headers = h; end
+        if h then response.headers = h end
         return response
 end
 
@@ -33,7 +33,7 @@ local function req(method, body, request)
 					       prosody.stanza_counter.message["incoming"],
 					       prosody.stanza_counter.message["outgoing"],
 					       prosody.stanza_counter.presence["incoming"],
-					       prosody.stanza_counter.presence["outgoing"]);
+					       prosody.stanza_counter.presence["outgoing"])
 		return res(200, forge_res)
 	else
 		local err405 = r_err:format("405", "Only GET is supported")
@@ -47,5 +47,5 @@ local function setup()
 	httpserver.new_from_config(ports, req, { base = "stanza-counter" })
 end
 
--- hook server started
-module:hook("server-started", setup)
+-- set it
+if prosody.start_time then setup() else	module:hook("server-started", setup) end
