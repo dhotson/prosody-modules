@@ -8,13 +8,15 @@ input, textarea, select {
 }
 
 body {
-  padding: 1em;
-  background: #f29b00;
-  color: #000000
+  margin: 0
 }
 
 a {
   color: #0000FF
+}
+
+ul {
+  margin: 0
 }
 
 #log_container {
@@ -23,54 +25,85 @@ a {
 }
 
 .container {
-  margin: 2em;
-  padding: 0.5em;
-  border: solid;
+  margin: 0 2em;
   float: left
 }
 
-#left {
+#login {
   float: left;
+  margin-left: 1em;
   margin-right: 2em;
+  margin-top: 1em;
   padding: 1em;
   border: solid 1px;
-  background: #6197DF;
+  background: #eef0f2;
   color: #000000
-}
-
-#selector {
-  padding: 1em;
-  border: solid 1px;
-  background: #6197DF;
-  color: #000000
-}
-
-#right {
-  display: none;
-  float: left
 }
 
 #main {
-  margin-top: 1em
+  display: none;
+  margin: 1em
+}
+
+#main p {
+  margin: 0
 }
 
 #cred input[type="submit"] {
   margin-left: 0em
 }
 
+#cred input[type="submit"]:hover {
+  color: #6197DF;
+  text-decoration: underline;
+}
+
 #cred fieldset {
   border: 0px
 }
 
+#top {
+  clear: both;
+  width: 100%;
+  padding: 0
+}
+
+#header {
+  height: 172px;
+  background: url(images/blue_orange.png) repeat-x
+}
+
 #menu {
-  display: none
+  display: none;
+  color: #454748;
+  font-size: 1.1em;
+  background: #eef0f2;
+  width: 100%;
 }
 
 #menu ul {
+  display: inline;
   list-style-type: none;
-  padding: 0px;
+  margin: 0;
+  padding: 0.5em 0
 }
 
 #menu li {
-  font-size: 20pt
+  display: inline;
+  padding: 0 0.5em
+}
+
+#menu a {
+  color: #454748;
+  text-decoration: none
+}
+
+#menu li a:hover {
+  color: #6197DF;
+  text-decoration: underline
+}
+
+#s2sList h2, #c2sList h2 {
+  color: #4b8ade;
+  margin: 0
 }

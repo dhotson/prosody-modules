@@ -1,5 +1,5 @@
 #!/bin/sh
-JQUERY_VERSION="1.6.2"
+JQUERY_VERSION="1.7.1"
 STROPHE_VERSION="1.0.2"
 cd www_files/js
 test -e jquery-$JQUERY_VERSION.min.js || wget http://code.jquery.com/jquery-$JQUERY_VERSION.min.js

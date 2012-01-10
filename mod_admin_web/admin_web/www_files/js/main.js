@@ -138,17 +138,11 @@ function onConnect(status) {
 }
 
 function showConnect() {
-    var jid = $('#jid');
-    var pass = $('#pass');
-    var button = $('#connect').get(0);
-
-    button.value = 'connect';
-    pass.show();
-    jid.show();
+    $('#pass').show();
+    $('#jid').show();
+    $('#login').show();
     $('#menu').hide();
-    $('#right').hide();
-    $('#cred label').show();
-    $('#cred br').show();
+    $('#main').hide();
     $('#s2sin').empty();
     $('#s2sout').empty();
     $('#c2s').empty();
@@ -156,20 +150,15 @@ function showConnect() {
 }
 
 function showDisconnect() {
-    var jid = $('#jid');
-    var pass = $('#pass');
-    var button = $('#connect').get(0);
-
-    button.value = 'disconnect';
-    pass.hide();
-    jid.hide();
-    $('#menu').show();
-    $('#right').show();
-    $('#adhoc').show();
+    $('#jid').hide();
+    $('#pass').hide();
     $('#s2sList').hide();
     $('#c2sList').hide();
-    $('#cred label').hide();
-    $('#cred br').hide();
+    $('#login').hide();
+
+    $('#menu').show();
+    $('#main').show();
+    $('#adhoc').show();
 }
 
 $(document).ready(function () {
@@ -190,13 +179,14 @@ $(document).ready(function () {
         var pass = $('#pass');
         localJID = jid.get(0).value;
 
-        if (button.value == 'connect') {
-            $('#log').empty();
-            connection.connect(localJID, pass.get(0).value, onConnect);
-        } else {
-            connection.disconnect();
-        }
+	$('#log').empty();
+	connection.connect(localJID, pass.get(0).value, onConnect);
         event.preventDefault();
+    });
+
+    $('#logout').click(function (event) {
+	connection.disconnect();
+	event.preventDefault();
     });
 
     $('#adhocMenu').click(function (event) {
