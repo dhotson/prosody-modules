@@ -75,7 +75,7 @@ local function forge_response_xml()
 		comps_stats[1] = response_table.comps.elem_header
 		for _, name in ipairs(components) do 
 			comps_stats[#comps_stats+1] = response_table.comps.status:format(
-				name, hosts[name].modules.component and hosts[name].modules.component.connected and "online" or 
+				name, hosts[name] and hosts[name].modules.component and hosts[name].modules.component.connected and "online" or 
 				hosts[name] and hosts[name].modules.component == nil and "online" or "offline")
 		end
 		comps_stats[#comps_stats+1] = response_table.comps.elem_closure
@@ -101,7 +101,7 @@ local function forge_response_json()
 	if show_comps then
 		result.components = {}
 		for _,n in ipairs(show_comps) do 
-			result.components[n] = hosts[n].modules.component and hosts[n].modules.component.connected and "online" or
+			result.components[n] = hosts[n] and hosts[n].modules.component and hosts[n].modules.component.connected and "online" or
 			hosts[n] and hosts[n].modules.component == nil and "online" or "offline"
 		end
 	end
