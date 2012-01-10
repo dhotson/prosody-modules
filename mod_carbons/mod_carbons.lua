@@ -83,8 +83,8 @@ local function message_handler(event, c2s)
 								to = full_jid,
 								type = orig_type,
 							}
+						:tag(c2s and "sent" or "received", { xmlns = xmlns_carbons }):up()
 						:tag("forwarded", { xmlns = xmlns_forward })
-							:tag(c2s and "sent" or "received", { xmlns = xmlns_carbons }):up()
 							:add_child(msg);
 					core_post_stanza(origin, fwd);
 				end
