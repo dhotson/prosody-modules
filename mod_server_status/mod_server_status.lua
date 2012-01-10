@@ -96,13 +96,13 @@ local function forge_response_json()
 	if prosody.stanza_counter then result.stanzas = {} ; result.stanzas = prosody.stanza_counter  end
 	if show_hosts then
 		result.hosts = {}
-		for _,n in ipairs(show_hosts) do result.hosts[n] = hosts[name] and "online" or "offline" end
+		for _,n in ipairs(show_hosts) do result.hosts[n] = hosts[n] and "online" or "offline" end
 	end
 	if show_comps then
 		result.components = {}
 		for _,n in ipairs(show_comps) do 
-			result.components[n] = hosts[name].modules.component and hosts[name].modules.component.connected and "online" or
-			hosts[name] and hosts[name].modules.component == nil and "online" or "offline"
+			result.components[n] = hosts[n].modules.component and hosts[n].modules.component.connected and "online" or
+			hosts[n] and hosts[n].modules.component == nil and "online" or "offline"
 		end
 	end
 
