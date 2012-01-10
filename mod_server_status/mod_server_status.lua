@@ -101,7 +101,7 @@ local function forge_response_json()
 	if show_comps then
 		result.components = {}
 		for _,n in ipairs(show_comps) do 
-			result.components[n] =  hosts[name].modules.component and hosts[name].modules.component.connected and "online" or
+			result.components[n] = hosts[name].modules.component and hosts[name].modules.component.connected and "online" or
 			hosts[name] and hosts[name].modules.component == nil and "online" or "offline"
 		end
 	end
