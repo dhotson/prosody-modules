@@ -138,8 +138,6 @@ function onConnect(status) {
 }
 
 function showConnect() {
-    $('#pass').show();
-    $('#jid').show();
     $('#login').show();
     $('#menu').hide();
     $('#main').hide();
@@ -150,8 +148,6 @@ function showConnect() {
 }
 
 function showDisconnect() {
-    $('#jid').hide();
-    $('#pass').hide();
     $('#s2sList').hide();
     $('#c2sList').hide();
     $('#login').hide();
@@ -189,25 +185,11 @@ $(document).ready(function () {
 	event.preventDefault();
     });
 
-    $('#adhocMenu').click(function (event) {
-        $('#s2sList').slideUp();
-        $('#c2sList').slideUp();
-        $('#adhoc').slideDown();
+    $('#adhocMenu, #serverMenu, #clientMenu').click(function (event) {
         event.preventDefault();
-    });
-
-    $('#serverMenu').click(function (event) {
-        $('#adhoc').slideUp();
-        $('#c2sList').slideUp();
-        $('#s2sList').slideDown();
-        event.preventDefault();
-    });
-
-    $('#clientMenu').click(function (event) {
-        $('#adhoc').slideUp();
-        $('#s2sList').slideUp();
-        $('#c2sList').slideDown();
-        event.preventDefault();
+	var tab = $(this).attr('href');
+        $('#main > div').hide();
+        $(tab).fadeIn('fast');
     });
 
     $('#host').bind('change', function (event) {
