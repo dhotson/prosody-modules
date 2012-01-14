@@ -96,10 +96,15 @@ local function handle_req(method, body, request)
 					module:log("debug", "%s supplied an username containing invalid characters: %s", user, username)
 					return http_response(406, "Supplied username contains invalid characters, see RFC 6122.")
 				else
-					usermanager.create_user(username, req_body["password"], req_body["host"])
-					hosts[req_body["host"]].events.fire_event("user-registered", { username = username, host = req_body["host"], source = "mod_register_json", session = { ip = req_body["ip"] } })
-					module:log("debug", "%s registration data submission for %s@%s is successful", user, username, req_body["host"])
-					return http_response(200, "Done.")
+					local ok, error = usermanager.create_user(username, req_body["password"], req_body["host"])
+					if ok then 
+						hosts[req_body["host"]].events.fire_event("user-registered", { username = username, host = req_body["host"], source = "mod_register_json", session = { ip = req_body["ip"] } })
+						module:log("debug", "%s registration data submission for %s@%s is successful", user, username, req_body["host"])
+						return http_response(200, "Done.")
+					else
+						module:log("error", "user creation failed: "..error)
+						return http_response(500, "Encountered server error while creating the user: "..error)
+					end
 				end
 			else
 				module:log("debug", "%s registration data submission for %s failed (user already exists)", user, username)
