@@ -25,9 +25,6 @@ local recent_ips = {}
 
 -- Begin
 
-for _, ip in ipairs(whitelist) do whitelisted_ips[ip] = true end
-for _, ip in ipairs(blacklist) do blacklisted_ips[ip] = true end
-
 local function http_response(code, message, extra_headers)
         local response = {
                 status = code .. " " .. message,
