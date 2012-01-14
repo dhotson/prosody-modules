@@ -19,8 +19,8 @@ module.host = "*" -- HTTP/BOSH Servlets need to be global.
 
 local set_realm_name = module:get_option("reg_servlet_realm") or "Restricted"
 local throttle_time = module:get_option("reg_servlet_ttime") or false
-local whitelist = module:get_option("reg_servlet_wl") or {}
-local blacklist = module:get_option("reg_servlet_bl") or {}
+local whitelist = module:get_option_set("reg_servlet_wl", {})
+local blacklist = module:get_option_set("reg_servlet_bl", {})
 local recent_ips = {}
 
 -- Begin
@@ -71,8 +71,8 @@ local function handle_req(method, body, request)
 			return http_response(401, "I obey only to my masters... Have a nice day.")
 		else	
 			-- Checks for both Throttling/Whitelist and Blacklist (basically copycatted from prosody's register.lua code)
-			if blacklist[req_body["ip"]] then module:log("warn", "Attempt of reg. submission to the JSON servlet from blacklisted address: %s", req_body["ip"]) ; return http_response(403, "The specified address is blacklisted, sorry sorry.") end
-			if throttle_time and not whitelist[req_body["ip"]] then
+			if blacklist:contains(req_body["ip"]) then module:log("warn", "Attempt of reg. submission to the JSON servlet from blacklisted address: %s", req_body["ip"]) ; return http_response(403, "The specified address is blacklisted, sorry sorry.") end
+			if throttle_time and not whitelist:contains(req_body["ip"]) then
 				if not recent_ips[req_body["ip"]] then
 					recent_ips[req_body["ip"]] = { time = os_time(), count = 1 }
 				else
