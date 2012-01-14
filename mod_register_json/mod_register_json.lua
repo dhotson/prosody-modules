@@ -97,7 +97,8 @@ local function handle_req(method, body, request)
 					return http_response(406, "Supplied username contains invalid characters, see RFC 6122.")
 				else
 					usermanager.create_user(username, req_body["password"], req_body["host"])
-					module:log("debug", "%s registration data submission for %s is successful", user, username)
+					hosts[req_body["host"]].events.fire_event("user-registered", { username = username, host = req_body["host"], source = "mod_register_json", session = { ip = req_body["ip"] } })
+					module:log("debug", "%s registration data submission for %s@%s is successful", user, username, req_body["host"])
 					return http_response(200, "Done.")
 				end
 			else
