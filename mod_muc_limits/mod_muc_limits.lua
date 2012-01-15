@@ -7,6 +7,9 @@ local burst = math.max(module:get_option_number("muc_burst_factor", 6), 1);
 
 local function handle_stanza(event)
 	local origin, stanza = event.origin, event.stanza;
+	if stanza.name == "presence" and stanza.attr.type == "unavailable" then -- Don't limit room leaving
+		return;
+	end
 	local dest_room, dest_host, dest_nick = jid.split(stanza.attr.to);
 	local room = hosts[module.host].modules.muc.rooms[dest_room.."@"..dest_host];
 	if not room then return; end
