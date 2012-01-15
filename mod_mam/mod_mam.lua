@@ -222,12 +222,14 @@ local function message_handler(event, c2s)
 		module:log("debug", "Archiving stanza: %s", stanza:top_tag());
 
 		-- Stamp "We archived this" on the message
-		stanza:tag("archived", { xmlns = xmlns_mam, by = host, id = uuid() });
+		local id = uuid();
+		stanza:tag("archived", { xmlns = xmlns_mam, by = host, id = id });
 
 		local when = time_now();
 		-- And stash it
 		dm_list_append(store_user, store_host, "archive2", {
 			-- WARNING This format may change.
+			id = id,
 			when = when, -- This might be an UNIX timestamp. Probably.
 			timestamp = timestamp(when), -- Textual timestamp. But I'll assume that comparing numbers is faster and less annoying in case of timezones.
 			with = target_jid,
