@@ -5,32 +5,110 @@
 --
 -- Based on MAM ProtoXEP Version 0.1 (2010-07-01)
 
-local st = require "util.stanza";
-local jid_bare = require "util.jid".bare;
-local jid_split = require "util.jid".split;
 local xmlns_mam     = "urn:xmpp:mam:tmp";
 local xmlns_delay   = "urn:xmpp:delay";
 local xmlns_forward = "urn:xmpp:forward:0";
-local host_sessions = hosts[module.host].sessions;
-local dm_list_load = require "util.datamanager".list_load
-local dm_list_append = require "util.datamanager".list_append
+
+local st = require "util.stanza";
+local jid_bare = require "util.jid".bare;
+local jid_split = require "util.jid".split;
+local host = module.host;
+local host_sessions = hosts[host].sessions;
+
+local dm_load = require "util.datamanager".load;
+local dm_store = require "util.datamanager".store;
+local dm_list_load = require "util.datamanager".list_load;
+local dm_list_append = require "util.datamanager".list_append;
+local rm_load_roster = require "core.rostermanager".load_roster;
+
 local time_now = os.time;
 local timestamp, timestamp_parse = require "util.datetime".datetime, require "util.datetime".parse;
 local uuid = require "util.uuid".generate;
+local global_default_policy = module:get_option("default_archive_policy", false);
+-- TODO Should be possible to enforce it too
 
--- TODO This, and appropritate filtering in message_handler()
+local default_attrs = {
+	always = true, [true] = "always",
+	never = false, [false] = "never",
+	roster = "roster",
+}
+
+do
+	local prefs_format = {
+		[false] = "roster",
+		-- default ::= true | false | "roster"
+		-- true = always, false = never, nil = global default
+		["romeo@montague.net"] = true, -- always
+		["montague@montague.net"] = false, -- newer
+	};
+end
+
+local prefs_store = "archive2_prefs";
+local function get_prefs(user)
+	return dm_load(user, host, prefs_store) or
+		{ [false] = global_default_policy };
+end
+local function set_prefs(user, prefs)
+	return dm_store(user, host, prefs_store, prefs);
+end
+
+
+-- Handle prefs.
 module:hook("iq/self/"..xmlns_mam..":prefs", function(event)
 	local origin, stanza = event.origin, event.stanza;
+	local user = origin.username;
 	if stanza.attr.type == "get" then
-		-- Not implemented yet, hardcoded to store everything.
-		origin.send(st.reply(stanza)
-			:tag("prefs", { xmlns = xmlns_mam, default = "always" }));
+		local prefs = get_prefs(user);
+		local default = prefs[false];
+		default = default ~= nil and default_attrs[default] or global_default_policy;
+		local reply = st.reply(stanza):tag("prefs", { xmlns = xmlns_mam, default = default })
+		--module:log("debug", "get_prefs(%q) => %s", user, require"util.serialization".serialize(prefs));
+		local always = st.stanza("always");
+		local never = st.stanza("never");
+		for k,v in pairs(prefs) do
+			if k then
+				(v and always or never):tag("jid"):text(k):up();
+			end
+		end
+		reply:add_child(always):add_child(never);
+		origin.send(reply);
 		return true
 	else -- type == "set"
-		-- TODO
+		local prefs = {};
+		local new_prefs = stanza:get_child("prefs", xmlns_mam);
+		local new_default = new_prefs.attr.default;
+		if new_default then
+			prefs[false] = default_attrs[new_default];
+		end
+
+		local always = new_prefs:get_child("always");
+		if always then
+			for rule in always:childtags("jid") do
+				local jid = rule:get_text();
+				prefs[jid] = true;
+			end
+		end
+
+		local never = new_prefs:get_child("never");
+		if never then
+			for rule in never:childtags("jid") do
+				local jid = rule:get_text();
+				prefs[jid] = false;
+			end
+		end
+
+		--module:log("debug", "set_prefs(%q, %s)", user, require"util.serialization".serialize(prefs));
+		local ok, err = set_prefs(user, prefs);
+		if not ok then
+			origin.send(st.error_reply(stanza, "cancel", "internal-server-error", "Error storing preferences: "..tostring(err)));
+		else
+			origin.send(st.reply(stanza));
+		end
+		return true
 	end
 end);
 
+-- Handle archive queries
 module:hook("iq/self/"..xmlns_mam..":query", function(event)
 	local origin, stanza = event.origin, event.stanza;
 	local query = stanza.tags[1];
@@ -43,21 +121,29 @@ module:hook("iq/self/"..xmlns_mam..":query", function(event)
 		local qend = query:get_child_text("end");
 		module:log("debug", "Archive query, id %s with %s from %s until %s)",
 			tostring(qid), qwith or "anyone", qstart or "the dawn of time", qend or "now");
-		
-		local qwith = qwith and jid_bare(qwith); -- FIXME Later, full vs bare query.
+
 		qstart, qend = (qstart and timestamp_parse(qstart)), (qend and timestamp_parse(qend))
 
 		-- Load all the data!
-		local data, err = dm_list_load(origin.username, origin.host, "archive2"); --FIXME Decide storage name. achive2, [sm]am, archive_ng, for_fra_and_nsa
-		module:log("debug", "Loaded %d items, about to filter", #(data or {}));
+		local data, err = dm_list_load(origin.username, origin.host, "archive2");
+		if not data then
+			if (not err) then
+				module:log("debug", "The archive was empty.");
+				origin.send(st.reply(stanza));
+			else
+				origin.send(st.error_reply(stanza, "cancel", "internal-server-error", "Error loading archive: "..tostring(err)));
+			end
+			return true
+		end
+
+		module:log("debug", "Loaded %d items, about to filter", #data);
 		for i=1,#data do
 			local item = data[i];
-			local when, with = item.when, item.with_bare;
+			local when, with, with_bare = item.when, item.with, item.with_bare;
 			local ts = item.timestamp;
-			-- FIXME Premature optimization: Bare JIDs only
-			--module:log("debug", "message with %s when %s", with, when or "???");
+			--module:log("debug", "message with %s at %s", with, when or "???");
 			-- Apply query filter
-			if (not qwith or qwith == with)
+			if (not qwith or ((qwith == with) or (qwith == with_bare)))
 					and (not qstart or when >= qstart)
 					and (not qend or when <= qend) then
 				-- Optimizable? Do this when archiving?
@@ -79,6 +165,34 @@ module:hook("iq/self/"..xmlns_mam..":query", function(event)
 	end
 end);
 
+local function has_in_roster(user, who)
+	local roster = rm_load_roster(user, host);
+	module:log("debug", "%s has %s in roster? %s", user, who, roster[who] and "yes" or "no");
+	return roster and roster[who];
+end
+
+local function shall_store(user, who)
+	-- TODO Cache this?
+	local prefs = get_prefs(user);
+	local rule = prefs[who];
+	module:log("debug", "%s's rule for %s is %s", user, who, tostring(rule))
+	if rule ~= nil then
+		return rule;
+	else -- Below could be done by a metatable
+		local default = prefs[false];
+		module:log("debug", "%s's default rule is %s", user, tostring(default))
+		if default == nil then
+			default = global_default_policy;
+			module:log("debug", "Using global default rule, %s", tostring(default))
+		end
+		if default == "roster" then
+			return has_in_roster(user, who);
+		end
+		return default;
+	end
+end
+
+-- Handle messages
 local function message_handler(event, c2s)
 	local origin, stanza = event.origin, event.stanza;
 	local orig_type = stanza.attr.type or "normal";
@@ -98,19 +212,31 @@ local function message_handler(event, c2s)
 		-- TODO Write a mod_mam_muc for groupchat messages.
 	end
 
-	-- Stamp "We archived this" on the message
-	stanza:tag("archived", { xmlns = xmlns_mam, by = module.host, id = uuid() });
 	local store_user, store_host = jid_split(c2s and orig_from or orig_to);
+	local target_jid = c2s and orig_to or orig_from;
+	local target_bare = jid_bare(target_jid);
 
-	local when = time_now();
-	-- And stash it
-	dm_list_append(store_user, store_host, "archive2", {
-		when = when, -- This might be an UNIX timestamp. Probably.
-		timestamp = timestamp(when), -- Textual timestamp. But I'll assume that comparing numbers is faster and less annoying in case of timezones.
-		with = c2s and orig_to or orig_from,
-		with_bare = jid_bare(c2s and orig_to or orig_from), -- Premature optimization, to avoid loads of jid_bare() calls when filtering.
-		stanza = st.preserialize(stanza)
-	});
+	assert(store_host == host, "This should not happen.");
+
+	if shall_store(store_user, target_bare) then
+		module:log("debug", "Archiving stanza: %s", stanza:top_tag());
+
+		-- Stamp "We archived this" on the message
+		stanza:tag("archived", { xmlns = xmlns_mam, by = host, id = uuid() });
+
+		local when = time_now();
+		-- And stash it
+		dm_list_append(store_user, store_host, "archive2", {
+			-- WARNING This format may change.
+			when = when, -- This might be an UNIX timestamp. Probably.
+			timestamp = timestamp(when), -- Textual timestamp. But I'll assume that comparing numbers is faster and less annoying in case of timezones.
+			with = target_jid,
+			with_bare = target_bare, -- Optimization, to avoid loads of jid_bare() calls when filtering.
+			stanza = st.preserialize(stanza)
+		});
+	else
+		module:log("debug", "Not archiving stanza: %s", stanza:top_tag());
+	end
 end
 
 local function c2s_message_handler(event)
@@ -125,3 +251,4 @@ module:hook("message/bare", message_handler, 1);
 module:hook("message/full", message_handler, 1);
 
 module:add_feature(xmlns_mam);
+
