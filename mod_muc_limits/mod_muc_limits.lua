@@ -31,6 +31,12 @@ local function handle_stanza(event)
 	end
 end
 
+function module.unload()
+	for room_jid, room in pairs(hosts[module.host].modules.muc.rooms) do
+		room.throttle = nil;
+	end
+end
+
 module:hook("message/bare", handle_stanza, 10);
 module:hook("message/full", handle_stanza, 10);
 module:hook("presence/bare", handle_stanza, 10);
