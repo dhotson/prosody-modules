@@ -2,6 +2,8 @@
 local st = require "util.stanza";
 local new_throttle = require "util.throttle".create;
 
+local xmlns_muc = "http://jabber.org/protocol/muc";
+
 local period = math.max(module:get_option_number("muc_event_rate", 0.5), 0);
 local burst = math.max(module:get_option_number("muc_burst_factor", 6), 1);
 
@@ -26,7 +28,16 @@ local function handle_stanza(event)
 	end
 	if not throttle:poll(1) then
 		module:log("warn", "Dropping stanza for %s@%s from %s, over rate limit", dest_room, dest_host, from_jid);
-		origin.send(st.error_reply(stanza, "wait", "policy-violation", "The room is currently overactive, please try again later"));
+		local reply = st.error_reply(stanza, "wait", "policy-violation", "The room is currently overactive, please try again later");
+		local body = stanza:get_child_text("body");
+		if body then
+			reply:up():tag("body"):text(body):up();
+		end
+		local x = stanza:get_child("x", xmlns_muc);
+		if x then
+			reply:add_child(st.clone(x));
+		end
+		origin.send(reply);
 		return true;
 	end
 end
