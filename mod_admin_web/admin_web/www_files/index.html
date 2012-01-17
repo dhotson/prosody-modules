@@ -4,6 +4,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <title>Prosody Webadmin</title>
+<link rel="stylesheet" type="text/css" href="css/bootstrap-1.4.0.min.css" />
 <link rel="stylesheet" type="text/css" href="css/style.css" />
 <meta http-equiv="Content-Type" content="application/xhtml+xml; charset=utf-8" />
 <script type="text/javascript" src="js/jquery-1.7.1.min.js"></script>
@@ -44,21 +45,25 @@
 
 <div id='main'>
   <div id="adhoc"></div>
-  <div id="s2sList">
-    <div class="container">
+  <div id="s2sList" class="container">
+   <div class="row">
+    <div class="span8">
       <h2>Incoming S2S connections:</h2>
       <ul id="s2sin"></ul>
     </div>
-    <div class="container">
+    <div class="span8">
       <h2>Outgoing S2S connections:</h2>
       <ul id="s2sout"></ul>
     </div>
+   </div>
   </div>
-  <div id="c2sList">
-    <div class="container">
+  <div id="c2sList" class="container">
+   <div class="row">
+    <div class="span16">
       <h2>Client connections:</h2>
       <ul id="c2s"></ul>
     </div>
+   </div>
   </div>
 </div>
 
