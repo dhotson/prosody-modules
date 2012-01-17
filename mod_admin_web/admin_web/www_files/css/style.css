@@ -24,11 +24,6 @@ ul {
   display: none
 }
 
-.container {
-  margin: 0 2em;
-  float: left
-}
-
 #login {
   float: left;
   margin-left: 1em;
@@ -65,12 +60,12 @@ ul {
 #top {
   clear: both;
   width: 100%;
-  padding: 0
+  padding: 0;
 }
 
 #header {
   height: 172px;
-  background: url(images/blue_orange.png) repeat-x
+  background: url(../images/blue_orange.png) repeat-x
 }
 
 #menu {
