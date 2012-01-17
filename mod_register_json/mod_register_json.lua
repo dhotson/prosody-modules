@@ -124,15 +124,19 @@ function cleanup() -- it could be better if module:hook("module-unloaded", ...) 
 		end
 	end
 
-	-- if there're no handlers left clean the socket, not sure if it works with server_select
-	for _, options in ipairs(ports) do
-		if options.port and not next(httpserver.new.http_servers[options.port].handlers) then
-			httpserver.new.http_servers[options.port] = nil
-			if options.interface then
-				for _, value in ipairs(options.interface) do
-					if server.getserver(value, options.port) then server.removeserver(value, options.port) end
-				end
-			else if server.getserver("*", options.port) then server.removeserver("*", options.port) end end
+	-- if there are no handlers left clean and close the socket, doesn't work with server_event
+	local event = module:get_option_boolean("use_libevent", nil)
+
+	if not event then
+		for _, options in ipairs(ports) do
+			if options.port and not next(httpserver.new.http_servers[options.port].handlers) then
+				httpserver.new.http_servers[options.port] = nil
+				if options.interface then
+					for _, value in ipairs(options.interface) do
+						if server.getserver(value, options.port) then server.removeserver(value, options.port) end
+					end
+				else if server.getserver("*", options.port) then server.removeserver("*", options.port) end end
+			end
 		end
 	end
 
