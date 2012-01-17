@@ -138,9 +138,13 @@ for _, options in ipairs(ports) do
 		base = options;
 	end
 	
-	base_url = base_url or ("http://"..module:get_host()..(port ~= 80 and (":"..port) or "").."/"..base.."/");
+	if not ssl then
+		base_url = base_url or ("http://"..module:get_host()..(port ~= 80 and (":"..port) or "").."/"..base.."/");
+	else
+		base_url = base_url or ("https://"..module:get_host()..(port ~= 443 and (":"..port) or "").."/"..base.."/");
+	end
 	
-	httpserver.new{ port = port, base = base, handler = handle_request, ssl = ssl }
+	httpserver.new{ interface = interface, port = port, base = base, handler = handle_request, ssl = ssl }
 end
 
 local function set_pastes_metatable()
