@@ -125,7 +125,7 @@ function cleanup() -- it could be better if module:hook("module-unloaded", ...) 
 	end
 
 	-- if there are no handlers left clean and close the socket, doesn't work with server_event
-	local event = require "core.configmanager".get("*", "core", "use_libevent")
+	local event = module:get_option_boolen("use_libevent", false)
 
 	if not event then
 		for _, options in ipairs(ports) do
