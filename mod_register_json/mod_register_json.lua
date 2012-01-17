@@ -17,10 +17,11 @@ module.host = "*" -- HTTP/BOSH Servlets need to be global.
 
 -- Pick up configuration.
 
-local set_realm_name = module:get_option("reg_servlet_realm") or "Restricted"
-local throttle_time = module:get_option("reg_servlet_ttime") or false
+local set_realm_name = module:get_option_string("reg_servlet_realm", "Restricted")
+local throttle_time = module:get_option_number("reg_servlet_ttime", nil)
 local whitelist = module:get_option_set("reg_servlet_wl", {})
 local blacklist = module:get_option_set("reg_servlet_bl", {})
+local ports = module:get_option_array("reg_servlet_ports", {{ port = 9280 }})
 local recent_ips = {}
 
 -- Begin
@@ -115,27 +116,37 @@ local function handle_req(method, body, request)
 end
 
 -- Set it up!
-local function setup()
-	local ports = module:get_option("reg_servlet_ports") or { 9280 }
-	local port_number, base_name, ssl_table
-	for _, opts in ipairs(ports) do
-		if type(opts) == "number" then
-			port_number, base_name = opts, "register_account"
-		elseif type(opts) == "table" then
-			port_number, base_name, ssl_table = opts.port or 9280, opts.path or "register_account", opts.ssl or nil
-		elseif type(opts) == "string" then
-			base_name, port_number = opts, 9280
+function cleanup() -- it could be better if module:hook("module-unloaded", ...) actually worked.
+	module:log("debug", "Cleaning up handlers and stuff as module is being unloaded.")
+	for _, options in ipairs(ports) do
+		if options.port then
+			httpserver.new.http_servers[options.port].handlers[options.path or "register_account"] = nil
 		end
 	end
-	
-	if ssl_table == nil then
-		ports = { { port = port_number } }
-		httpserver.new_from_config(ports, handle_req, { base = base_name })
-	else
-		if port_number == 9280 then port_number = 9443 end
-		ports = { { port = port_number, ssl = ssl_table } }
-		httpserver.new_from_config(ports, handle_req, { base = base_name })
+
+	-- if there're no handlers left clean the socket, not sure if it works with server_select
+	for _, options in ipairs(ports) do
+		if options.port and not next(httpserver.new.http_servers[options.port].handlers) then
+			httpserver.new.http_servers[options.port] = nil
+			if options.interface then
+				for _, value in ipairs(options.interface) do
+					if server.getserver(value, options.port) then server.removeserver(value, options.port) end
+				end
+			else if server.getserver("*", options.port) then server.removeserver("*", options.port) end end
+		end
 	end
+
+	prosody.events.remove_handler("module-unloaded", cleanup)
+end
+
+function setup()
+	for id, options in ipairs(ports) do 
+		if not options.port then 
+			if not options.ssl then ports[id].port = 9280
+			else ports[id].port = 9443 end
+		elseif options.port == 9280 and options.ssl then ports[id].port = 9443 end end
+	httpserver.new_from_config(ports, handle_req, { base = "register_account" })
+	prosody.events.add_handler("module-unloaded", cleanup)
 end
 
 if prosody.start_time then -- already started
