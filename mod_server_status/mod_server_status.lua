@@ -138,7 +138,7 @@ function cleanup() -- handy, recycled from mod_register_json
                 end
         end
 
-	local event = require "core.configmanager".get("*", "core", "use_libevent");
+	local event = module:get_option_boolen("use_libevent", false)
 
 	-- if there're no handlers left clean the socket, not sure if it works with server_select
 	if not event then
