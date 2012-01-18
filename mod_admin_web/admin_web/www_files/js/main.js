@@ -10,6 +10,7 @@ var localJID = null;
 var connection   = null;
 
 var adminsubHost = null;
+var adhocControl = new Adhoc('#adhocDisplay', function() {});
 
 function log(msg) {
     var entry = $('<div></div>').append(document.createTextNode(msg));
@@ -123,7 +124,9 @@ function onConnect(status) {
                 }
                 showDisconnect();
                 adminsubHost = $(items[0]).text();
-                Adhoc.checkFeatures('#adhoc', adminsubHost);
+		adhocControl.checkFeatures(adminsubHost,
+		    function () { adhocControl.getCommandNodes(function (result) { $('#adhocDisplay').empty(); $('#adhocCommands').append(result); }) },
+		    function () { $('#adhocCommands').empty(); $('#adhocDisplay').html('<p>This host does not support commands</p>'); });
                 connection.addHandler(_cbAdminSub, Strophe.NS.ADMINSUB + '#event', 'message');
                 connection.send($iq({to: adminsubHost, type: 'set', id: connection.getUniqueId()}).c('adminsub', {xmlns: Strophe.NS.ADMINSUB})
                     .c('subscribe', {node: Strophe.NS.C2SSTREAM}));
@@ -198,7 +201,9 @@ $(document).ready(function () {
         connection.send($iq({to: adminsubHost, type: 'set', id: connection.getUniqueId()}).c('adminsub', {xmlns: Strophe.NS.ADMINSUB})
             .c('unsubscribe', {node: Strophe.NS.S2SSTREAM}));
         adminsubHost = $(this).val();
-        Adhoc.checkFeatures('#adhoc', adminsubHost);
+	adhocControl.checkFeatures(adminsubHost,
+	    function () { adhocControl.getCommandNodes(function (result) { $('#adhocDisplay').empty(); $('#adhocCommands').append(result); }) },
+	    function () { $('#adhocCommands').empty(); $('#adhocDisplay').html('<p>This host does not support commands</p>'); });
         $('#s2sin').empty();
         $('#s2sout').empty();
         $('#c2s').empty();

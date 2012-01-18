@@ -24,6 +24,14 @@ ul {
   display: none
 }
 
+#adhocCommands {
+  border-right: solid 1px
+}
+
+#adhocCommands li {
+  list-style: inside
+}
+
 #login {
   float: left;
   margin-left: 1em;
