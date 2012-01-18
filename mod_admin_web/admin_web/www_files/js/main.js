@@ -202,7 +202,7 @@ $(document).ready(function () {
             .c('unsubscribe', {node: Strophe.NS.S2SSTREAM}));
         adminsubHost = $(this).val();
 	adhocControl.checkFeatures(adminsubHost,
-	    function () { adhocControl.getCommandNodes(function (result) { $('#adhocDisplay').empty(); $('#adhocCommands').append(result); }) },
+	    function () { adhocControl.getCommandNodes(function (result) { $('#adhocDisplay').empty(); $('#adhocCommands').html(result); }) },
 	    function () { $('#adhocCommands').empty(); $('#adhocDisplay').html('<p>This host does not support commands</p>'); });
         $('#s2sin').empty();
         $('#s2sout').empty();
