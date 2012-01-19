@@ -23,22 +23,32 @@
       <li><a id='adhocMenu' href="#adhoc">General</a></li>
       <li><a id='serverMenu' href="#s2sList">Servers</a></li>
       <li><a id='clientMenu' href="#c2sList">Clients</a></li>
-      <li><span id="selector">Host:<select id="host"></select></span></li>
+      <li><span id="selector">Host:&nbsp;<select id="host"></select></span></li>
       <li><a href="#" id='logout'>Logout</a></li>
     </ul>
   </div>
 </div>
 
 <div id='login'>
-  <form id='cred' name='cred'>
+  <form id='cred' name='cred' class='form-stacked'>
     <fieldset>
-      <label for='jid'>JID:</label><br/>
-      <input type='text' id='jid' />
-      <br />
-      <label for='pass'>Password:</label><br/>
-      <input type='password' id='pass' />
-      <br />
-      <input type='submit' id='connect' value='Login' />
+      <div class='clearfix'>
+	<label for='jid'>JID:</label>
+	<div class='input'>
+	  <input type='text' id='jid' />
+	</div>
+      </div>
+      <div class='clearfix'>
+	<label for='pass'>Password:</label>
+	<div class='input'>
+	  <input type='password' id='pass' />
+	</div>
+      </div>
+      <div class='clearfix'>
+	<div class='input'>
+	  <input type='submit' id='connect' value='Login' class='btn' />
+	</div>
+      </div>
     </fieldset>
   </form>
 </div>
