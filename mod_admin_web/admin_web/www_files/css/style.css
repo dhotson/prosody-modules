@@ -11,11 +11,11 @@ ul {
 }
 
 .btn {
-  margin-left: 0.3em
+  margin-right: 0.3em
 }
 
 .btn:last {
-  margin-left: 0
+  margin-right: 0
 }
 
 #log_container {
