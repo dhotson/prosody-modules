@@ -86,7 +86,9 @@ local function htmlEscape(t)
 end
 
 function createDoc(body, title)
-	assert(body, "<nil> HTTP response");
+	if not body then
+		return { status = "404 Not Found", body = "<h1>Page Not Found</h1>Sorry, we couldn't find what you were looking for :(" };
+	end
 	body = body:gsub("%%", "%%%%");
 	return html.doc:gsub("###BODY_STUFF###", body)
 		:gsub("<title>muc_log</title>", "<title>"..(title and htmlEscape(title) or "Chatroom logs").."</title>");
