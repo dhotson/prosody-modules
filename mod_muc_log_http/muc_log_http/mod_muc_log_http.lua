@@ -267,6 +267,10 @@ local function generateDayListSiteContentByRoom(bareRoomJid)
 	local to = "";
 	local topic = "";
 
+	if not(prosody.hosts[host] and prosody.hosts[host].muc and prosody.hosts[host].muc.rooms[bareRoomJid]) then
+		return;
+	end
+
 	path = path:gsub("/[^/]*$", "");
 	attributes = lfs.attributes(path);
 	do
