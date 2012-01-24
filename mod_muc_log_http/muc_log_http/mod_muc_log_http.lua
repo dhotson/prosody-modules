@@ -652,7 +652,7 @@ function handle_request(method, body, request)
 
 	node = urldecode(node);
 
-	assert(html.doc, "MUC hosts or theme not loaded");
+	if not html.doc then return { status = "500 Internal Server Error", "MUC hosts or theme not loaded" }; end
 
 	if host and not(hosts[host] and hosts[host].modules.muc and hosts[host].modules.muc_log) then return { status = "404 Not found", body = "No such MUC component" }; end
 	if host and node and not(hosts[host].modules.muc.rooms[node.."@"..host]) then return { status = "404 Not found", body = "No such MUC room" }; end
