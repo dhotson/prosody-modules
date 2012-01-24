@@ -14,6 +14,7 @@ local xmlns_errors = "urn:ietf:params:xml:ns:xmpp-stanzas";
 local sm_attr = { xmlns = xmlns_sm };
 
 local resume_timeout = module:get_option("smacks_hibernation_time", 300);
+local s2s_smacks = module:get_option_boolean("smacks_enabled_s2s", false);
 local max_unacked_stanzas = 0;
 
 local session_registry = {};
@@ -25,13 +26,17 @@ module:hook("stream-features",
 
 module:hook("s2s-stream-features",
 		function (event)
-			event.features:tag("sm", sm_attr):tag("optional"):up():up();
+			local origin = event.origin;
+			if s2s_smacks and (origin.type == "s2sin" or origin.type == "s2sout") then
+				event.features:tag("sm", sm_attr):tag("optional"):up():up();
+			end
 		end);
 
 module:hook_stanza("http://etherx.jabber.org/streams", "features",
 		function (session, stanza)
-			if not session.smacks and stanza:get_child("sm", xmlns_sm) then
-				session.send(st.stanza("enable", sm_attr));
+			if s2s_smacks and (session.type == "s2sin" or session.type == "s2sout")
+					and not session.smacks and stanza:get_child("sm", xmlns_sm) then
+				session.sends2s(st.stanza("enable", sm_attr));
 			end
 end);
 
@@ -93,7 +98,18 @@ module:hook_stanza(xmlns_sm, "enable", function (session, stanza)
 		session_registry[resume_token] = session;
 		session.resumption_token = resume_token;
 	end
-	session.send(st.stanza("enabled", { xmlns = xmlns_sm, id = resume_token, resume = resume }));
+	(session.sends2s or session.send)(st.stanza("enabled", { xmlns = xmlns_sm, id = resume_token, resume = resume }));
+	return true;
+end, 100);
+
+module:hook_stanza(xmlns_sm, "enabled", function (session, stanza)
+	module:log("debug", "Enabling stream management");
+	session.smacks = true;
+	
+	wrap_session(session);
+
+	-- FIXME Resume?
+	
 	return true;
 end, 100);
 
