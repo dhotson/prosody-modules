@@ -705,7 +705,8 @@ local function assign(arr, content)
 end
 
 local function readFile(filepath)
-	local f = assert(io_open(filepath, "r"));
+	local f,err = io_open(filepath, "r");
+	if not f then return f,err; end
 	local t = f:read("*all");
 	f:close()
 	return t;
@@ -713,10 +714,11 @@ end
 
 local function loadTheme(path)
 	for file in lfs.dir(path) do
-		if file ~= "." and file ~= ".." then
+		if file:match("%.html$") then
 			module:log("debug", "opening theme file: " .. file);
-			local tmp = split(file:gsub("\.html$", ""), "_");
-			local content = readFile(path .. "/" .. file);
+			local tmp = split(file:match("(.*)%.html$"), "_");
+			local content,err = readFile(path .. "/" .. file);
+			if not content then return content,err; end
 			assign(tmp, content);
 		end
 	end
@@ -741,8 +743,9 @@ function module.load()
 	end
 
 	-- module:log("debug", (require "util.serialization").serialize(html));
-	if(not loadTheme(themePath)) then
-		module:log("error", "Theme \"".. tostring(theme) .. "\" is missing something.");
+	local themeLoaded,err = loadTheme(themePath);
+	if not themeLoaded then
+		module:log("error", "Theme \"%s\" is missing something: %s", tostring(theme), err);
 		return false;
 	end
 	-- module:log("debug", (require "util.serialization").serialize(html));
