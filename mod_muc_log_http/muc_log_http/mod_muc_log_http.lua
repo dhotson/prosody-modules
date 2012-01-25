@@ -240,9 +240,9 @@ local function perDayCallback(path, day, month, year, room, webPath)
 	if year > 2000 then
 		year = year - 2000;
 	end
-	local bareDay = str_format("%.02d%.02d%.02d", year, month, day);
+	local bareDay = str_format("20%.02d-%.02d-%.02d", year, month, day);
 	room = urlencode(room);
-	local attributes, err = lfs.attributes(path.."/"..bareDay.."/"..room..".dat")
+	local attributes, err = lfs.attributes(path.."/"..str_format("%.02d%.02d%.02d", year, month, day).."/"..room..".dat")
 	if attributes ~= nil and attributes.mode == "file" then
 		local s = html.days.bit;
 		s = s:gsub("###BARE_DAY###", webPath .. bareDay);
@@ -446,7 +446,7 @@ local function parseMessageStanza(stanza, timeStuff, nick)
 end
 
 local function incrementDay(bare_day)
-	local year, month, day = bare_day:match("^(%d%d)(%d%d)(%d%d)");
+	local year, month, day = bare_day:match("^20(%d%d)-(%d%d)-(%d%d)$");
 	local leapyear = false;
 	module:log("debug", tostring(day).."/"..tostring(month).."/"..tostring(year))
 
@@ -482,7 +482,7 @@ local function incrementDay(bare_day)
 	else
 		day = day + 1;
 	end
-	return strformat("%.02d%.02d%.02d", year, month, day);
+	return strformat("20%.02d-%.02d-%.02d", year, month, day);
 end
 
 local function findNextDay(bareRoomJid, bare_day)
@@ -506,7 +506,7 @@ local function findNextDay(bareRoomJid, bare_day)
 end
 
 local function decrementDay(bare_day)
-	local year, month, day = bare_day:match("^(%d%d)(%d%d)(%d%d)");
+	local year, month, day = bare_day:match("^20(%d%d)-(%d%d)-(%d%d)$");
 	local leapyear = false;
 	module:log("debug", tostring(day).."/"..tostring(month).."/"..tostring(year))
 
@@ -540,7 +540,7 @@ local function decrementDay(bare_day)
 	else
 		day = day - 1;
 	end
-	return strformat("%.02d%.02d%.02d", year, month, day);
+	return strformat("20%.02d-%.02d-%.02d", year, month, day);
 end
 
 local function findPreviousDay(bareRoomJid, bare_day)
@@ -569,7 +569,7 @@ local function parseDay(bareRoomJid, roomSubject, bare_day)
 	local day;
 	local tmp;
 	local node, host, resource = splitJid(bareRoomJid);
-	local year, month, day = bare_day:match("^(%d%d)(%d%d)(%d%d)");
+	local year, month, day = bare_day:match("^20(%d%d)-(%d%d)-(%d%d)$");
 	local previousDay = findPreviousDay(bareRoomJid, bare_day);
 	local nextDay = findNextDay(bareRoomJid, bare_day);
 	local temptime = {day=0, month=0, year=0};
@@ -587,7 +587,7 @@ local function parseDay(bareRoomJid, roomSubject, bare_day)
 	calendar = createMonth(temptime.month, temptime.year, {callback=perDayCallback, path=path, room=node, webPath="../"}) or ""
 
 	if bare_day ~= nil then
-		local data = data_load(node, host, datastore .. "/" .. bare_day);
+		local data = data_load(node, host, datastore .. "/" .. bare_day:match("^20(.*)"):gsub("-", ""));
 		if data ~= nil then
 			for i=1, #data, 1 do
 				local stanza = lom.parse(data[i]);
@@ -664,8 +664,16 @@ function handle_request(method, body, request)
 	elseif not day then -- room's listing
 		return createDoc(generateDayListSiteContentByRoom(node.."@"..host));
 	else
+		if not day:match("^20(%d%d)-(%d%d)-(%d%d)$") then
+			local y,m,d = day:match("^(%d%d)(%d%d)(%d%d)$");
+			if not y then
+				return { status = "404 Not found", body = "Unknown URL" };
+			end
+			return { status = "301 Moved Permanently",
+				headers = { ["Location"] = request.url.path:match("^/muc_log/+[^/]*/*[^/]*").."/20"..y.."-"..m.."-"..d.."/" } };
+		end
 		local room = hosts[host].modules.muc.rooms[node.."@"..host];
-		return createDoc(parseDay(node.."@"..host, room._data.subject or "", day:gsub("%-", "")));
+		return createDoc(parseDay(node.."@"..host, room._data.subject or "", day));
 	end
 end
 
