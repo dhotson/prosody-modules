@@ -669,41 +669,6 @@ function handle_request(method, body, request)
 	end
 end
 
--- Compatibility: Lua-5.1
-function split(str, pat)
-	local t = {}  -- NOTE: use {n = 0} in Lua-5.0
-	local fpat = "(.-)" .. pat
-	local last_end = 1
-	local s, e, cap = str:find(fpat, 1)
-	while s do
-		if s ~= 1 or cap ~= "" then
-			table.insert(t,cap)
-		end
-		last_end = e+1
-		s, e, cap = str:find(fpat, last_end)
-	end
-	if last_end <= #str then
-		cap = str:sub(last_end)
-		table.insert(t, cap)
-	end
-	return t
-end
-
-local function assign(arr, content)
-	local tmp = html;
-	local idx = nil;
-	for _,i in ipairs(arr) do
-		if idx ~= nil then
-			if tmp[idx] == nil then
-				tmp[idx] = {};
-			end
-			tmp = tmp[idx];
-		end
-		idx = i;
-	end
-	tmp[idx] = content;
-end
-
 local function readFile(filepath)
 	local f,err = io_open(filepath, "r");
 	if not f then return f,err; end
@@ -716,10 +681,16 @@ local function loadTheme(path)
 	for file in lfs.dir(path) do
 		if file:match("%.html$") then
 			module:log("debug", "opening theme file: " .. file);
-			local tmp = split(file:match("(.*)%.html$"), "_");
 			local content,err = readFile(path .. "/" .. file);
 			if not content then return content,err; end
-			assign(tmp, content);
+
+			-- html.a.b.c = content of a_b_c.html
+			local tmp = html;
+			for idx in file:gmatch("([^_]*)_") do
+				tmp[idx] = tmp[idx] or {};
+				tmp = tmp[idx];
+			end
+			tmp[file:match("([^_]*)%.html$")] = content;
 		end
 	end
 	return true;
@@ -742,13 +713,11 @@ function module.load()
 		return false;
 	end
 
-	-- module:log("debug", (require "util.serialization").serialize(html));
 	local themeLoaded,err = loadTheme(themePath);
 	if not themeLoaded then
 		module:log("error", "Theme \"%s\" is missing something: %s", tostring(theme), err);
 		return false;
 	end
-	-- module:log("debug", (require "util.serialization").serialize(html));
 
 	httpserver.new_from_config({ config.http_port or true }, handle_request, { base = urlBase, ssl = false, port = 5290 });
 end
