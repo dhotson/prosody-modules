@@ -125,7 +125,7 @@ function onConnect(status) {
                 showDisconnect();
                 adminsubHost = $(items[0]).text();
 		adhocControl.checkFeatures(adminsubHost,
-		    function () { adhocControl.getCommandNodes(function (result) { $('#adhocDisplay').empty(); $('#adhocCommands').append(result); }) },
+		    function () { adhocControl.getCommandNodes(function (result) { $('#adhocDisplay').empty(); $('#adhocCommands').html(result); }) },
 		    function () { $('#adhocCommands').empty(); $('#adhocDisplay').html('<p>This host does not support commands</p>'); });
                 connection.addHandler(_cbAdminSub, Strophe.NS.ADMINSUB + '#event', 'message');
                 connection.send($iq({to: adminsubHost, type: 'set', id: connection.getUniqueId()}).c('adminsub', {xmlns: Strophe.NS.ADMINSUB})
