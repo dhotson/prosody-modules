@@ -181,10 +181,12 @@ function sessionmanager.destroy_session(session, err)
 				handle_unacked_stanzas(session);
 			end
 		else
+			session.log("debug", "mod_smacks hibernating session for up to %d seconds", resume_timeout);
 			local hibernate_time = os_time(); -- Track the time we went into hibernation
 			session.hibernating = hibernate_time;
 			local resumption_token = session.resumption_token;
 			timer.add_task(resume_timeout, function ()
+				session.log("debug", "mod_smacks hibernation timeout reached...");
 				-- We need to check the current resumption token for this resource
 				-- matches the smacks session this timer is for in case it changed
 				-- (for example, the client may have bound a new resource and
@@ -194,11 +196,14 @@ function sessionmanager.destroy_session(session, err)
 				-- Check the hibernate time still matches what we think it is,
 				-- otherwise the session resumed and re-hibernated.
 				and session.hibernating == hibernate_time then
+					session.log("debug", "Destroying session for hibernating too long");
 					session_registry[session.resumption_token] = nil;
 					session.resumption_token = nil;
 					-- This recursion back into our destroy handler is to
 					-- make sure we still handle any queued stanzas
 					sessionmanager.destroy_session(session);
+				else
+					session.log("debug", "Session resumed before hibernation timeout, all is well")
 				end
 			end);
 			return; -- Postpone destruction for now
