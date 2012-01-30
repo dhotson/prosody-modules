@@ -217,6 +217,7 @@ module:hook_stanza(xmlns_sm, "resume", function (session, stanza)
 	local id = stanza.attr.previd;
 	local original_session = session_registry[id];
 	if not original_session then
+		session.log("debug", "Tried to resume non-existent session with id %s", id);
 		session.send(st.stanza("failed", sm_attr)
 			:tag("item-not-found", { xmlns = xmlns_errors })
 		);
