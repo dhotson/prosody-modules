@@ -222,6 +222,7 @@ module:hook_stanza(xmlns_sm, "resume", function (session, stanza)
 		);
 	elseif session.username == original_session.username
 	and session.host == original_session.host then
+		session.log("debug", "mod_smacks resuming existing session...");
 		-- TODO: All this should move to sessionmanager (e.g. session:replace(new_session))
 		original_session.ip = session.ip;
 		original_session.conn = session.conn;
