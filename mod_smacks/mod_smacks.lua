@@ -89,6 +89,18 @@ local function wrap_session(session, resume)
 end
 
 module:hook_stanza(xmlns_sm, "enable", function (session, stanza)
+	local err, err_text;
+	if session.smacks then
+		err, err_text = "unexpected-request", "Stream management already enabled for this stream";
+	elseif not session.resource then
+		err, err_text = "unexpected-request", "Attempted to enable stream management before resource binding";
+	end
+	if err then
+		session.log("warn", "Failed to enable smacks: %s", err_text); -- TODO: XEP doesn't say we can send error text, should it?
+		session.send(st.stanza("failed", { xmlns = xmlns_sm }):tag(err, { xmlns = xmlns_errors}));
+		return true;
+	end
+
 	module:log("debug", "Enabling stream management");
 	session.smacks = true;
 	
