@@ -21,13 +21,16 @@ local session_registry = {};
 
 module:hook("stream-features",
 		function (event)
-			event.features:tag("sm", sm_attr):tag("optional"):up():up();
+			local origin = event.origin;
+			if not(origin.smacks) and origin.type == "c2s" then
+				event.features:tag("sm", sm_attr):tag("optional"):up():up();
+			end
 		end);
 
 module:hook("s2s-stream-features",
 		function (event)
 			local origin = event.origin;
-			if s2s_smacks and (origin.type == "s2sin" or origin.type == "s2sout") then
+			if s2s_smacks and not(origin.smacks) and (origin.type == "s2sin" or origin.type == "s2sout") then
 				event.features:tag("sm", sm_attr):tag("optional"):up():up();
 			end
 		end);
