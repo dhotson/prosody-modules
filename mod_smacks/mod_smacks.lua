@@ -19,26 +19,38 @@ local max_unacked_stanzas = 0;
 
 local session_registry = {};
 
+local function can_do_smacks(session, advertise_only)
+	if session.smacks then return false, "unexpected-request", "Stream management is already enabled"; end
+	
+	local session_type = session.type;
+	if type == "c2s" then
+		if not(advertise_only) and not(session.resource) then -- Fail unless we're only advertising sm
+			return false, "unexpected-request", "Client must bind a resource before enabling stream management"; end
+		end
+		return true;
+	elseif s2s_smacks and (type == "s2sin" or type == "s2sout") then
+		return true;
+	end
+	return false, "service-unavailable", "Stream management is not available for this stream";
+end
+
 module:hook("stream-features",
 		function (event)
-			local origin = event.origin;
-			if not(origin.smacks) and origin.type == "c2s" then
+			if can_do_smacks(event.origin, true) then
 				event.features:tag("sm", sm_attr):tag("optional"):up():up();
 			end
 		end);
 
 module:hook("s2s-stream-features",
 		function (event)
-			local origin = event.origin;
-			if s2s_smacks and not(origin.smacks) and (origin.type == "s2sin" or origin.type == "s2sout") then
+			if can_do_smacks(event.origin, true) then
 				event.features:tag("sm", sm_attr):tag("optional"):up():up();
 			end
 		end);
 
 module:hook_stanza("http://etherx.jabber.org/streams", "features",
 		function (session, stanza)
-			if s2s_smacks and (session.type == "s2sin" or session.type == "s2sout")
-					and not session.smacks and stanza:get_child("sm", xmlns_sm) then
+			if can_do_smacks(session) and stanza:get_child("sm", xmlns_sm) then
 				session.sends2s(st.stanza("enable", sm_attr));
 			end
 end);
@@ -89,13 +101,8 @@ local function wrap_session(session, resume)
 end
 
 module:hook_stanza(xmlns_sm, "enable", function (session, stanza)
-	local err, err_text;
-	if session.smacks then
-		err, err_text = "unexpected-request", "Stream management already enabled for this stream";
-	elseif not session.resource then
-		err, err_text = "unexpected-request", "Attempted to enable stream management before resource binding";
-	end
-	if err then
+	local ok, err, err_text = can_do_smacks(session);
+	if not ok then
 		session.log("warn", "Failed to enable smacks: %s", err_text); -- TODO: XEP doesn't say we can send error text, should it?
 		session.send(st.stanza("failed", { xmlns = xmlns_sm }):tag(err, { xmlns = xmlns_errors}));
 		return true;
