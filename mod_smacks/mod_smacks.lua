@@ -9,7 +9,7 @@ local add_filter = require "util.filters".add_filter;
 local timer = require "util.timer";
 local datetime = require "util.datetime";
 
-local xmlns_sm = "urn:xmpp:sm:3";
+local xmlns_sm = "urn:xmpp:sm:2";
 local xmlns_errors = "urn:ietf:params:xml:ns:xmpp-stanzas";
 local xmlns_delay = "urn:xmpp:delay";
 
