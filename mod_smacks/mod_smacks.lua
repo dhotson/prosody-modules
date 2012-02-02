@@ -8,7 +8,7 @@ local tonumber, tostring = tonumber, tostring;
 local add_filter = require "util.filters".add_filter;
 local timer = require "util.timer";
 
-local xmlns_sm = "urn:xmpp:sm:2";
+local xmlns_sm = "urn:xmpp:sm:3";
 local xmlns_errors = "urn:ietf:params:xml:ns:xmpp-stanzas";
 
 local sm_attr = { xmlns = xmlns_sm };
@@ -25,7 +25,7 @@ local function can_do_smacks(session, advertise_only)
 	local session_type = session.type;
 	if type == "c2s" then
 		if not(advertise_only) and not(session.resource) then -- Fail unless we're only advertising sm
-			return false, "unexpected-request", "Client must bind a resource before enabling stream management"; end
+			return false, "unexpected-request", "Client must bind a resource before enabling stream management";
 		end
 		return true;
 	elseif s2s_smacks and (type == "s2sin" or type == "s2sout") then
