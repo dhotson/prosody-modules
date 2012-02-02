@@ -7,9 +7,11 @@ local os_time = os.time;
 local tonumber, tostring = tonumber, tostring;
 local add_filter = require "util.filters".add_filter;
 local timer = require "util.timer";
+local datetime = require "util.datetime";
 
 local xmlns_sm = "urn:xmpp:sm:3";
 local xmlns_errors = "urn:ietf:params:xml:ns:xmpp-stanzas";
+local xmlns_delay = "urn:xmpp:delay";
 
 local sm_attr = { xmlns = xmlns_sm };
 
@@ -70,7 +72,13 @@ local function wrap_session(session, resume)
 	local function new_send(stanza)
 		local attr = stanza.attr;
 		if attr and not attr.xmlns then -- Stanza in default stream namespace
-			queue[#queue+1] = st.clone(stanza);
+			local cached_stanza = st.clone(stanza);
+			
+			if cached_stanza and cached_stanza:get_child("delay", xmlns_delay) == nil then
+				cached_stanza = cached_stanza:tag("delay", { xmlns = xmlns_delay, from = session.host, stamp = datetime.datetime()});
+			end
+			
+			queue[#queue+1] = cached_stanza;
 		end
 		local ok, err = _send(stanza);
 		if ok and #queue > max_unacked_stanzas and not session.awaiting_ack then
