@@ -113,7 +113,7 @@ local function handle_req(method, body, request)
 end
 
 -- Set it up!
-function cleanup() -- it could be better if module:hook("module-unloaded", ...) actually worked.
+function regj_cleanup() -- it could be better if module:hook("module-unloaded", ...) actually worked.
 	module:log("debug", "Cleaning up handlers and stuff as module is being unloaded.")
 	for _, options in ipairs(ports) do
 		if options.port then
@@ -122,7 +122,7 @@ function cleanup() -- it could be better if module:hook("module-unloaded", ...) 
 	end
 
 	-- if there are no handlers left clean and close the socket, doesn't work with server_event
-	local event = module:get_option_boolen("use_libevent", false)
+	local event = require "core.configmanager".get("*", "core", "use_libevent");
 
 	if not event then
 		for _, options in ipairs(ports) do
@@ -137,7 +137,7 @@ function cleanup() -- it could be better if module:hook("module-unloaded", ...) 
 		end
 	end
 
-	prosody.events.remove_handler("module-unloaded", cleanup)
+	prosody.events.remove_handler("module-unloaded", regj_cleanup)
 end
 
 function setup()
@@ -147,7 +147,7 @@ function setup()
 			else ports[id].port = 9443 end
 		elseif options.port == 9280 and options.ssl then ports[id].port = 9443 end end
 	httpserver.new_from_config(ports, handle_req, { base = "register_account" })
-	prosody.events.add_handler("module-unloaded", cleanup)
+	prosody.events.add_handler("module-unloaded", regj_cleanup)
 end
 
 if prosody.start_time then -- already started
