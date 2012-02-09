@@ -75,17 +75,14 @@ local function handle_req(method, body, request)
 			if blacklist:contains(req_body["ip"]) then module:log("warn", "Attempt of reg. submission to the JSON servlet from blacklisted address: %s", req_body["ip"]) ; return http_response(403, "The specified address is blacklisted, sorry sorry.") end
 			if throttle_time and not whitelist:contains(req_body["ip"]) then
 				if not recent_ips[req_body["ip"]] then
-					recent_ips[req_body["ip"]] = { time = os_time(), count = 1 }
+					recent_ips[req_body["ip"]] = os_time()
 				else
-					local ip = recent_ips[req_body["ip"]]
-					ip.count = ip.count + 1
-
-					if os_time() - ip.time < throttle_time then
-						ip.time = os_time()
+					if os_time() - recent_ips[req_body["ip"]] < throttle_time then
+						recent_ips[req_body["ip"]] = os_time()
 						module:log("warn", "JSON Registration request from %s has been throttled.", req_body["ip"])
 						return http_response(503, "Woah... How many users you want to register..? Request throttled, wait a bit and try again.")
 					end
-					ip.time = os_time()
+					recent_ips[req_body["ip"]] = os_time()
 				end
 			end
 
