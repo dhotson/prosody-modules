@@ -44,7 +44,7 @@ local function message_handler(event, c2s)
 
 	local bare_jid, user_sessions;
 	local no_carbon_to = {};
-	module:log("debug", "origin (%s) type: %s", tostring(origin), origin.type)
+	module:log("debug", "Message from %s to %s", orig_from, orig_to);
 	if c2s then -- Stanza sent by a local client
 		bare_jid = (origin.username.."@"..origin.host)
 		user_sessions = host_sessions[origin.username];
@@ -53,11 +53,13 @@ local function message_handler(event, c2s)
 		bare_jid = jid_bare(orig_to);
 		user_sessions = host_sessions[username];
 		if resource then
+			module:log("debug", "Message was to resource %s, it will not get carbon", resource);
 			no_carbon_to[resource] = true;
 		elseif user_sessions then
 			local top_resources = user_sessions.top_resources;
 			if top_resources then
 				for _, session in ipairs(top_resources) do
+					module:log("debug", "Not sending carbons to top resource %s", session.resource);
 					no_carbon_to[session.resource] = true;
 				end
 			end
@@ -65,6 +67,7 @@ local function message_handler(event, c2s)
 	end
 
 	if not user_sessions then
+		module:log("debug", "Skip carbons for offline user");
 		return -- No use in sending carbons to an offline user
 	end
 
@@ -73,6 +76,7 @@ local function message_handler(event, c2s)
 			return tag.attr.xmlns == xmlns_carbons
 				and tag.name == "private" and tag or nil;
 		end);
+		module:log("debug", "Message tagged private, ignoring");
 		return
 	end
 
@@ -80,7 +84,13 @@ local function message_handler(event, c2s)
 		user_sessions = user_sessions and user_sessions.sessions;
 		for resource, session in pairs(user_sessions) do
 			local full_jid = bare_jid .. "/" .. resource;
+			module:log("debug", "%s wants carbons: %s", session.full_jid, tostring(session.want_carbons));
 			if session.want_carbons then
+				if c2s then
+					module:log("debug", "Session is origin: %s", tostring(session == origin));
+				else
+					module:log("debug", "Session is in ignore list: %s", tostring(no_carbon_to[resource]));
+				end
 				if (c2s and session ~= origin) or (not c2s and not no_carbon_to[resource]) then
 					local msg = st.clone(stanza);
 					msg.attr.xmlns = msg.attr.xmlns or "jabber:client";
@@ -92,6 +102,7 @@ local function message_handler(event, c2s)
 						:tag(c2s and "sent" or "received", { xmlns = xmlns_carbons }):up()
 						:tag("forwarded", { xmlns = xmlns_forward })
 							:add_child(msg);
+					module:log("debug", "Sending carbon");
 					core_post_stanza(origin, fwd);
 				end
 			end
