@@ -130,7 +130,7 @@ end
 -- initialization.
 -- init http interface
 
-function cleanup() -- handy, recycled from mod_register_json
+function stats_cleanup() -- handy, recycled from mod_register_json
         module:log("debug", "Cleaning up handlers and stuff as module is being unloaded.")
         for _, options in ipairs(ports) do
                 if options.port then
@@ -138,7 +138,7 @@ function cleanup() -- handy, recycled from mod_register_json
                 end
         end
 
-	local event = module:get_option_boolen("use_libevent", false)
+	local event = require "core.configmanager".get("*", "core", "use_libevent")
 
 	-- if there're no handlers left clean the socket, not sure if it works with server_select
 	if not event then
@@ -154,12 +154,12 @@ function cleanup() -- handy, recycled from mod_register_json
 	        end
 	end
 
-        prosody.events.remove_handler("module-unloaded", cleanup)
+        prosody.events.remove_handler("module-unloaded", stats_cleanup)
 end
 
 local function setup()
 	httpserver.new_from_config(ports, request, { base = "server-status" })
-	prosody.events.add_handler("module-unloaded", cleanup)
+	prosody.events.add_handler("module-unloaded", stats_cleanup)
 end
 
 if prosody.start_time then
