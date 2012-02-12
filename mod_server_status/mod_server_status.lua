@@ -130,36 +130,8 @@ end
 -- initialization.
 -- init http interface
 
-function stats_cleanup() -- handy, recycled from mod_register_json
-        module:log("debug", "Cleaning up handlers and stuff as module is being unloaded.")
-        for _, options in ipairs(ports) do
-                if options.port then
-                        httpserver.new.http_servers[options.port].handlers[options.path or "server-status"] = nil
-                end
-        end
-
-	local event = require "core.configmanager".get("*", "core", "use_libevent")
-
-	-- if there're no handlers left clean the socket, not sure if it works with server_select
-	if not event then
-	        for _, options in ipairs(ports) do
-	                if options.port and not next(httpserver.new.http_servers[options.port].handlers) then
-                	        httpserver.new.http_servers[options.port] = nil
-        	                if options.interface then
-	                                for _, value in ipairs(options.interface) do
-                                	        if server.getserver(value, options.port) then server.removeserver(value, options.port) end
-                        	        end
-                	        else if server.getserver("*", options.port) then server.removeserver("*", options.port) end end
-        	        end
-	        end
-	end
-
-        prosody.events.remove_handler("module-unloaded", stats_cleanup)
-end
-
 local function setup()
 	httpserver.new_from_config(ports, request, { base = "server-status" })
-	prosody.events.add_handler("module-unloaded", stats_cleanup)
 end
 
 if prosody.start_time then
