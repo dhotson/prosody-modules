@@ -16,7 +16,7 @@ local function handle_sessions(event)
 	if not in_count[session.ip] and session.type == "c2s_unauthed" then
 		in_count[session.ip] = { t = time(), c = 1 }
 	elseif in_count[session.ip] and session.type == "c2s_unauthed" then
-		in_count[session.ip].c = in_count[session.ip].c + 1
+		if in_count[session.ip].starttls_c then in_count[session.ip].c = in_count[session.ip].starttls_c else in_count[session.ip].c = in_count[session.ip].c + 1 end
 		
 		if in_count[session.ip].c > logins_count and time() - in_count[session.ip].t < throttle_time then
 			module:log("error", "Exceeded login count for %s, closing connection", session.ip)
@@ -28,5 +28,15 @@ local function handle_sessions(event)
 	end	
 end
 
-module:hook("stanza/urn:ietf:params:xml:ns:xmpp-sasl:auth", handle_sessions, 100)
-module:hook("stanza/iq/jabber:iq:auth:query", handle_sessions, 100) -- Legacy?
+local function check_starttls(event)
+	local session = event.origin
+
+	if in_count[session.ip] and type(in_count[session.ip].starttls_c) ~= "number" and session.type == "c2s_unauthed" then
+		in_count[session.ip].starttls_c = 1
+	elseif in_count[session.ip] and type(in_count[session.ip].starttls_c) == "number" and session.type == "c2s_unauthed" then
+		in_count[session.ip].starttls_c = in_count[session.ip].starttls_c + 1
+	end
+end
+
+module:hook("stream-features", handle_sessions, 100)
+module:hook("stanza/urn:ietf:params:xml:ns:xmpp-tls:starttls", check_starttls, 100)
