@@ -1,4 +1,5 @@
--- Auto-cleanup BOSH stuff module is added globally.
+-- Auto-cleanup for Global BOSH modules.
+-- Should take care of spring cleaning without messing in either the console, or restarting
 
 module:set_global()
 
