@@ -103,7 +103,7 @@ local function message_handler(event, c2s)
 						:tag("forwarded", { xmlns = xmlns_forward })
 							:add_child(msg);
 					module:log("debug", "Sending carbon");
-					core_post_stanza(origin, fwd);
+					session.send(fwd);
 				end
 			end
 		end
