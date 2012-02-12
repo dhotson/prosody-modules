@@ -44,36 +44,8 @@ end
 -- initialization.
 -- init http and cleanup interface
 
-function sc_cleanup() -- recycled from mod_register_json, it's handy
-        module:log("debug", "Cleaning up handlers and stuff as module is being unloaded.")
-        for _, options in ipairs(ports) do
-                if options.port then
-                        httpserver.new.http_servers[options.port].handlers[options.path or "stanza-counter"] = nil
-                end
-        end
-
-        -- if there are no handlers left clean and close the socket, doesn't work with server_event
-        local event = require "core.configmanager".get("*", "core", "use_libevent")
-
-        if not event then
-                for _, options in ipairs(ports) do
-                        if options.port and not next(httpserver.new.http_servers[options.port].handlers) then
-                                httpserver.new.http_servers[options.port] = nil
-                                if options.interface then
-                                        for _, value in ipairs(options.interface) do
-                                                if server.getserver(value, options.port) then server.removeserver(value, options.port) end
-                                        end
-                                else if server.getserver("*", options.port) then server.removeserver("*", options.port) end end
-                        end
-                end
-        end
-
-        prosody.events.remove_handler("module-unloaded", sc_cleanup)
-end
-
 local function setup()
 	httpserver.new_from_config(ports, req, { base = "stanza-counter" })
-	prosody.events.add_handler("module-unloaded", sc_cleanup)
 end
 
 -- set it
