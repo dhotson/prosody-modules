@@ -29,8 +29,8 @@ function _cbNewS2S(e) {
     var items, entry, tmp, retract, id, jid;
     items = e.getElementsByTagName('item');
     for (i = 0; i < items.length; i++) {
-        id = items[i].attributes['id'].value;
-        jid = items[i].getElementsByTagName('session')[0].attributes['jid'].value;
+        id = items[i].attributes.getNamedItem('id').value;
+        jid = items[i].getElementsByTagName('session')[0].attributes.getNamedItem('jid').value;
 
         entry = $('<li id="' + id + '">' + jid + '</li>');
         if (tmp = items[i].getElementsByTagName('encrypted')[0]) {
@@ -52,7 +52,7 @@ function _cbNewS2S(e) {
     }
     retract = e.getElementsByTagName('retract')[0];
     if (retract) {
-        id = retract.attributes['id'].value;
+        id = retract.attributes.getNamedItem('id').value;
         $('#' + id).remove();
     }
     return true;
@@ -62,8 +62,8 @@ function _cbNewC2S(e) {
     var items, entry, retract, id, jid;
     items = e.getElementsByTagName('item');
     for (i = 0; i < items.length; i++) {
-        id = items[i].attributes['id'].value;
-        jid = items[i].getElementsByTagName('session')[0].attributes['jid'].value;
+        id = items[i].attributes.getNamedItem('id').value;
+        jid = items[i].getElementsByTagName('session')[0].attributes.getNamedItem('jid').value;
         entry = $('<li id="' + id + '">' + jid + '</li>');
         if (items[i].getElementsByTagName('encrypted')[0]) {
             entry.append('<img src="images/encrypted.png" title="encrypted" alt=" (encrypted)" />');
@@ -75,14 +75,14 @@ function _cbNewC2S(e) {
     }
     retract = e.getElementsByTagName('retract')[0];
     if (retract) {
-        id = retract.attributes['id'].value;
+        id = retract.attributes.getNamedItem('id').value;
         $('#' + id).remove();
     }
     return true;
 }
 
 function _cbAdminSub(e) {
-    var node = e.getElementsByTagName('items')[0].attributes['node'].value;
+    var node = e.getElementsByTagName('items')[0].attributes.getNamedItem('node').value;
     if (node == Strophe.NS.C2SSTREAM) {
         _cbNewC2S(e);
     } else if (node == Strophe.NS.S2SSTREAM) {
