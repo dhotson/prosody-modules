@@ -202,6 +202,7 @@ local function message_handler(event, c2s)
 	if not orig_from and c2s then
 		orig_from = origin.full_jid;
 	end
+	orig_to = orig_to or orig_from; -- Weird corner cases
 
 	-- Don't store messages of these types
 	if orig_type == "error"
