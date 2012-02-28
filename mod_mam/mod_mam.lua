@@ -224,7 +224,7 @@ local function message_handler(event, c2s)
 
 		-- Stamp "We archived this" on the message
 		local id = uuid();
-		stanza:tag("archived", { xmlns = xmlns_mam, by = host, id = id });
+		stanza:tag("archived", { xmlns = xmlns_mam, by = host, id = id }):up();
 
 		local when = time_now();
 		-- And stash it
