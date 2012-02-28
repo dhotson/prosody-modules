@@ -44,7 +44,7 @@ local function message_handler(event, c2s)
 
 	local bare_jid, user_sessions;
 	local no_carbon_to = {};
-	module:log("debug", "Message from %s to %s", orig_from, orig_to);
+	module:log("debug", "Message from %s to %s", tostring(orig_from), tostring(orig_to));
 	if c2s then -- Stanza sent by a local client
 		bare_jid = (origin.username.."@"..origin.host)
 		user_sessions = host_sessions[origin.username];
