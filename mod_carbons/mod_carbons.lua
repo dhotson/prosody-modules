@@ -80,31 +80,29 @@ local function message_handler(event, c2s)
 		return
 	end
 
-	if not stanza:get_child("forwarded", xmlns_forward) then
-		user_sessions = user_sessions and user_sessions.sessions;
-		for resource, session in pairs(user_sessions) do
-			local full_jid = bare_jid .. "/" .. resource;
-			module:log("debug", "%s wants carbons: %s", session.full_jid, tostring(session.want_carbons));
-			if session.want_carbons then
-				if c2s then
-					module:log("debug", "Session is origin: %s", tostring(session == origin));
-				else
-					module:log("debug", "Session is in ignore list: %s", tostring(no_carbon_to[resource]));
-				end
-				if (c2s and session ~= origin) or (not c2s and not no_carbon_to[resource]) then
-					local msg = st.clone(stanza);
-					msg.attr.xmlns = msg.attr.xmlns or "jabber:client";
-					local fwd = st.message{
-								from = bare_jid,
-								to = full_jid,
-								type = orig_type,
-							}
-						:tag(c2s and "sent" or "received", { xmlns = xmlns_carbons }):up()
-						:tag("forwarded", { xmlns = xmlns_forward })
-							:add_child(msg);
-					module:log("debug", "Sending carbon");
-					session.send(fwd);
-				end
+	user_sessions = user_sessions and user_sessions.sessions;
+	for resource, session in pairs(user_sessions) do
+		local full_jid = bare_jid .. "/" .. resource;
+		module:log("debug", "%s wants carbons: %s", session.full_jid, tostring(session.want_carbons));
+		if session.want_carbons then
+			if c2s then
+				module:log("debug", "Session is origin: %s", tostring(session == origin));
+			else
+				module:log("debug", "Session is in ignore list: %s", tostring(no_carbon_to[resource]));
+			end
+			if (c2s and session ~= origin) or (not c2s and not no_carbon_to[resource]) then
+				local msg = st.clone(stanza);
+				msg.attr.xmlns = msg.attr.xmlns or "jabber:client";
+				local fwd = st.message{
+					from = bare_jid,
+					to = full_jid,
+					type = orig_type,
+				}
+				:tag(c2s and "sent" or "received", { xmlns = xmlns_carbons }):up()
+				:tag("forwarded", { xmlns = xmlns_forward })
+				:add_child(msg);
+				module:log("debug", "Sending carbon");
+				session.send(fwd);
 			end
 		end
 	end
