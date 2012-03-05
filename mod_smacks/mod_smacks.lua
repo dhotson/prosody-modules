@@ -198,8 +198,8 @@ function handle_unacked_stanzas(session)
 	end
 end
 
-local _destroy_session = sessionmanager.destroy_session;
-function sessionmanager.destroy_session(session, err)
+module:hook("pre-resource-unbind", function (event)
+	local session, err = event.session, event.error;
 	if session.smacks then
 		if not session.resumption_token then
 			local queue = session.outgoing_stanza_queue;
@@ -229,19 +229,16 @@ function sessionmanager.destroy_session(session, err)
 					session.log("debug", "Destroying session for hibernating too long");
 					session_registry[session.resumption_token] = nil;
 					session.resumption_token = nil;
-					-- This recursion back into our destroy handler is to
-					-- make sure we still handle any queued stanzas
 					sessionmanager.destroy_session(session);
 				else
 					session.log("debug", "Session resumed before hibernation timeout, all is well")
 				end
 			end);
-			return; -- Postpone destruction for now
+			return true; -- Postpone destruction for now
 		end
 		
 	end
-	return _destroy_session(session, err);
-end
+end);
 
 module:hook_stanza(xmlns_sm, "resume", function (session, stanza)
 	local id = stanza.attr.previd;
