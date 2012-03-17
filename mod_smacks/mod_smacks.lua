@@ -252,6 +252,12 @@ module:hook_stanza(xmlns_sm, "resume", function (session, stanza)
 	and session.host == original_session.host then
 		session.log("debug", "mod_smacks resuming existing session...");
 		-- TODO: All this should move to sessionmanager (e.g. session:replace(new_session))
+		if original_session.conn then
+			session.log("debug", "mod_smacks closing an old connection for this session");
+			local conn = original_session.conn;
+			require "net.connlisteners".get("xmppclient").associate_session(conn, nil);
+			conn:close();
+		end
 		original_session.ip = session.ip;
 		original_session.conn = session.conn;
 		original_session.send = session.send;
