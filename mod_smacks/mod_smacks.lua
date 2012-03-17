@@ -8,6 +8,7 @@ local tonumber, tostring = tonumber, tostring;
 local add_filter = require "util.filters".add_filter;
 local timer = require "util.timer";
 local datetime = require "util.datetime";
+local connlisteners = require "net.connlisteners";
 
 local xmlns_sm = "urn:xmpp:sm:2";
 local xmlns_errors = "urn:ietf:params:xml:ns:xmpp-stanzas";
@@ -255,7 +256,7 @@ module:hook_stanza(xmlns_sm, "resume", function (session, stanza)
 		if original_session.conn then
 			session.log("debug", "mod_smacks closing an old connection for this session");
 			local conn = original_session.conn;
-			require "net.connlisteners".get("xmppclient").associate_session(conn, nil);
+			connlisteners.get("xmppclient").associate_session(conn, nil);
 			conn:close();
 		end
 		original_session.ip = session.ip;
@@ -280,7 +281,7 @@ module:hook_stanza(xmlns_sm, "resume", function (session, stanza)
 		-- Inform xmppstream of the new session (passed to its callbacks)
 		stream:set_session(original_session);
 		-- Similar for connlisteners
-		require "net.connlisteners".get("xmppclient").associate_session(session.conn, original_session);
+		connlisteners.get("xmppclient").associate_session(session.conn, original_session);
 
 		session.send(st.stanza("resumed", { xmlns = xmlns_sm,
 			h = original_session.handled_stanza_count, previd = id }));
