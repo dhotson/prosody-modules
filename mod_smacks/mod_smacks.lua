@@ -201,7 +201,7 @@ end
 
 module:hook("pre-resource-unbind", function (event)
 	local session, err = event.session, event.error;
-	if session.smacks then
+	if session.smacks and err ~= "session closed" then
 		if not session.resumption_token then
 			local queue = session.outgoing_stanza_queue;
 			if #queue > 0 then
