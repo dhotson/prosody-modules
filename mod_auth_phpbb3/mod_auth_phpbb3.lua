@@ -190,7 +190,7 @@ function provider.get_password(username)
 end
 function provider.set_password(username, password)
 	local hash = phpbbCreateHash(password);
-	local stmt, err = setsql("UPDATE `phpbb_users` SET `user_password`=? WHERE `username`=?", hash, username);
+	local stmt, err = setsql("UPDATE `phpbb_users` SET `user_password`=? WHERE `username_clean`=?", hash, username);
 	return stmt and true, err;
 end
 function provider.create_user(username, password)
