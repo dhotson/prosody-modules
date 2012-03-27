@@ -9,7 +9,34 @@ if not hosts[muc_host].modules.muc then -- Not a MUC host
 	module:log("error", "this module can only be used on muc hosts."); return false;
 end
 
+-- Constants and imported functions from muc.lib.lua
 local xmlns_ma, xmlns_mo = "http://jabber.org/protocol/muc#admin", "http://jabber.org/protocol/muc#owner";
+local kickable_error_conditions = {
+	["gone"] = true;
+	["internal-server-error"] = true;
+	["item-not-found"] = true;
+	["jid-malformed"] = true;
+	["recipient-unavailable"] = true;
+	["redirect"] = true;
+	["remote-server-not-found"] = true;
+	["remote-server-timeout"] = true;
+	["service-unavailable"] = true;
+	["malformed error"] = true;
+};
+local function is_kickable_error(stanza)
+	local cond = get_error_condition(stanza);
+	return kickable_error_conditions[cond] and cond;
+end
+local function build_unavailable_presence_from_error(stanza)
+	local type, condition, text = stanza:get_error();
+	local error_message = "Kicked: "..(condition and condition:gsub("%-", " ") or "presence error");
+	if text then
+		error_message = error_message..": "..text;
+	end
+	return st.presence({type='unavailable', from=stanza.attr.from, to=stanza.attr.to})
+		:tag('status'):text(error_message);
+end
+local function getText(stanza, path) return getUsingPath(stanza, path, true); end
 
 -- COMPAT: iq condensed function
 hosts[muc_host].modules.muc.stanza_handler.muc_new_room.room_mt["compat_iq"] = function (self, origin, stanza, xmlns)
@@ -97,26 +124,20 @@ hosts[muc_host].modules.muc.stanza_handler.muc_new_room.room_mt["handle_to_room"
 			origin.send(self:get_disco_info(stanza));
 		elseif xmlns == "http://jabber.org/protocol/disco#items" and type == "get" then
 			origin.send(self:get_disco_items(stanza));
-		elseif (xmlns == xmlns_ma or xmlns == xmlns_mo) then
+		elseif xmlns == xmlns_ma or xmlns == xmlns_mo then
 			if xmlns == xmlns_ma then
 				self:compat_iq(origin, stanza, xmlns);
-			elseif xmlns == xmlns_mo and stanza.tags[1].name == "query" and #stanza.tags[1].tags == 0 and
-			       stanza.attr.type == "get" then -- form request
-				if self:get_affiliation(stanza.attr.from) ~= "owner" then
-					origin.send(st.error_reply(stanza, "auth", "forbidden", "Only owners can configure rooms"));
-				else
-					self:send_form(origin, stanza);
-				end
-			elseif xmlns == xmlns_mo and stanza.tags[1].name == "query" and stanza.tags[1]:get_child("x", "jabber:x:data") and
-			       stanza.attr.type == "set" then
-				if self:get_affiliation(stanza.attr.from) ~= "owner" then
-					origin.send(st.error_reply(stanza, "auth", "forbidden", "Only owners can configure rooms"));
-				else
-					self:process_form(origin, stanza);
-				end
-			elseif xmlns == xmlns_mo and stanza.tags[1].tags[1] then
-				local child = stanza.tags[1].tags[1];
-				if child.name == "destroy" then
+			elseif xmlns == xmlns_mo and (type == "set" or type == "get") and stanza.tags[1].name == "query" then
+				local owner_err = st.error_reply(stanza, "auth", "forbidden", "Only owners can configure rooms");
+				if #stanza.tags[1].tags == 0 and stanza.attr.type == "get" then
+					if self:get_affiliation(stanza.attr.from) ~= "owner" then
+						origin.send(owner_err);
+					else self:send_form(origin, stanza); end
+				elseif stanza.attr.type == "set" and stanza.tags[1]:get_child("x", "jabber:x:data") then
+					if self:get_affiliation(stanza.attr.from) ~= "owner" then
+						origin.send(owner_err);
+					else self:process_form(origin, stanza); end
+				elseif stanza.tags[1].tags[1].name == "destroy" then
 					if self:get_affiliation(stanza.attr.from) == "owner" then
 						local newjid = child.attr.jid;
 						local reason, password;
@@ -129,7 +150,7 @@ hosts[muc_host].modules.muc.stanza_handler.muc_new_room.room_mt["handle_to_room"
 						end
 						self:destroy(newjid, reason, password);
 						origin.send(st.reply(stanza));
-					else origin.send(st.error_reply(stanza, "auth", "forbidden", "Only owners can destroy rooms")); end
+					else origin.send(owner_err); end
 				else
 					self:compat_iq(origin, stanza, xmlns);
 				end
@@ -219,5 +240,3 @@ hosts[muc_host].modules.muc.stanza_handler.muc_new_room.room_mt["handle_to_room"
 		origin.send(st.error_reply(stanza, "cancel", "service-unavailable"));
 	end
 end
-
-
