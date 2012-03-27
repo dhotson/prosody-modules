@@ -117,17 +117,19 @@ hosts[muc_host].modules.muc.stanza_handler.muc_new_room.room_mt["handle_to_room"
 			elseif xmlns == xmlns_mo and stanza.tags[1].tags[1] then
 				local child = stanza.tags[1].tags[1];
 				if child.name == "destroy" then
-					local newjid = child.attr.jid;
-					local reason, password;
-					for _,tag in ipairs(child.tags) do
-						if tag.name == "reason" then
-							reason = #tag.tags == 0 and tag[1];
-						elseif tag.name == "password" then
-							password = #tag.tags == 0 and tag[1];
+					if self:get_affiliation(stanza.attr.from) == "owner" then
+						local newjid = child.attr.jid;
+						local reason, password;
+						for _,tag in ipairs(child.tags) do
+							if tag.name == "reason" then
+								reason = #tag.tags == 0 and tag[1];
+							elseif tag.name == "password" then
+								password = #tag.tags == 0 and tag[1];
+							end
 						end
-					end
-					self:destroy(newjid, reason, password);
-					origin.send(st.reply(stanza));
+						self:destroy(newjid, reason, password);
+						origin.send(st.reply(stanza));
+					else origin.send(st.error_reply(stanza, "auth", "forbidden", "Only owners can destroy rooms")); end
 				else
 					self:compat_iq(origin, stanza, xmlns);
 				end
