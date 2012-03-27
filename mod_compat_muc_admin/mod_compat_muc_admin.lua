@@ -36,6 +36,15 @@ local function build_unavailable_presence_from_error(stanza)
 	return st.presence({type='unavailable', from=stanza.attr.from, to=stanza.attr.to})
 		:tag('status'):text(error_message);
 end
+local function getUsingPath(stanza, path, getText)
+	local tag = stanza;
+	for _, name in ipairs(path) do
+		if type(tag) ~= 'table' then return; end
+		tag = tag:child_with_name(name);
+	end
+	if tag and getText then tag = table.concat(tag); end
+	return tag;
+end
 local function getText(stanza, path) return getUsingPath(stanza, path, true); end
 
 -- COMPAT: iq condensed function
