@@ -148,9 +148,9 @@ hosts[muc_host].modules.muc.stanza_handler.muc_new_room.room_mt["handle_to_room"
 					else self:process_form(origin, stanza); end
 				elseif stanza.tags[1].tags[1].name == "destroy" then
 					if self:get_affiliation(stanza.attr.from) == "owner" then
-						local newjid = child.attr.jid;
+						local newjid = stanza.tags[1].tags[1].attr.jid;
 						local reason, password;
-						for _,tag in ipairs(child.tags) do
+						for _,tag in ipairs(stanza.tags[1].tags[1].tags) do
 							if tag.name == "reason" then
 								reason = #tag.tags == 0 and tag[1];
 							elseif tag.name == "password" then
