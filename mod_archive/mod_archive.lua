@@ -760,10 +760,10 @@ local function msg_handler(data)
     if body then
         local from_node, from_host = jid.split(stanza.attr.from);
         local to_node, to_host = jid.split(stanza.attr.to);
-        if um.user_exists(from_node, from_host) and apply_pref(from_node, from_host, stanza.attr.to, thread) then
+        if hosts[from_host] and um.user_exists(from_node, from_host) and apply_pref(from_node, from_host, stanza.attr.to, thread) then
             store_msg(stanza, from_node, from_host, true);
         end
-        if um.user_exists(to_node, to_host) and apply_pref(to_node, to_host, stanza.attr.from, thread) then
+        if hosts[to_host] and um.user_exists(to_node, to_host) and apply_pref(to_node, to_host, stanza.attr.from, thread) then
             store_msg(stanza, to_node, to_host, false);
         end
     end
@@ -787,6 +787,8 @@ module:hook("iq/self/urn:xmpp:archive:modified", modified_handler);
 
 module:hook("message/full", msg_handler, 10);
 module:hook("message/bare", msg_handler, 10);
+module:hook("pre-message/full", msg_handler, 10);
+module:hook("pre-message/bare", msg_handler, 10);
 
 -- TODO exactmatch
 -- TODO <item/> JID match
