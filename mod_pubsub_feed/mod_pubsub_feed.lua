@@ -41,7 +41,7 @@ local urlencode  = http.urlencode;
 local feed_list = {};
 local refresh_interval;
 
--- Dynamicaly reloadable config.
+-- Dynamically reloadable config.
 local function update_config()
 	local config = module:get_option("feeds") or {
 		planet_jabber = "http://planet.jabber.org/atom.xml";
@@ -227,7 +227,7 @@ function subscribe(feed)
 	feed.subscription = "subscribe";
 	http.request(feed.hub, { body = body }, function(data, code, req) 
 		local code = tostring(code);
-		module:log("debug", "subscription to %s submitted, staus %s", feed.node, code);
+		module:log("debug", "subscription to %s submitted, status %s", feed.node, code);
 	end);
 end
 
