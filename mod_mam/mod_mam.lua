@@ -222,10 +222,7 @@ local function message_handler(event, c2s)
 	if shall_store(store_user, target_bare) then
 		module:log("debug", "Archiving stanza: %s", stanza:top_tag());
 
-		-- Stamp "We archived this" on the message
 		local id = uuid();
-		stanza:tag("archived", { xmlns = xmlns_mam, by = host, id = id }):up();
-
 		local when = time_now();
 		-- And stash it
 		dm_list_append(store_user, store_host, "archive2", {
