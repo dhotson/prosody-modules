@@ -1,9 +1,7 @@
--- XEP-xxxx: Message Archive Management for Prosody
+-- XEP-0313: Message Archive Management for Prosody
 -- Copyright (C) 2011-2012 Kim Alvefur
 --
 -- This file is MIT/X11 licensed.
---
--- Based on MAM ProtoXEP Version 0.1 (2010-07-01)
 
 local xmlns_mam     = "urn:xmpp:mam:tmp";
 local xmlns_delay   = "urn:xmpp:delay";
