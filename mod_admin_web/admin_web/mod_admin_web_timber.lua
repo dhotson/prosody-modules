@@ -135,11 +135,11 @@ function module.add_host(module)
 	module:provides("http", {
 		name = "admin";
 		route = {
-			["/"] = function(event)
+			["GET"] = function(event)
 				event.response.headers.location = event.request.path .. "/";
 				return 301;
 			end;
-			["/*"] = serve_file;
+			["GET /*"] = serve_file;
 		}
 	});
 end
