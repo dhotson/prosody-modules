@@ -17,7 +17,7 @@ local sm_attr = { xmlns = xmlns_sm };
 
 local resume_timeout = module:get_option_number("smacks_hibernation_time", 300);
 local s2s_smacks = module:get_option_boolean("smacks_enabled_s2s", false);
-local max_unacked_stanzas = 0;
+local max_unacked_stanzas = module:get_option_number("smacks_max_unacked_stanzas", 0);
 
 local c2s_sessions = module:shared("/*/c2s/sessions");
 local session_registry = {};
