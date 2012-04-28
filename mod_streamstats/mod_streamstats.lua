@@ -1,4 +1,6 @@
 local stats = prosody.stats;
+local iter = require "util.iterators";
+local count, keys = iter.count, iter.keys;
 
 if not stats then
 	stats = {
