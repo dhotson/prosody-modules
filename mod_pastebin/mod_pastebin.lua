@@ -1,6 +1,6 @@
 
 local st = require "util.stanza";
-local httpserver = require "net.httpserver";
+module:depends("http");
 local uuid_new = require "util.uuid".generate;
 local os_time = os.time;
 local t_insert, t_remove = table.insert, table.remove;
@@ -54,8 +54,7 @@ function pastebin_text(text)
 	return base_url..uuid;
 end
 
-function handle_request(method, body, request)
-	local pasteid = request.url.path:match("[^/]+$");
+function handle_request(event, pasteid)
 	if not pasteid or not pastes[pasteid] then
 		return "Invalid paste id, perhaps it expired?";
 	end
@@ -127,25 +126,11 @@ function expire_pastes(time)
 end
 
 
-local ports = module:get_option("pastebin_ports", { 5280 });
-for _, options in ipairs(ports) do
-	local port, base, ssl, interface = 5280, "pastebin", false, nil;
-	if type(options) == "number" then
-		port = options;
-	elseif type(options) == "table" then
-		port, base, ssl, interface = options.port or 5280, options.path or "pastebin", options.ssl or false, options.interface;
-	elseif type(options) == "string" then
-		base = options;
-	end
-	
-	if not ssl then
-		base_url = base_url or ("http://"..module:get_host()..(port ~= 80 and (":"..port) or "").."/"..base.."/");
-	else
-		base_url = base_url or ("https://"..module:get_host()..(port ~= 443 and (":"..port) or "").."/"..base.."/");
-	end
-	
-	httpserver.new{ interface = interface, port = port, base = base, handler = handle_request, ssl = ssl }
-end
+module:provides("http", {
+	route = {
+		["GET /*"] = handle_request;
+	};
+});
 
 local function set_pastes_metatable()
 	if expire_after == 0 then
