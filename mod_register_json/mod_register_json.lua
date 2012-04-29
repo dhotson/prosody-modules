@@ -122,7 +122,7 @@ end
 
 -- Set it up!
 
-module:provides((secure and "https" or "http"), {
+module:provides("http", {
 	default_path = base_path,
         route = {
                 ["GET /"] = handle_req,
