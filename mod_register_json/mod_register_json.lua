@@ -13,7 +13,6 @@ local os_time = os.time
 local nodeprep = require "util.encodings".stringprep.nodeprep
 
 module:depends("http")
-module:set_global()
 
 -- Pick up configuration.
 
