@@ -4,7 +4,7 @@
 module:depends("http")
 module:set_global()
 
-local base_path = module:get_option_array("server_status_basepath", "/server-status/")
+local base_path = module:get_option_string("server_status_basepath", "/server-status/")
 local show_hosts = module:get_option_array("server_status_show_hosts", nil)
 local show_comps = module:get_option_array("server_status_show_comps", nil)
 local json_output = module:get_option_boolean("server_status_json", false)
