@@ -1,11 +1,10 @@
 -- (C) 2011, Marco Cirillo (LW.Org)
 -- Exposes stats on HTTP for the stanza counter module.
 
+module:depends("http")
 module:set_global()
 
-local ports = module:get_option_array("stanza_counter_http_ports", {{ port = 5280 }})
-
-local httpserver = require "net.httpserver"
+local base_path = module:get_option_array("stanza_counter_basepath", "/stanza-counter/")
 
 -- http handlers
 
@@ -13,19 +12,20 @@ local r_200 = "\n<html>\n<head>\n<title>Prosody's Stanza Counter</title>\n<meta 
 
 local r_err = "\n<html>\n<head>\n<title>Prosody's Stanza Counter - Error %s</title>\n<meta name=\"robots\" content=\"noindex, nofollow\" />\n</head>\n\n<body>\n<h3>%s</h3>\n</body>\n\n</html>\n"
 
-local function res(code, r, h)
-	local response = {
-		status = code,
-		body = r
-	}
+local function res(event, code, body, extras)
+	local response = event.response
 	
-        if h then response.headers = h end
-        return response
+        if extras then
+		for header, data in pairs(extras) do response.headers[header] = data end
+	end
+
+	response.status_code = code
+	response:send(body)
 end
 
-local function req(method, body, request)
+local function req(event)
 	if not prosody.stanza_counter then
-		local err500 = r_err:format("500", "Stats not found, is the counter module loaded?")
+		local err500 = r_err:format(event, 500, "Stats not found, is the counter module loaded?")
 		return res(500, err500) end
 	if method == "GET" then
 		local forge_res = r_200:format(prosody.stanza_counter.iq["incoming"],
@@ -34,19 +34,19 @@ local function req(method, body, request)
 					       prosody.stanza_counter.message["outgoing"],
 					       prosody.stanza_counter.presence["incoming"],
 					       prosody.stanza_counter.presence["outgoing"])
-		return res(200, forge_res)
+		return res(event, 200, forge_res)
 	else
-		local err405 = r_err:format("405", "Only GET is supported")
-		return res(405, err405, {["Allow"] = "GET"})
+		local err405 = r_err:format(405, "Only GET is supported")
+		return res(event, 405, err405, {["Allow"] = "GET"})
 	end
 end
 
 -- initialization.
--- init http and cleanup interface
 
-local function setup()
-	httpserver.new_from_config(ports, req, { base = "stanza-counter" })
-end
-
--- set it
-if prosody.start_time then setup() else	module:hook("server-started", setup) end
+module:provides("http", {
+	default_path = base_path,
+        route = {
+                ["GET /"] = req,
+		["POST /"] = req
+        }
+})
