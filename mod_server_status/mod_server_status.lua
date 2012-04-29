@@ -112,10 +112,10 @@ end
 local function request(event)
 	local response = event.response
 	if not json_output then
-		response.headers.content_type = "application/json"
+		response.headers.content_type = "text/xml"
 		response:send(forge_response_xml()) 
 	else
-		response.headers.content_type = "text/xml"
+		response.headers.content_type = "application/json"
 		response:send(forge_response_json())
 	end
 end
