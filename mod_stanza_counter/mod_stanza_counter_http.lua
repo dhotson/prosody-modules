@@ -2,7 +2,6 @@
 -- Exposes stats on HTTP for the stanza counter module.
 
 module:depends("http")
-module:set_global()
 
 local base_path = module:get_option_array("stanza_counter_basepath", "/stanza-counter/")
 
