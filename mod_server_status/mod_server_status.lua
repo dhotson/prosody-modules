@@ -2,7 +2,6 @@
 -- Display server stats in readable XML or JSON format
 
 module:depends("http")
-module:set_global()
 
 local base_path = module:get_option_string("server_status_basepath", "/server-status/")
 local show_hosts = module:get_option_array("server_status_show_hosts", nil)
