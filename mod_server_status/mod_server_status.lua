@@ -1,14 +1,14 @@
 -- (C) 2011, Marco Cirillo (LW.Org)
 -- Display server stats in readable XML or JSON format
 
+module:depends("http")
 module:set_global()
 
-local ports = module:get_option_array("server_status_http_ports", {{ port = 5280 }})
+local base_path = module:get_option_array("server_status_basepath", "/server-status/")
 local show_hosts = module:get_option_array("server_status_show_hosts", nil)
 local show_comps = module:get_option_array("server_status_show_comps", nil)
 local json_output = module:get_option_boolean("server_status_json", false)
 
-local httpserver = require "net.httpserver"
 local json_encode = require "util.json".encode
 
 -- code begin
@@ -19,8 +19,6 @@ if not prosody.stanza_counter and not show_hosts and not show_comps then
 	module:log ("error", "check the module wiki at: http://code.google.com/p/prosody-modules/wiki/mod_server_status")
 	return false
 end
-
-local r_err = "\n<html>\n<head>\n<title>Prosody's Server Status - Error %s</title>\n<meta name=\"robots\" content=\"noindex, nofollow\" />\n</head>\n\n<body>\n<h3>%s</h3>\n</body>\n\n</html>\n"
 
 local response_table = {}
 response_table.header = '<?xml version="1.0" encoding="UTF-8" ?>'
@@ -111,31 +109,23 @@ end
 
 -- http handlers
 
-local function response(code, r, h)
-	local response = { status = code, body = r }
-	
-        if h then response.headers = h end
-        return response
-end
-
-local function request(method, body, request)
-	if method == "GET" then
-		if not json_output then return response(200, forge_response_xml()) else return response(200, forge_response_json()) end
+local function request(event)
+	local response = event.response
+	if not json_output then
+		response.headers.content_type = "application/json"
+		response:send(forge_response_xml()) 
 	else
-		local err405 = r_err:format("405", "Only GET is supported")
-		return response(405, err405, {["Allow"] = "GET"})
+		response.headers.content_type = "text/xml"
+		response:send(forge_response_json())
 	end
 end
 
 -- initialization.
--- init http interface
 
-local function setup()
-	httpserver.new_from_config(ports, request, { base = "server-status" })
-end
+module:provides("http", {
+	default_path = base_path,
+        route = {
+                ["GET /"] = request
+        }
+})
 
-if prosody.start_time then
-        setup()
-else
-        module:hook("server-started", setup)
-end
