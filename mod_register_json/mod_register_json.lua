@@ -17,6 +17,7 @@ module:set_global()
 
 -- Pick up configuration.
 
+local secure = module:get_option_boolean("reg_servlet_secure", true)
 local set_realm_name = module:get_option_string("reg_servlet_realm", "Restricted")
 local base_path = module:get_option_string("reg_servlet_base", "/register_account/")
 local throttle_time = module:get_option_number("reg_servlet_ttime", nil)
@@ -108,7 +109,7 @@ local function handle_req(event)
 						return http_response(event, 200, "Done.")
 					else
 						module:log("error", "user creation failed: "..error)
-						return http_response(event 500, "Encountered server error while creating the user: "..error)
+						return http_response(event, 500, "Encountered server error while creating the user: "..error)
 					end
 				end
 			else
@@ -121,7 +122,7 @@ end
 
 -- Set it up!
 
-module:provides("http", {
+module:provides((secure and "https" or "http"), {
 	default_path = base_path,
         route = {
                 ["GET /"] = handle_req,
