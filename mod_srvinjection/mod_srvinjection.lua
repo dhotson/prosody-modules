@@ -1,5 +1,5 @@
 
-module.host = "*";
+module:set_global();
 
 local adns = require "net.adns";
 
