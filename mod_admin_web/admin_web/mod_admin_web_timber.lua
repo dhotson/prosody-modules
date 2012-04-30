@@ -131,6 +131,7 @@ function serve_file(event, path)
 end
 
 function module.add_host(module)
+	-- Setup HTTP server
 	module:depends("http");
 	module:provides("http", {
 		name = "admin";
@@ -142,181 +143,183 @@ function module.add_host(module)
 			["GET /*"] = serve_file;
 		}
 	});
-end
 
-prosody.events.add_handler("server-started", function ()
-	for host_name, host_table in pairs(hosts) do
-		service[host_name] = pubsub.new({
-			broadcaster = function(node, jids, item) return simple_broadcast(node, jids, item, host_name) end;
-			normalize_jid = jid_bare;
-			get_affiliation = function(jid) return get_affiliation(jid, host_name) end;
-			capabilities = {
-				member = {
-					create = false;
-					publish = false;
-					retract = false;
-					get_nodes = true;
+	-- Setup adminsub service
+	local ok, err;
+	service[module.host] = pubsub.new({
+		broadcaster = function(node, jids, item) return simple_broadcast(node, jids, item, module.host) end;
+		normalize_jid = jid_bare;
+		get_affiliation = function(jid) return get_affiliation(jid, module.host) end;
+		capabilities = {
+			member = {
+				create = false;
+				publish = false;
+				retract = false;
+				get_nodes = true;
 
-					subscribe = true;
-					unsubscribe = true;
-					get_subscription = true;
-					get_subscriptions = true;
-					get_items = true;
+				subscribe = true;
+				unsubscribe = true;
+				get_subscription = true;
+				get_subscriptions = true;
+				get_items = true;
 
-					subscribe_other = false;
-					unsubscribe_other = false;
-					get_subscription_other = false;
-					get_subscriptions_other = false;
+				subscribe_other = false;
+				unsubscribe_other = false;
+				get_subscription_other = false;
+				get_subscriptions_other = false;
 
-					be_subscribed = true;
-					be_unsubscribed = true;
+				be_subscribed = true;
+				be_unsubscribed = true;
 
-					set_affiliation = false;
-				};
-
-				owner = {
-					create = true;
-					publish = true;
-					retract = true;
-					get_nodes = true;
-
-					subscribe = true;
-					unsubscribe = true;
-					get_subscription = true;
-					get_subscriptions = true;
-					get_items = true;
-
-					subscribe_other = true;
-					unsubscribe_other = true;
-					get_subscription_other = true;
-					get_subscriptions_other = true;
-
-					be_subscribed = true;
-					be_unsubscribed = true;
-
-					set_affiliation = true;
-				};
+				set_affiliation = false;
 			};
-		});
 
-		if not select(2, service[host_name]:get_nodes(true))[xmlns_s2s_session] then
-			local ok, errmsg = service[host_name]:create(xmlns_s2s_session, true);
-			if not ok then
-				module:log("warn", "Could not create node " .. xmlns_s2s_session .. ": " .. tostring(errmsg));
+			owner = {
+				create = true;
+				publish = true;
+				retract = true;
+				get_nodes = true;
+
+				subscribe = true;
+				unsubscribe = true;
+				get_subscription = true;
+				get_subscriptions = true;
+				get_items = true;
+
+				subscribe_other = true;
+				unsubscribe_other = true;
+				get_subscription_other = true;
+				get_subscriptions_other = true;
+
+				be_subscribed = true;
+				be_unsubscribed = true;
+
+				set_affiliation = true;
+			};
+		};
+	});
+
+	-- Create node for s2s sessions
+	ok, err = service[module.host]:create(xmlns_s2s_session, true);
+	if not ok then
+		module:log("warn", "Could not create node " .. xmlns_s2s_session .. ": " .. tostring(err));
+	else
+		service[module.host]:set_affiliation(xmlns_s2s_session, true, module.host, "owner")
+	end
+
+	-- Add outgoing s2s sessions 
+	for remotehost, session in pairs(hosts[module.host].s2sout) do
+		if session.type ~= "s2sout_unauthed" then
+			add_host(session, "out", module.host);
+		end
+	end
+
+	-- Add incomming s2s sessions 
+	for session in pairs(incoming_s2s) do
+		if session.to_host == module.host then
+			add_host(session, "in", module.host);
+		end
+	end
+
+	-- Create node for c2s sessions
+	ok, err = service[module.host]:create(xmlns_c2s_session, true);
+	if not ok then
+		module:log("warn", "Could not create node " .. xmlns_c2s_session .. ": " .. tostring(err));
+	else
+		service[module.host]:set_affiliation(xmlns_c2s_session, true, module.host, "owner")
+	end
+
+	-- Add c2s sessions
+	for username, user in pairs(hosts[module.host].sessions or {}) do
+		for resource, session in pairs(user.sessions or {}) do
+			add_client(session, module.host);
+		end
+	end
+
+	-- Register adminsub handler
+	module:hook("iq/host/http://prosody.im/adminsub:adminsub", function(event)
+		local origin, stanza = event.origin, event.stanza;
+		local adminsub = stanza.tags[1];
+		local action = adminsub.tags[1];
+		local reply;
+		if action.name == "subscribe" then
+			local ok, ret = service[module.host]:add_subscription(action.attr.node, stanza.attr.from, stanza.attr.from);
+			if ok then
+				reply = st.reply(stanza)
+					:tag("adminsub", { xmlns = xmlns_adminsub });
 			else
-				service[host_name]:set_affiliation(xmlns_s2s_session, true, host_name, "owner")
+				reply = st.error_reply(stanza, "cancel", ret);
 			end
-		end
-
-		for remotehost, session in pairs(host_table.s2sout) do
-			if session.type ~= "s2sout_unauthed" then
-				add_host(session, "out", host_name);
-			end
-		end
-		for session in pairs(incoming_s2s) do
-			if session.to_host == host_name then
-				add_host(session, "in", host_name);
-			end
-		end
-
-		if not select(2, service[host_name]:get_nodes(true))[xmlns_c2s_session] then
-			local ok, errmsg = service[host_name]:create(xmlns_c2s_session, true);
-			if not ok then
-				module:log("warn", "Could not create node " .. xmlns_c2s_session .. ": " .. tostring(errmsg));
+		elseif action.name == "unsubscribe" then
+			local ok, ret = service[module.host]:remove_subscription(action.attr.node, stanza.attr.from, stanza.attr.from);
+			if ok then
+				reply = st.reply(stanza)
+					:tag("adminsub", { xmlns = xmlns_adminsub });
 			else
-				service[host_name]:set_affiliation(xmlns_c2s_session, true, host_name, "owner")
+				reply = st.error_reply(stanza, "cancel", ret);
 			end
-		end
-
-		for username, user in pairs(host_table.sessions or {}) do
-			for resource, session in pairs(user.sessions or {}) do
-				add_client(session, host_name);
+		elseif action.name == "items" then
+			local node = action.attr.node;
+			local ok, ret = service[module.host]:get_items(node, stanza.attr.from);
+			if not ok then
+				return origin.send(st.error_reply(stanza, "cancel", ret));
 			end
-		end
 
-		host_table.events.add_handler("iq/host/http://prosody.im/adminsub:adminsub", function(event)
-			local origin, stanza = event.origin, event.stanza;
-			local adminsub = stanza.tags[1];
-			local action = adminsub.tags[1];
-			local reply;
-			if action.name == "subscribe" then
-				local ok, ret = service[host_name]:add_subscription(action.attr.node, stanza.attr.from, stanza.attr.from);
-				if ok then
-					reply = st.reply(stanza)
-						:tag("adminsub", { xmlns = xmlns_adminsub });
-				else
-					reply = st.error_reply(stanza, "cancel", ret);
-				end
-			elseif action.name == "unsubscribe" then
-				local ok, ret = service[host_name]:remove_subscription(action.attr.node, stanza.attr.from, stanza.attr.from);
-				if ok then
-					reply = st.reply(stanza)
-						:tag("adminsub", { xmlns = xmlns_adminsub });
-				else
-					reply = st.error_reply(stanza, "cancel", ret);
-				end
-			elseif action.name == "items" then
-				local node = action.attr.node;
-				local ok, ret = service[host_name]:get_items(node, stanza.attr.from);
-				if not ok then
-					return origin.send(st.error_reply(stanza, "cancel", ret));
-				end
-
-				local data = st.stanza("items", { node = node });
-				for _, entry in pairs(ret) do
-					data:add_child(entry);
-				end
-				if data then
-					reply = st.reply(stanza)
-						:tag("adminsub", { xmlns = xmlns_adminsub })
-							:add_child(data);
-				else
-					reply = st.error_reply(stanza, "cancel", "item-not-found");
-				end
-			elseif action.name == "adminfor" then
-				local data = st.stanza("adminfor");
-				for host_name in pairs(hosts) do
-					if is_admin(stanza.attr.from, host_name) then
-						data:tag("item"):text(host_name):up();
-					end
-				end
+			local data = st.stanza("items", { node = node });
+			for _, entry in pairs(ret) do
+				data:add_child(entry);
+			end
+			if data then
 				reply = st.reply(stanza)
 					:tag("adminsub", { xmlns = xmlns_adminsub })
 						:add_child(data);
 			else
-				reply = st.error_reply(stanza, "feature-not-implemented");
+				reply = st.error_reply(stanza, "cancel", "item-not-found");
 			end
-			return origin.send(reply);
-		end);
+		elseif action.name == "adminfor" then
+			local data = st.stanza("adminfor");
+			for host_name in pairs(hosts) do
+				if is_admin(stanza.attr.from, host_name) then
+					data:tag("item"):text(host_name):up();
+				end
+			end
+			reply = st.reply(stanza)
+				:tag("adminsub", { xmlns = xmlns_adminsub })
+					:add_child(data);
+		else
+			reply = st.error_reply(stanza, "feature-not-implemented");
+		end
+		return origin.send(reply);
+	end);
 
-		host_table.events.add_handler("resource-bind", function(event)
-			add_client(event.session, host_name);
-		end);
+	-- Add/remove c2s sessions
+	module:hook("resource-bind", function(event)
+		add_client(event.session, module.host);
+	end);
 
-		host_table.events.add_handler("resource-unbind", function(event)
-			del_client(event.session, host_name);
-			service[host_name]:remove_subscription(xmlns_c2s_session, host_name, event.session.full_jid);
-			service[host_name]:remove_subscription(xmlns_s2s_session, host_name, event.session.full_jid);
-		end);
+	module:hook("resource-unbind", function(event)
+		del_client(event.session, module.host);
+		service[module.host]:remove_subscription(xmlns_c2s_session, module.host, event.session.full_jid);
+		service[module.host]:remove_subscription(xmlns_s2s_session, module.host, event.session.full_jid);
+	end);
 
-		host_table.events.add_handler("s2sout-established", function(event)
-			add_host(event.session, "out", host_name);
-		end);
+	-- Add/remove s2s sessions
+	module:hook("s2sout-established", function(event)
+		add_host(event.session, "out", module.host);
+	end);
 
-		host_table.events.add_handler("s2sin-established", function(event)
-			add_host(event.session, "in", host_name);
-		end);
+	module:hook("s2sin-established", function(event)
+		add_host(event.session, "in", module.host);
+	end);
 
-		host_table.events.add_handler("s2sout-destroyed", function(event)
-			del_host(event.session, "out", host_name);
-		end);
+	module:hook("s2sout-destroyed", function(event)
+		del_host(event.session, "out", module.host);
+	end);
 
-		host_table.events.add_handler("s2sin-destroyed", function(event)
-			del_host(event.session, "in", host_name);
-		end);
-
-	end
-end);
+	module:hook("s2sin-destroyed", function(event)
+		del_host(event.session, "in", module.host);
+	end);
+end
 
 function simple_broadcast(node, jids, item, host)
 	item = st.clone(item);
