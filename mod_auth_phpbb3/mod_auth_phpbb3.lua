@@ -87,6 +87,19 @@ local function get_password(username)
 		end
 	end
 end
+local function check_sessionids(username, session_id)
+	-- TODO add session expiration and auto-login check
+	local stmt, err = getsql("SELECT phpbb_sessions.session_id FROM phpbb_sessions INNER JOIN phpbb_users ON phpbb_users.user_id = phpbb_sessions.session_user_id WHERE phpbb_users.username_clean =?", username);
+	if stmt then
+		for row in stmt:rows(true) do
+			-- if row.session_id == session_id then return true; end
+
+			-- workaround for possible LuaDBI bug
+			-- The session_id returned by the sql statement has an additional zero at the end. But that is not in the database.
+			if row.session_id == session_id or row.session_id == session_id.."0" then return true; end
+		end
+	end
+end
 
 
 local itoa64 = "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -239,6 +252,14 @@ function provider.get_sasl_handler()
 			return normalized and provider.test_password(normalized, password) and prepped;
 		end
 		local username = test(authentication) or test(jid_escape(authentication));
+		if not username and params.sessionid_as_password then
+			local function test(authentication)
+				local prepped = nodeprep(authentication);
+				local normalized = jid_unescape(prepped);
+				return normalized and check_sessionids(normalized, password) and prepped;
+			end
+			username = test(authentication) or test(jid_escape(authentication));
+		end
 		if username then
 			self.username = username;
 			return "success";
