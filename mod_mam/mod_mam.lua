@@ -139,6 +139,7 @@ module:hook("iq/self/"..xmlns_mam..":query", function(event)
 			local item = data[i];
 			local when, with, with_bare = item.when, item.with, item.with_bare;
 			local ts = item.timestamp;
+			local id = item.id;
 			--module:log("debug", "message with %s at %s", with, when or "???");
 			-- Apply query filter
 			if (not qwith or ((qwith == with) or (qwith == with_bare)))
@@ -147,7 +148,7 @@ module:hook("iq/self/"..xmlns_mam..":query", function(event)
 				-- Optimizable? Do this when archiving?
 				--module:log("debug", "sending");
 				local fwd_st = st.message{ to = origin.full_jid }
-					:tag("result", { xmlns = xmlns_mam, queryid = qid }):up()
+					:tag("result", { xmlns = xmlns_mam, queryid = qid, id = id }):up()
 					:tag("forwarded", { xmlns = xmlns_forward })
 						:tag("delay", { xmlns = xmlns_delay, stamp = ts or timestamp(when) }):up();
 				local orig_stanza = st.deserialize(item.stanza);
