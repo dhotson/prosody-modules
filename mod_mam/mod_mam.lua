@@ -157,6 +157,8 @@ module:hook("iq/self/"..xmlns_mam..":query", function(event)
 				orig_stanza.attr.xmlns = "jabber:client";
 				fwd_st:add_child(orig_stanza);
 				origin.send(fwd_st);
+			elseif qend and when > qend then
+				break -- We have passed into messages more recent than requested
 			end
 		end
 		-- That's all folks!
