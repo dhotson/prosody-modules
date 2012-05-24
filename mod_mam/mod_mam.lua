@@ -42,7 +42,8 @@ do
 	};
 end
 
-local prefs_store = "archive2_prefs";
+local archive_store = "archive2";
+local prefs_store = archive_store .. "_prefs";
 local function get_prefs(user)
 	return dm_load(user, host, prefs_store) or
 		{ [false] = global_default_policy };
@@ -124,7 +125,7 @@ module:hook("iq/self/"..xmlns_mam..":query", function(event)
 		qstart, qend = (qstart and timestamp_parse(qstart)), (qend and timestamp_parse(qend))
 
 		-- Load all the data!
-		local data, err = dm_list_load(origin.username, origin.host, "archive2");
+		local data, err = dm_list_load(origin.username, origin.host, archive_store);
 		if not data then
 			if (not err) then
 				module:log("debug", "The archive was empty.");
@@ -228,7 +229,7 @@ local function message_handler(event, c2s)
 		local id = uuid();
 		local when = time_now();
 		-- And stash it
-		local ok, err = dm_list_append(store_user, store_host, "archive2", {
+		local ok, err = dm_list_append(store_user, store_host, archive_store, {
 			-- WARNING This format may change.
 			id = id,
 			when = when, -- This might be an UNIX timestamp. Probably.
