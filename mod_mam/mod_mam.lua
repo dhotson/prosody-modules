@@ -19,12 +19,14 @@ local dm_list_load = require "util.datamanager".list_load;
 local dm_list_append = require "util.datamanager".list_append;
 local rm_load_roster = require "core.rostermanager".load_roster;
 
+local tostring = tostring;
 local time_now = os.time;
 local timestamp, timestamp_parse = require "util.datetime".datetime, require "util.datetime".parse;
 local uuid = require "util.uuid".generate;
 local global_default_policy = module:get_option("default_archive_policy", false);
 -- TODO Should be possible to enforce it too
 
+-- For translating preference names from string to boolean and back
 local default_attrs = {
 	always = true, [true] = "always",
 	never = false, [false] = "never",
@@ -225,7 +227,7 @@ local function message_handler(event, c2s)
 		local id = uuid();
 		local when = time_now();
 		-- And stash it
-		dm_list_append(store_user, store_host, "archive2", {
+		local ok, err = dm_list_append(store_user, store_host, "archive2", {
 			-- WARNING This format may change.
 			id = id,
 			when = when, -- This might be an UNIX timestamp. Probably.
@@ -234,6 +236,11 @@ local function message_handler(event, c2s)
 			with_bare = target_bare, -- Optimization, to avoid loads of jid_bare() calls when filtering.
 			stanza = st.preserialize(stanza)
 		});
+		--[[ This was dropped from the spec
+		if ok then 
+			stanza:tag("archived", { xmlns = xmlns_mam, by = host, id = id }):up();
+		end
+		--]]
 	else
 		module:log("debug", "Not archiving stanza: %s", stanza:top_tag());
 	end
