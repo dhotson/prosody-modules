@@ -206,7 +206,8 @@ local function message_handler(event, c2s)
 	-- Don't store messages of these types
 	if orig_type == "error"
 	or orig_type == "headline"
-	or orig_type == "groupchat" then
+	or orig_type == "groupchat"
+	or not stanza:get_child("body") then
 		return;
 		-- TODO Maybe headlines should be configurable?
 		-- TODO Write a mod_mam_muc for groupchat messages.
