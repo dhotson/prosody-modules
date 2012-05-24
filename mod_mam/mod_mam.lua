@@ -11,7 +11,6 @@ local st = require "util.stanza";
 local jid_bare = require "util.jid".bare;
 local jid_split = require "util.jid".split;
 local host = module.host;
-local host_sessions = hosts[host].sessions;
 
 local dm_load = require "util.datamanager".load;
 local dm_store = require "util.datamanager".store;
