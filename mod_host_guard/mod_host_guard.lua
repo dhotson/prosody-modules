@@ -12,44 +12,13 @@ local s2smanager = require "core.s2smanager"
 local config = require "core.configmanager"
 local nameprep = require "util.encodings".stringprep.nameprep
 
-local _make_connect = s2smanager.make_connect
-function s2smanager.make_connect(session, connect_host, connect_port)
-  if not session.s2sValidation then
-    if guard_blockall:contains(session.from_host) and not guard_ball_wl:contains(session.to_host) or
-       guard_block_bl:contains(session.to_host) and guard_protect:contains(session.from_host) then
-         module:log("error", "remote service %s attempted to access restricted host %s", session.to_host, session.from_host)
-         s2smanager.destroy_session(session, "You're not authorized, good bye.")
-         return false;
-    end
-  end
-  return _make_connect(session, connect_host, connect_port)
-end
-
-local _stream_opened = s2smanager.streamopened
-function s2smanager.streamopened(session, attr)
-  local host = attr.to and nameprep(attr.to)
-  local from = attr.from and nameprep(attr.from)
-    if not from then
-      session.s2sValidation = false
-    else
-      session.s2sValidation = true
-    end
-
-    if guard_blockall:contains(host) and not guard_ball_wl:contains(from) or
-       guard_block_bl:contains(from) and guard_protect:contains(host) then
-         module:log("error", "remote service %s attempted to access restricted host %s", from, host)
-         session:close({condition = "policy-violation", text = "You're not authorized, good bye."})
-         return false;
-    end
-    _stream_opened(session, attr)
-end
-
-local function sdr_hook (event)
-	local origin, stanza = event.origin, event.stanza
+local function s2s_hook (event)
+	local origin, stanza = event.session or event.origin, event.stanza or false
+	local to_host, from_host = (not stanza and origin.to_host) or stanza.attr.to, (not stanza and origin.from_host) or stanza.attr.from
 
 	if origin.type == "s2sin" or origin.type == "s2sin_unauthed" then
-	   if guard_blockall:contains(stanza.attr.to) and not guard_ball_wl:contains(stanza.attr.from) or
-	      guard_block_bl:contains(stanza.attr.from) and guard_protect:contains(stanza.attr.to) then
+	   if guard_blockall:contains(to_host) and not guard_ball_wl:contains(from_host) or
+	      guard_block_bl:contains(from_host) and guard_protect:contains(to_host) then
                 module:log("error", "remote service %s attempted to access restricted host %s", stanza.attr.from, stanza.attr.to)
                 origin:close({condition = "policy-violation", text = "You're not authorized, good bye."})
                 return false
@@ -62,7 +31,8 @@ end
 local function handle_activation (host)
 	if guard_blockall:contains(host) or guard_protect:contains(host) then
 		if hosts[host] and hosts[host].events then
-			hosts[host].events.add_handler("stanza/jabber:server:dialback:result", sdr_hook, 100)
+			hosts[host].events.add_handler("s2sin-established", s2s_hook, 500)
+			hosts[host].events.add_handler("stanza/jabber:server:dialback:result", s2s_hook, 500)
                 	module:log ("debug", "adding host protection for: "..host)
 		end
 	end
@@ -71,7 +41,8 @@ end
 local function handle_deactivation (host)
 	if guard_blockall:contains(host) or guard_protect:contains(host) then
 		if hosts[host] and hosts[host].events then
-			hosts[host].events.remove_handler("stanza/jabber:server:dialback:result", sdr_hook)
+			hosts[host].events.remove_handler("s2sin-established", s2s_hook)
+			hosts[host].events.remove_handler("stanza/jabber:server:dialback:result", s2s_hook)
                 	module:log ("debug", "removing host protection for: "..host)
 		end
 	end
@@ -79,7 +50,8 @@ end
 
 local function init_hosts()
 	for n,table in pairs(hosts) do
-		hosts[n].events.remove_handler("stanza/jabber:server:dialback:result", sdr_hook)
+		hosts[n].events.remove_handler("s2sin-established", s2s_hook)
+		hosts[n].events.remove_handler("stanza/jabber:server:dialback:result", s2s_hook)
 		if guard_blockall:contains(n) or guard_protect:contains(n) then	handle_activation(n) end
 	end
 end
