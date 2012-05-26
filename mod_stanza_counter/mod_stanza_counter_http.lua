@@ -3,7 +3,7 @@
 
 module:depends("http")
 
-local base_path = module:get_option_array("stanza_counter_basepath", "/stanza-counter/")
+local base_path = module:get_option_string("stanza_counter_basepath", "/stanza-counter/")
 
 -- http handlers
 
