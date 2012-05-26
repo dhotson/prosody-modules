@@ -8,7 +8,6 @@ local guard_ball_wl = module:get_option_set("host_guard_blockall_exceptions", {}
 local guard_protect = module:get_option_set("host_guard_selective", {})
 local guard_block_bl = module:get_option_set("host_guard_blacklist", {})
 
-local s2smanager = require "core.s2smanager"
 local config = require "core.configmanager"
 local nameprep = require "util.encodings".stringprep.nameprep
 
