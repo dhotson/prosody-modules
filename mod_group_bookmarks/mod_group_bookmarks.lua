@@ -75,11 +75,16 @@ module:hook("iq/self/jabber:iq:private:query", function(event)
 end, 1);
 
 function module.load()
-	bookmarks_file = config.get(module:get_host(), "core", "group_bookmarks_file");
-	if not bookmarks_file then return; end
-	
+	bookmarks_file = module:get_option_string("group_bookmarks_file");
+
 	rooms = { default = {} };
 	members = { };
+
+	if not bookmarks_file then
+		module:log("error", "Please specify group_bookmarks_file in your configuration");
+		return;
+	end
+	
 	local curr_room;
 	for line in io.lines(bookmarks_file) do
 		if line:match("^%s*%[.-%]%s*$") then
