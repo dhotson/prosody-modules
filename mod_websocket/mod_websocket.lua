@@ -18,6 +18,7 @@ local sm_new_session, sm_destroy_session = sessionmanager.new_session, sessionma
 local uuid_generate = require "util.uuid".generate;
 local sha1 = require "util.hashes".sha1;
 local base64 = require "util.encodings".base64.encode;
+local band = require "bit".band;
 local bxor = require "bit".bxor;
 local tohex = require "bit".tohex;
 
@@ -38,6 +39,56 @@ local sessions = module:shared("sessions");
 
 local stream_callbacks = { default_ns = "jabber:client", handlestanza = core_process_stanza };
 local listener = {};
+
+-- Websocket helpers
+local function parse_frame(frame)
+	local result = {};
+	local pos = 1;
+	local length_bytes = 0;
+	local counter = 0;
+	local tmp_byte;
+
+	tmp_byte = string.byte(frame, pos);
+	result.FIN = band(tmp_byte, 0x80) > 0;
+	result.RSV1 = band(tmp_byte, 0x40) > 0;
+	result.RSV2 = band(tmp_byte, 0x20) > 0;
+	result.RSV3 = band(tmp_byte, 0x10) > 0;
+	result.opcode = band(tmp_byte, 0x0F) > 0;
+
+	pos = pos + 1;
+	tmp_byte = string.byte(frame, pos);
+	result.MASK = band(tmp_byte, 0x80) > 0;
+	result.length = band(tmp_byte, 0x7F);
+
+	if result.length == 126 then
+		length_bytes = 2;
+		result.length = 0;
+	elseif result.length == 127 then
+		length_bytes = 8;
+		result.length = 0;
+	end
+
+	for i = 1, length_bytes do
+		pos = pos + 1;
+		result.length = result.length * 255 + string.byte(frame, pos);
+	end
+
+	if result.MASK then
+		result.key = {string.byte(frame, pos+1), string.byte(frame, pos+2),
+				string.byte(frame, pos+3), string.byte(frame, pos+4)}
+
+		pos = pos + 5;
+		result.data = "";
+		for i = pos, pos + result.length - 1 do
+			result.data = result.data .. string.char(bxor(result.key[counter+1], string.byte(frame, i)));
+			counter = (counter + 1) % 4;
+		end
+	else
+		result.data = frame:sub(pos + 1, pos + result.length);
+	end
+
+	return result;
+end
 
 --- Stream events handlers
 local stream_xmlns_attr = {xmlns='urn:ietf:params:xml:ns:xmpp-streams'};
@@ -61,6 +112,7 @@ function stream_callbacks.streamopened(session, attr)
 		return;
 	end
 
+	-- COMPAT: Current client implementations need this to be self-closing
 	send("<?xml version='1.0'?>"..(tostring(st.stanza("stream:stream", {
 		xmlns = 'jabber:client', ["xmlns:stream"] = 'http://etherx.jabber.org/streams';
 		id = session.streamid, from = session.host, version = '1.0', ["xml:lang"] = 'en' }):top_tag()):gsub(">", "/>")));
@@ -185,24 +237,12 @@ function listener.onconnect(conn)
 
 	local filter = session.filter;
 	function session.data(data)
-		local off = 0;
-		local len = string.byte(data, 2) - 0x80;
-		if len == 126 then
-			off = 2;
-		elseif len ==127 then
-			off = 8;
-		end
-		local key = {string.byte(data, off+3), string.byte(data, off+4), string.byte(data, off+5), string.byte(data, off+6)}
-		local decoded = "";
-		local counter = 0;
-		for i = off+7, #data do
-			decoded = decoded .. string.char(bxor(key[counter+1], string.byte(data, i)));
-			counter = (counter + 1) % 4;
-		end
-		module:log("debug", "Websocket received: %s %i", decoded, #decoded)
-		decoded = decoded:gsub("/>$", ">");
+		data = parse_frame(data).data;
+		module:log("debug", "Websocket received: %s %i", data, #data)
+		-- COMPAT: Current client implementations send a self-closing <stream:stream>
+		data = data:gsub("/>$", ">");
 
-		data = filter("bytes/in", decoded);
+		data = filter("bytes/in", data);
 		if data then
 			local ok, err = stream:feed(data);
 			if ok then return; end
