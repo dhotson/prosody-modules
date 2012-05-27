@@ -90,6 +90,30 @@ local function parse_frame(frame)
 	return result;
 end
 
+local function build_frame(desc)
+	local length;
+	local result = "";
+
+	result = result .. string.char(0x80 * (desc.FIN and 1 or 0) + desc.opcode);
+
+	length = #desc.data;
+	if length <= 125 then -- 7-bit length
+		result = result .. string.char(length);
+	elseif length <= 0xFFFF then -- 2-byte length
+		result = result .. string.char(126);
+		result = result .. string.char(length/0x100) .. string.char(length%0x100);
+	else -- 8-byte length
+		result = result .. string.char(127);
+		for i = 7, 0, -1 do
+			result = result .. string.char(( length / (2^(8*i)) ) % 0x100);
+		end
+	end
+
+	result = result .. desc.data;
+
+	return result;
+end
+
 --- Stream events handlers
 local stream_xmlns_attr = {xmlns='urn:ietf:params:xml:ns:xmpp-streams'};
 local default_stream_attr = { ["xmlns:stream"] = "http://etherx.jabber.org/streams", xmlns = stream_callbacks.default_ns, version = "1.0", id = "" };
@@ -252,19 +276,7 @@ function listener.onconnect(conn)
 	end
 
 	function session.send(s)
-		s = tostring(s);
-		local len = #s;
-		if len < 126 then
-			conn:write("\x81" .. string.char(len) .. s);
-		elseif len <= 0xffff then
-			conn:write("\x81" .. string.char(126) .. string.char(len/0x100) .. string.char(len%0x100) .. s);
-		else
-			conn:write("\x81" .. string.char(127) .. string.char(len/0x100000000000000)
-			.. string.char((len%0x100000000000000)/0x1000000000000) .. string.char((len%0x1000000000000)/0x10000000000)
-			.. string.char((len%0x10000000000)/0x100000000) .. string.char((len%0x100000000)/0x1000000)
-			.. string.char((len%0x1000000)/0x10000) .. string.char((len%0x10000)/0x100)
-			.. string.char((len%0x100)))
-		end
+		conn:write(build_frame({ FIN = true, opcode = 0x01, data = tostring(s)}));
 	end
 
 	if c2s_timeout then
