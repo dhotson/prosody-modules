@@ -50,7 +50,7 @@ local function parse_frame(frame)
 	result.RSV1 = band(tmp_byte, 0x40) > 0;
 	result.RSV2 = band(tmp_byte, 0x20) > 0;
 	result.RSV3 = band(tmp_byte, 0x10) > 0;
-	result.opcode = band(tmp_byte, 0x0F) > 0;
+	result.opcode = band(tmp_byte, 0x0F);
 
 	pos = pos + 1;
 	tmp_byte = string.byte(frame, pos);
@@ -257,18 +257,32 @@ function listener.onconnect(conn)
 	end
 
 	local filter = session.filter;
+	local buffer = "";
 	function session.data(data)
-		data = parse_frame(data).data;
-		module:log("debug", "Websocket received: %s %i", data, #data)
-		-- COMPAT: Current client implementations send a self-closing <stream:stream>
-		data = data:gsub("/>$", ">");
+		local frame = parse_frame(data);
 
-		data = filter("bytes/in", data);
-		if data then
-			local ok, err = stream:feed(data);
-			if ok then return; end
-			log("debug", "Received invalid XML (%s) %d bytes: %s", tostring(err), #data, data:sub(1, 300):gsub("[\r\n]+", " "):gsub("[%z\1-\31]", "_"));
-			session:close("not-well-formed");
+		module:log("debug", "Websocket received: %s (%i bytes)", frame.data, #frame.data);
+		if frame.opcode == 0x00 or frame.opcode == 0x01 then -- Text or continuation frame
+			buffer = buffer .. frame.data;
+		else
+			log("warn", "Received frame with unsupported opcode %i", frame.opcode);
+			return;
+		end
+
+		if frame.FIN then
+			data = buffer;
+			buffer = "";
+
+			-- COMPAT: Current client implementations send a self-closing <stream:stream>
+			data = data:gsub("/>$", ">");
+
+			data = filter("bytes/in", data);
+			if data then
+				local ok, err = stream:feed(data);
+				if ok then return; end
+				log("debug", "Received invalid XML (%s) %d bytes: %s", tostring(err), #data, data:sub(1, 300):gsub("[\r\n]+", " "):gsub("[%z\1-\31]", "_"));
+				session:close("not-well-formed");
+			end
 		end
 	end
 
