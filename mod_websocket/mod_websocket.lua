@@ -262,8 +262,12 @@ function listener.onconnect(conn)
 		local frame = parse_frame(data);
 
 		module:log("debug", "Websocket received: %s (%i bytes)", frame.data, #frame.data);
-		if frame.opcode == 0x00 or frame.opcode == 0x01 then -- Text or continuation frame
+		if frame.opcode == 0x0 or frame.opcode == 0x1 then -- Text or continuation frame
 			buffer = buffer .. frame.data;
+		elseif frame.opcode == 0x9 then -- Ping frame
+			frame.opcode = 0xA;
+			conn:write(build_frame(frame));
+			return;
 		else
 			log("warn", "Received frame with unsupported opcode %i", frame.opcode);
 			return;
