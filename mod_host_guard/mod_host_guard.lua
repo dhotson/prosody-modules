@@ -10,7 +10,6 @@ local guard_block_bl = module:get_option_set("host_guard_blacklist", {})
 
 local config = require "core.configmanager"
 local error_reply = require "util.stanza".error_reply
-local nameprep = require "util.encodings".stringprep.nameprep
 
 local function s2s_hook (event)
 	local origin, stanza = event.session or event.origin, event.stanza or false
