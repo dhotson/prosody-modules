@@ -29,12 +29,13 @@ local function s2s_hook (event)
 end
 
 local function rr_hook (event)
-	local from_host, to_host = event.from_host, event.to_host
+	local from_host, to_host, send, stanza = event.from_host, event.to_host, event.origin.send, event.stanza
 
 	if guard_blockall:contains(from_host) and not guard_ball_wl:contains(to_host) or
 	   guard_block_bl:contains(to_host) and guard_protect:contains(from_host) then
 	     module:log("info", "attempted to connect to a filtered remote host %s", to_host)
-	     return false
+	     if stanza.attr.type ~= "error" then send(error_reply(event.stanza, "cancel", "policy-violation", "Communicating with a filtered remote server is not allowed.")) end
+	     return true
 	end
 
 	return nil
