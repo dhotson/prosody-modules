@@ -29,7 +29,7 @@ local function s2s_hook (event)
 end
 
 local function rr_hook (event)
-	local from_host, to_host, stanza = event.from_host, event.to_host, event.stanza
+	local from_host, to_host = event.from_host, event.to_host
 
 	if guard_blockall:contains(from_host) and not guard_ball_wl:contains(to_host) or
 	   guard_block_bl:contains(to_host) and guard_protect:contains(from_host) then
