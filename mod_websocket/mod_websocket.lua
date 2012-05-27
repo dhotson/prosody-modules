@@ -31,6 +31,7 @@ local log = module._log;
 
 local c2s_timeout = module:get_option_number("c2s_timeout");
 local opt_keepalives = module:get_option_boolean("tcp_keepalives", false);
+local self_closing_stream = module:get_option_boolean("websocket_self_closing_stream", true);
 
 local sessions = module:shared("sessions");
 
@@ -134,9 +135,15 @@ function stream_callbacks.streamopened(session, attr)
 	end
 
 	-- COMPAT: Current client implementations need this to be self-closing
-	send("<?xml version='1.0'?>"..(tostring(st.stanza("stream:stream", {
-		xmlns = 'jabber:client', ["xmlns:stream"] = 'http://etherx.jabber.org/streams';
-		id = session.streamid, from = session.host, version = '1.0', ["xml:lang"] = 'en' }):top_tag()):gsub(">", "/>")));
+	if self_closing_stream then
+		send("<?xml version='1.0'?>"..tostring(st.stanza("stream:stream", {
+			xmlns = 'jabber:client', ["xmlns:stream"] = 'http://etherx.jabber.org/streams';
+			id = session.streamid, from = session.host, version = '1.0', ["xml:lang"] = 'en' })));
+	else
+		send("<?xml version='1.0'?>"..st.stanza("stream:stream", {
+			xmlns = 'jabber:client', ["xmlns:stream"] = 'http://etherx.jabber.org/streams';
+			id = session.streamid, from = session.host, version = '1.0', ["xml:lang"] = 'en' }):top_tag());
+	end
 
 	(session.log or log)("debug", "Sent reply <stream:stream> to client");
 	session.notopen = nil;
@@ -199,8 +206,12 @@ local function session_close(session, reason)
 	local log = session.log or log;
 	if session.conn then
 		if session.notopen then
-			session.send("<?xml version='1.0'?>");
-			session.send(st.stanza("stream:stream", default_stream_attr):top_tag());
+			-- COMPAT: Current client implementations need this to be self-closing
+			if self_closing_stream then
+				session.send("<?xml version='1.0'?>"..tostring(st.stanza("stream:stream", default_stream_attr)));
+			else
+				session.send("<?xml version='1.0'?>"..st.stanza("stream:stream", default_stream_attr):top_tag());
+			end
 		end
 		if reason then
 			if type(reason) == "string" then -- assume stream error
@@ -278,7 +289,9 @@ function listener.onconnect(conn)
 			buffer = "";
 
 			-- COMPAT: Current client implementations send a self-closing <stream:stream>
-			data = data:gsub("/>$", ">");
+			if self_closing_stream then
+				data = data:gsub("/>$", ">");
+			end
 
 			data = filter("bytes/in", data);
 			if data then
