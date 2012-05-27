@@ -22,9 +22,6 @@ local band = require "bit".band;
 local bxor = require "bit".bxor;
 local tohex = require "bit".tohex;
 
-module:depends("http")
-
-
 local xpcall, tostring, type = xpcall, tostring, type;
 local traceback = debug.traceback;
 
@@ -330,7 +327,8 @@ function handle_request(event, path)
 	return "";
 end
 
-function module.load()
+function module.add_host(module)
+	module:depends("http");
 	module:provides("http", {
 		name = "xmpp-websocket";
 		route = {
