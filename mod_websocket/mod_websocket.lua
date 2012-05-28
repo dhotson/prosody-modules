@@ -290,7 +290,7 @@ function listener.onconnect(conn)
 
 			-- COMPAT: Current client implementations send a self-closing <stream:stream>
 			if self_closing_stream then
-				data = data:gsub("/>$", ">");
+				data = data:gsub("(<stream:stream.*)/>$", "%1>");
 			end
 
 			data = filter("bytes/in", data);
