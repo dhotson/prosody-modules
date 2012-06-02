@@ -20,7 +20,6 @@ local sha1 = require "util.hashes".sha1;
 local base64 = require "util.encodings".base64.encode;
 local band = require "bit".band;
 local bxor = require "bit".bxor;
-local tohex = require "bit".tohex;
 
 local xpcall, tostring, type = xpcall, tostring, type;
 local traceback = debug.traceback;
