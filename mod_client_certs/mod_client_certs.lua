@@ -12,6 +12,7 @@ local dm_store = require "util.datamanager".store;
 local dm_table = "client_certs";
 local x509 = require "ssl.x509";
 local id_on_xmppAddr = "1.3.6.1.5.5.7.8.5";
+local id_ce_subjectAltName = "2.5.29.17";
 local digest_algo = "sha1";
 
 local function enable_cert(username, cert, info)
@@ -120,20 +121,22 @@ module:hook("iq/self/"..xmlns_saslcert..":append", function(event)
 		end
 
 		local valid_id_on_xmppAddrs;
-		local require_id_on_xmppAddr = false;
+		local require_id_on_xmppAddr = true;
 		if require_id_on_xmppAddr then
-			--local info = {};
 			valid_id_on_xmppAddrs = {};
-			for _,v in ipairs(cert:subject()) do
-				--info[#info+1] = (v.name or v.oid) ..":" .. v.value;
-				if v.oid == id_on_xmppAddr then
-					if jid_bare(v.value) == jid_bare(origin.full_jid) then
-						module:log("debug", "The certificate contains a id-on-xmppAddr key, and it is valid.");
-						valid_id_on_xmppAddrs[#valid_id_on_xmppAddrs+1] = v.value;
-						-- Is there a point in having >1 ids? Reject?!
-					else
-						module:log("debug", "The certificate contains a id-on-xmppAddr key, but it is for %s.", v.value);
-						-- Reject?
+			for k,ext in pairs(cert:extensions()) do
+				if k == id_ce_subjectAltName then
+					for e,extv in pairs(ext) do
+						if e == id_on_xmppAddr then
+							if jid_bare(extv[1]) == jid_bare(origin.full_jid) then
+								module:log("debug", "The certificate contains a id-on-xmppAddr key, and it is valid.");
+								valid_id_on_xmppAddrs[#valid_id_on_xmppAddrs+1] = extv[1];
+								-- Is there a point in having >1 ids? Reject?!
+							else
+								module:log("debug", "The certificate contains a id-on-xmppAddr key, but it is for %s.", v.value);
+								-- Reject?
+							end
+						end
 					end
 				end
 			end
@@ -175,16 +178,17 @@ local function handle_disable(event)
 			return true
 		end
 
-		local disabled_cert = disable_cert(origin.username, name):pem();
+		local disabled_cert = disable_cert(origin.username, name);
 
-		if disable.name == "revoke" then
+		if disabled_cert and disable.name == "revoke" then
 			module:log("debug", "%s revoked a certificate! Disconnecting all clients that used it", origin.full_jid);
 			local sessions = hosts[module.host].sessions[origin.username].sessions;
+			local disabled_cert_pem = disabled_cert:pem();
 
 			for _, session in pairs(sessions) do
 				local cert = session.external_auth_cert;
 				
-				if cert and cert == disabled_cert then
+				if cert and cert == disabled_cert_pem then
 					module:log("debug", "Found a session that should be closed: %s", tostring(session));
 					session:close{ condition = "not-authorized", text = "This client side certificate has been revoked."};
 				end
