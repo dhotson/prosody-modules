@@ -167,10 +167,6 @@ local function handle_disable(event)
 		local disable = stanza.tags[1];
 		module:log("debug", "%s disabled a certificate", origin.full_jid);
 
-		if disable.name == "revoke" then
-			module:log("debug", "%s revoked a certificate! Should disconnect all clients that used it", origin.full_jid);
-			-- TODO hosts.sessions[user].sessions.each{close if uses this cert}
-		end
 		local item = disable:get_child("item");
 		local name = item and item.attr.id;
 
@@ -179,8 +175,21 @@ local function handle_disable(event)
 			return true
 		end
 
-		disable_cert(origin.username, name);
+		local disabled_cert = disable_cert(origin.username, name):pem();
 
+		if disable.name == "revoke" then
+			module:log("debug", "%s revoked a certificate! Disconnecting all clients that used it", origin.full_jid);
+			local sessions = hosts[module.host].sessions[origin.username].sessions;
+
+			for _, session in pairs(sessions) do
+				local cert = session.external_auth_cert;
+				
+				if cert and cert == disabled_cert then
+					module:log("debug", "Found a session that should be closed: %s", tostring(session));
+					session:close{ condition = "not-authorized", text = "This client side certificate has been revoked."};
+				end
+			end
+		end
 		origin.send(st.reply(stanza));
 
 		return true
