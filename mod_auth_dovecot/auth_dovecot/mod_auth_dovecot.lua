@@ -14,6 +14,7 @@ local socket_port = module:get_option_string("dovecot_auth_port");
 local service_realm = module:get_option("realm");
 local service_name = module:get_option("service_name");
 local append_host = module:get_option_boolean("auth_append_host");
+--assert(not append_host, "auth_append_host does not work");
 local validate_domain = module:get_option_boolean("validate_append_host");
 local handle_appended = module:get_option_string("handle_appended");
 local util_sasl_new = require "util.sasl".new;
@@ -25,7 +26,7 @@ local new_sasl = function(realm)
 		service_realm or realm,
 		service_name or "xmpp",
 
-		socket_port and { socket_path, socket_port } or socket_path,
+		socket_port and { socket_host, socket_port } or socket_path,
 
 		{ --config
 			handle_domain = handle_appended or
@@ -55,22 +56,6 @@ function provider.test_password(username, password)
 	return new_sasl(module.host):plain_test(username, password);
 end
 
-if append_host then
-	new_sasl = function(realm)
-		return util_sasl_new(realm, {
-			plain_test = function(sasl, username, password, realm)
-				local prepped_username = nodeprep(username);
-				if not prepped_username then
-					log("debug", "NODEprep failed on username: %s", username);
-					return "", nil;
-				end
-				prepped_username = prepped_username .. "@" .. module.host;
-				return provider.test_password(prepped_username, password), true;
-			end,
-		});
-	end
-end
-
 function provider.get_password(username)
 	return nil, "Passwords unavailable for "..name;
 end
@@ -80,10 +65,13 @@ function provider.set_password(username, password)
 end
 
 function provider.user_exists(username)
+	return true -- FIXME
+--[[ This, sadly, doesn't work.
 	local user_test = new_sasl(module.host);
 	user_test:select("PLAIN");
 	user_test:process(("\0%s\0"):format(username));
 	return user_test.username == username;
+--]]
 end
 
 function provider.create_user(username, password)
@@ -92,6 +80,14 @@ end
 
 function provider.get_sasl_handler()
 	return new_sasl(module.host);
+end
+
+if append_host then
+	function provider.test_password(username, password)
+		return new_sasl(module.host):plain_test(username .. "@".. (service_realm or module.host), password);
+	end
+
+	provider.get_sasl_handler = nil
 end
 
 module:add_item("auth-provider", provider);

@@ -44,17 +44,17 @@ local conn, supported_mechs, pid;
 local function connect(socket_info)
 	--log("debug", "connect(%q)", socket_path);
 	if conn then conn:close(); pid = nil; end
-	if not pid then pid = tonumber(tostring(conn):match("0x%x*$")) end
 
 	local socket_type = (type(socket_info) == "string") and "UNIX" or "TCP";
 
-	local ok, err;
+	local ok, err, socket_path;
 	if socket_type == "TCP" then
 		local socket_host, socket_port = unpack(socket_info);
 		conn = socket.tcp();
 		ok, err = conn:connect(socket_host, socket_port);
 		socket_path = ("%s:%d"):format(socket_host, socket_port);
 	elseif socket.unix then
+		socket_path = socket_info;
 		conn = socket.unix();
 		ok, err = conn:connect(socket_path);
 	else
@@ -62,11 +62,12 @@ local function connect(socket_info)
 	end
 
 	if not ok then
-		log("error", "error connecting to dovecot %s socket at '%s'. error was '%s'", socket_type, socket_path, err);
+		log("error", "error connecting to dovecot %s socket at '%s'. error was '%s'", socket_type, socket_path or socket_info, err);
 		return false;
 	end
 
 	-- Send our handshake
+	pid = tonumber(tostring(conn):match("0x%x*$"));
 	log("debug", "sending handshake to dovecot. version 1.1, cpid '%d'", pid);
 	if not conn:send("VERSION\t1\t1\n") then
 		return false
@@ -127,7 +128,11 @@ end
 -- [[
 function method:send(...)
 	local msg = t_concat({...}, "\t");
-	local ok, err = self.conn:send(authmsg.."\n");
+	if msg:sub(-1) ~= "\n" then
+		msg = msg .. "\n"
+	end
+	module:log("debug", "sending %q", msg:sub(1,-2));
+	local ok, err = self.conn:send(msg);
 	if not ok then
 		log("error", "Could not write to socket: %s", err);
 		return nil, err;
@@ -136,13 +141,13 @@ function method:send(...)
 end
 
 function method:recv()
-	local line, err = self.conn:receive();
 	--log("debug", "Sent %d bytes to socket", ok);
 	local line, err = self.conn:receive();
 	if not line then
 		log("error", "Could not read from socket: %s", err);
 		return nil, err;
 	end
+	module:log("debug", "received %q", line);
 	return line;
 end
 -- ]]
@@ -183,30 +188,30 @@ function method:process(message)
 	--end
 	local request_id = self.request_id;
 	local authmsg;
+	local ok, err;
 	if not self.started then
 		self.started = true;
-		authmsg = t_concat({
+		ok, err = self:send(
 			"AUTH",
 			request_id,
 			self.selected,
 			"service="..self.service_name,
 			"resp="..(message and b64(message) or "=")
-		}, "\t");
+		);
 	else
-		authmsg = t_concat({
+		ok, err = self:send(
 			"CONT",
 			request_id,
 			(message and b64(message) or "=")
-		}, "\t");
+		);
 	end
 	--log("debug", "Sending %d bytes: %q", #authmsg, authmsg);
-	local ok, err = self.conn:send(authmsg.."\n");
 	if not ok then
 		log("error", "Could not write to socket: %s", err);
 		return "failure", "internal-server-error", err
 	end
 	--log("debug", "Sent %d bytes to socket", ok);
-	local line, err = self.conn:receive();
+	local line, err = self:recv();
 	if not line then
 		log("error", "Could not read from socket: %s", err);
 		return "failure", "internal-server-error", err
