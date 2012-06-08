@@ -61,7 +61,7 @@ local function parse(stanza)
 end
 
 local function generate(t)
-	local st = stanza("rsm", { xmlns = xmlns_rsm });
+	local st = stanza("set", { xmlns = xmlns_rsm });
 	for k,v in pairs(t) do
 		if element_parsers[k] then
 			element_generators[k](st, v);
