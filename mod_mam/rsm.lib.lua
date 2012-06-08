@@ -74,8 +74,6 @@ local function get(st)
 	local set = st:get_child("set", xmlns_rsm);
 	if set and #set.tags > 0 then
 		return parse(set);
-	else
-		module:log("debug", "RSM parse failed, %s", tostring(st));
 	end
 end
 
