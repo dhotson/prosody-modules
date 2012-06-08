@@ -21,10 +21,13 @@ local rm_load_roster = require "core.rostermanager".load_roster;
 
 local tostring = tostring;
 local time_now = os.time;
+local m_min = math.min;,
 local timestamp, timestamp_parse = require "util.datetime".datetime, require "util.datetime".parse;
 local uuid = require "util.uuid".generate;
+local default_max_items, max_max_items = 20, module:get_option_number("max_archive_query_results", 50);
 local global_default_policy = module:get_option("default_archive_policy", false);
 -- TODO Should be possible to enforce it too
+
 
 -- For translating preference names from string to boolean and back
 local default_attrs = {
@@ -137,6 +140,7 @@ module:hook("iq/self/"..xmlns_mam..":query", function(event)
 		end
 
 		-- RSM stuff
+		local qmax = m_min(qset and qset.max or default_max_items, max_max_items);
 		local qset_matches = not (qset and qset.after);
 		local first, last, index;
 		local n = 0;
@@ -189,7 +193,7 @@ module:hook("iq/self/"..xmlns_mam..":query", function(event)
 					module:log("debug", "Start of matching range found");
 					qset_matches = true;
 				end
-				if qset.max and n >= qset.max then
+				if n >= qmax then
 					module:log("debug", "Max number of items matched");
 					break
 				end
