@@ -135,6 +135,9 @@ function method:send(...)
 	local ok, err = self.conn:send(msg);
 	if not ok then
 		log("error", "Could not write to socket: %s", err);
+		if err == "closed" then
+			conn = nil;
+		end
 		return nil, err;
 	end
 	return true;
@@ -145,6 +148,9 @@ function method:recv()
 	local line, err = self.conn:receive();
 	if not line then
 		log("error", "Could not read from socket: %s", err);
+		if err == "closed" then
+			conn = nil;
+		end
 		return nil, err;
 	end
 	module:log("debug", "received %q", line);
