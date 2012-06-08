@@ -9,7 +9,7 @@ local element_parsers;
 
 do
 	local function xs_int(st)
-		return tonumber(st:get_text());
+		return tonumber((st:get_text()));
 	end
 	local function xs_string(st)
 		return st:get_text();

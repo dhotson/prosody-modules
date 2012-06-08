@@ -146,7 +146,6 @@ module:hook("iq/self/"..xmlns_mam..":query", function(event)
 		for i=start,#data do
 			local item = data[i];
 			local when, with, with_bare = item.when, item.with, item.with_bare;
-			local ts = item.timestamp;
 			local id = item.id;
 			--module:log("debug", "id is %s", id);
 
@@ -168,7 +167,7 @@ module:hook("iq/self/"..xmlns_mam..":query", function(event)
 				local fwd_st = st.message{ to = origin.full_jid }
 					:tag("result", { xmlns = xmlns_mam, queryid = qid, id = id }):up()
 					:tag("forwarded", { xmlns = xmlns_forward })
-						:tag("delay", { xmlns = xmlns_delay, stamp = ts or timestamp(when) }):up();
+						:tag("delay", { xmlns = xmlns_delay, stamp = timestamp(when) }):up();
 				local orig_stanza = st.deserialize(item.stanza);
 				orig_stanza.attr.xmlns = "jabber:client";
 				fwd_st:add_child(orig_stanza);
@@ -198,7 +197,7 @@ module:hook("iq/self/"..xmlns_mam..":query", function(event)
 		end
 		-- That's all folks!
 		module:log("debug", "Archive query %s completed", tostring(qid));
-		origin.send(st.reply(stanza):add_child(rsm.generate{first = { index = index; first }, last = last}));
+		origin.send(st.reply(stanza):add_child(rsm.generate{last = last}));
 		return true
 	end
 end);
