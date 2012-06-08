@@ -197,7 +197,13 @@ module:hook("iq/self/"..xmlns_mam..":query", function(event)
 		end
 		-- That's all folks!
 		module:log("debug", "Archive query %s completed", tostring(qid));
-		origin.send(st.reply(stanza):add_child(rsm.generate{last = last}));
+
+		local reply = st.reply(stanza);
+		if last then
+			-- This is a bit redundant, isn't it?
+			reply:query(xmlns_mam):add_child(rsm.generate{last = last});
+		end
+		origin.send(reply);
 		return true
 	end
 end);
