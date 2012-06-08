@@ -21,7 +21,7 @@ local rm_load_roster = require "core.rostermanager".load_roster;
 
 local tostring = tostring;
 local time_now = os.time;
-local m_min = math.min;,
+local m_min = math.min;
 local timestamp, timestamp_parse = require "util.datetime".datetime, require "util.datetime".parse;
 local uuid = require "util.uuid".generate;
 local default_max_items, max_max_items = 20, module:get_option_number("max_archive_query_results", 50);
