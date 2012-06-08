@@ -8,6 +8,7 @@ local xmlns_delay   = "urn:xmpp:delay";
 local xmlns_forward = "urn:xmpp:forward:0";
 
 local st = require "util.stanza";
+local rsm = module:require "rsm";
 local jid_bare = require "util.jid".bare;
 local jid_split = require "util.jid".split;
 local host = module.host;
@@ -62,7 +63,6 @@ module:hook("iq/self/"..xmlns_mam..":prefs", function(event)
 		local default = prefs[false];
 		default = default ~= nil and default_attrs[default] or global_default_policy;
 		local reply = st.reply(stanza):tag("prefs", { xmlns = xmlns_mam, default = default })
-		--module:log("debug", "get_prefs(%q) => %s", user, require"util.serialization".serialize(prefs));
 		local always = st.stanza("always");
 		local never = st.stanza("never");
 		for k,v in pairs(prefs) do
@@ -97,7 +97,6 @@ module:hook("iq/self/"..xmlns_mam..":prefs", function(event)
 			end
 		end
 
-		--module:log("debug", "set_prefs(%q, %s)", user, require"util.serialization".serialize(prefs));
 		local ok, err = set_prefs(user, prefs);
 		if not ok then
 			origin.send(st.error_reply(stanza, "cancel", "internal-server-error", "Error storing preferences: "..tostring(err)));
@@ -119,6 +118,7 @@ module:hook("iq/self/"..xmlns_mam..":query", function(event)
 		local qwith = query:get_child_text("with");
 		local qstart = query:get_child_text("start");
 		local qend = query:get_child_text("end");
+		local qset = rsm.get(query);
 		module:log("debug", "Archive query, id %s with %s from %s until %s)",
 			tostring(qid), qwith or "anyone", qstart or "the dawn of time", qend or "now");
 
@@ -136,19 +136,35 @@ module:hook("iq/self/"..xmlns_mam..":query", function(event)
 			return true
 		end
 
+		-- RSM stuff
+		local qset_matches = not (qset and qset.after);
+		local first, last, index;
+		local n = 0;
+		local start = qset and qset.index or 1;
+
 		module:log("debug", "Loaded %d items, about to filter", #data);
-		for i=1,#data do
+		for i=start,#data do
 			local item = data[i];
 			local when, with, with_bare = item.when, item.with, item.with_bare;
 			local ts = item.timestamp;
 			local id = item.id;
+			--module:log("debug", "id is %s", id);
+
+			-- RSM pre-send-checking
+			if qset then
+				if qset.before == id then
+					module:log("debug", "End of matching range found");
+					qset_matches = false;
+					break;
+				end
+			end
+
 			--module:log("debug", "message with %s at %s", with, when or "???");
 			-- Apply query filter
 			if (not qwith or ((qwith == with) or (qwith == with_bare)))
 					and (not qstart or when >= qstart)
-					and (not qend or when <= qend) then
-				-- Optimizable? Do this when archiving?
-				--module:log("debug", "sending");
+					and (not qend or when <= qend)
+					and (not qset or qset_matches) then
 				local fwd_st = st.message{ to = origin.full_jid }
 					:tag("result", { xmlns = xmlns_mam, queryid = qid, id = id }):up()
 					:tag("forwarded", { xmlns = xmlns_forward })
@@ -157,13 +173,32 @@ module:hook("iq/self/"..xmlns_mam..":query", function(event)
 				orig_stanza.attr.xmlns = "jabber:client";
 				fwd_st:add_child(orig_stanza);
 				origin.send(fwd_st);
-			elseif qend and when > qend then
+				if not first then
+					index = i;
+					first = id;
+				end
+				last = id;
+				n = n + 1;
+			elseif (qend and when > qend) then
+				module:log("debug", "We have passed into messages more recent than requested");
 				break -- We have passed into messages more recent than requested
+			end
+
+			-- RSM post-send-checking
+			if qset then
+				if qset.after == id then
+					module:log("debug", "Start of matching range found");
+					qset_matches = true;
+				end
+				if qset.max and n >= qset.max then
+					module:log("debug", "Max number of items matched");
+					break
+				end
 			end
 		end
 		-- That's all folks!
 		module:log("debug", "Archive query %s completed", tostring(qid));
-		origin.send(st.reply(stanza));
+		origin.send(st.reply(stanza):add_child(rsm.generate{first = { index = index; first }, last = last}));
 		return true
 	end
 end);
@@ -221,8 +256,6 @@ local function message_handler(event, c2s)
 	local target_jid = c2s and orig_to or orig_from;
 	local target_bare = jid_bare(target_jid);
 
-	assert(store_host == host, "This should not happen.");
-
 	if shall_store(store_user, target_bare) then
 		module:log("debug", "Archiving stanza: %s", stanza:top_tag());
 
@@ -232,8 +265,7 @@ local function message_handler(event, c2s)
 		local ok, err = dm_list_append(store_user, store_host, archive_store, {
 			-- WARNING This format may change.
 			id = id,
-			when = when, -- This might be an UNIX timestamp. Probably.
-			timestamp = timestamp(when), -- Textual timestamp. But I'll assume that comparing numbers is faster and less annoying in case of timezones.
+			when = when,
 			with = target_jid,
 			with_bare = target_bare, -- Optimization, to avoid loads of jid_bare() calls when filtering.
 			stanza = st.preserialize(stanza)
