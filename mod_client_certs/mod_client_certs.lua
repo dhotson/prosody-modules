@@ -5,6 +5,7 @@
 
 local st = require "util.stanza";
 local jid_bare = require "util.jid".bare;
+local jid_split = require "util.jid".split;
 local xmlns_saslcert = "urn:xmpp:saslcert:0";
 local xmlns_pubkey = "urn:xmpp:tmp:pubkey";
 local dm_load = require "util.datamanager".load;
@@ -14,41 +15,53 @@ local x509 = require "ssl.x509";
 local id_on_xmppAddr = "1.3.6.1.5.5.7.8.5";
 local id_ce_subjectAltName = "2.5.29.17";
 local digest_algo = "sha1";
+local base64 = require "util.encodings".base64;
 
 local function enable_cert(username, cert, info)
 	local certs = dm_load(username, module.host, dm_table) or {};
-	local all_certs = dm_load(nil, module.host, dm_table) or {};
 
 	info.pem = cert:pem();
 	local digest = cert:digest(digest_algo);
 	info.digest = digest;
 	certs[info.id] = info;
-	all_certs[digest] = username;
-	-- Or, have it be keyed by the entire PEM representation
 
 	dm_store(username, module.host, dm_table, certs);
-	dm_store(nil, module.host, dm_table, all_certs);
 	return true
 end
 
 local function disable_cert(username, name)
 	local certs = dm_load(username, module.host, dm_table) or {};
-	local all_certs = dm_load(nil, module.host, dm_table) or {};
 
 	local info = certs[name];
 	local cert;
 	if info then
 		certs[name] = nil;
 		cert = x509.cert_from_pem(info.pem);
-		all_certs[cert:digest(digest_algo)] = nil;
 	else
 		return nil, "item-not-found"
 	end
 
 	dm_store(username, module.host, dm_table, certs);
-	dm_store(nil, module.host, dm_table, all_certs);
 	return cert; -- So we can compare it with stuff
 end
+
+local function get_id_on_xmpp_addrs(cert)
+	local id_on_xmppAddrs = {};
+	for k,ext in pairs(cert:extensions()) do
+		if k == id_ce_subjectAltName then
+			for e,extv in pairs(ext) do
+				if e == id_on_xmppAddr then
+					for i,v in ipairs(extv) do
+						id_on_xmppAddrs[#id_on_xmppAddrs+1] = v;
+					end
+				end
+			end
+		end
+	end
+	module:log("debug", "Found JIDs: (%d) %s", #id_on_xmppAddrs, table.concat(id_on_xmppAddrs, ", "));
+	return id_on_xmppAddrs;
+end
+	
 
 module:hook("iq/self/"..xmlns_saslcert..":items", function(event)
 	local origin, stanza = event.origin, event.stanza;
@@ -123,25 +136,17 @@ module:hook("iq/self/"..xmlns_saslcert..":append", function(event)
 		local valid_id_on_xmppAddrs;
 		local require_id_on_xmppAddr = true;
 		if require_id_on_xmppAddr then
-			valid_id_on_xmppAddrs = {};
-			for k,ext in pairs(cert:extensions()) do
-				if k == id_ce_subjectAltName then
-					for e,extv in pairs(ext) do
-						if e == id_on_xmppAddr then
-							if jid_bare(extv[1]) == jid_bare(origin.full_jid) then
-								module:log("debug", "The certificate contains a id-on-xmppAddr key, and it is valid.");
-								valid_id_on_xmppAddrs[#valid_id_on_xmppAddrs+1] = extv[1];
-								-- Is there a point in having >1 ids? Reject?!
-							else
-								module:log("debug", "The certificate contains a id-on-xmppAddr key, but it is for %s.", v.value);
-								-- Reject?
-							end
-						end
-					end
+			valid_id_on_xmppAddrs = get_id_on_xmpp_addrs(cert);
+
+			local found = false;
+			for i,k in pairs(valid_id_on_xmppAddrs) do
+				if jid_bare(k) == jid_bare(origin.full_jid) then
+					found = true;
+					break;
 				end
 			end
 
-			if #valid_id_on_xmppAddrs == 0 then
+			if not found then
 				origin.send(st.error_reply(stanza, "cancel", "bad-request", "This certificate is has no valid id-on-xmppAddr field."));
 				return true -- REJECT?!
 			end
@@ -152,7 +157,6 @@ module:hook("iq/self/"..xmlns_saslcert..":append", function(event)
 			name = name,
 			x509cert = x509cert,
 			no_cert_management = can_manage,
-			jids = valid_id_on_xmppAddrs,
 		});
 
 		module:log("debug", "%s added certificate named %s", origin.full_jid, name);
@@ -186,11 +190,13 @@ local function handle_disable(event)
 			local disabled_cert_pem = disabled_cert:pem();
 
 			for _, session in pairs(sessions) do
-				local cert = session.external_auth_cert;
+				if session and session.conn then
+					local cert = session.conn:socket():getpeercertificate();
 				
-				if cert and cert == disabled_cert_pem then
-					module:log("debug", "Found a session that should be closed: %s", tostring(session));
-					session:close{ condition = "not-authorized", text = "This client side certificate has been revoked."};
+					if cert and cert:pem() == disabled_cert_pem then
+						module:log("debug", "Found a session that should be closed: %s", tostring(session));
+						session:close{ condition = "not-authorized", text = "This client side certificate has been revoked."};
+					end
 				end
 			end
 		end
@@ -215,26 +221,14 @@ module:hook("stream-features", function(event)
 			return
 		end
 		module:log("info", "Client Certificate: %s", cert:digest(digest_algo));
-		local all_certs = dm_load(nil, module.host, dm_table) or {};
-		local digest = cert:digest(digest_algo);
-		local username = all_certs[digest];
 		if not cert:valid_at(now()) then
 			module:log("debug", "Client has an expired certificate", cert:digest(digest_algo));
 			return
 		end
-		if username then
-			local certs = dm_load(username, module.host, dm_table) or {};
-			local pem = cert:pem();
-			for name,info in pairs(certs) do
-				if info.digest == digest and info.pem == pem then
-					session.external_auth_cert, session.external_auth_user = pem, username;
-					module:log("debug", "Stream features:\n%s", tostring(features));
-					local mechs = features:get_child("mechanisms", "urn:ietf:params:xml:ns:xmpp-sasl");
-					if mechs then
-						mechs:tag("mechanism"):text("EXTERNAL");
-					end
-				end
-			end
+		module:log("debug", "Stream features:\n%s", tostring(features));
+		local mechs = features:get_child("mechanisms", "urn:ietf:params:xml:ns:xmpp-sasl");
+		if mechs then
+			mechs:tag("mechanism"):text("EXTERNAL");
 		end
 	end
 end, -1);
@@ -243,19 +237,55 @@ local sm_make_authenticated = require "core.sessionmanager".make_authenticated;
 
 module:hook("stanza/urn:ietf:params:xml:ns:xmpp-sasl:auth", function(event)
 	local session, stanza = event.origin, event.stanza;
-	if session.type == "c2s_unauthed" and event.stanza.attr.mechanism == "EXTERNAL" then
+	if session.type == "c2s_unauthed" and stanza.attr.mechanism == "EXTERNAL" then
 		if session.secure then
 			local cert = session.conn:socket():getpeercertificate();
-			if cert:pem() == session.external_auth_cert then
-				sm_make_authenticated(session, session.external_auth_user);
-				module:fire_event("authentication-success", { session = session });
-				session.external_auth, session.external_auth_user = nil, nil;
-				session.send(st.stanza("success", { xmlns="urn:ietf:params:xml:ns:xmpp-sasl"}));
-				session:reset_stream();
+			local username_data = stanza:get_text();
+			local username = nil;
+
+			if username_data == "=" then
+				-- Check for either an id_on_xmppAddr
+				local jids = get_id_on_xmpp_addrs(cert);
+
+				if not (#jids == 1) then
+					module:log("debug", "Client tried to authenticate as =, but certificate has multiple JIDs.");
+					module:fire_event("authentication-failure", { session = session, condition = "not-authorized" });
+					session.send(st.stanza("failure", { xmlns="urn:ietf:params:xml:ns:xmpp-sasl"}):tag"not-authorized");
+					return true;
+				end
+
+				username = jids[1];
 			else
+				-- Check the base64 encoded username
+				username = base64.decode(username_data);
+			end
+
+			local user, host, resource = jid_split(username);
+
+			module:log("debug", "Inferred username: %s", user or "nil");
+
+			if (not username) or (not host == module.host) then
+				module:log("debug", "No valid username found for %s", tostring(session));
 				module:fire_event("authentication-failure", { session = session, condition = "not-authorized" });
 				session.send(st.stanza("failure", { xmlns="urn:ietf:params:xml:ns:xmpp-sasl"}):tag"not-authorized");
+				return true;
 			end
+
+			local certs = dm_load(user, module.host, dm_table) or {};
+			local digest = cert:digest(digest_algo);
+			local pem = cert:pem();
+
+			for name,info in pairs(certs) do
+				if info.digest == digest and info.pem == pem then
+					sm_make_authenticated(session, user);
+					module:fire_event("authentication-success", { session = session });
+					session.send(st.stanza("success", { xmlns="urn:ietf:params:xml:ns:xmpp-sasl"}));
+					session:reset_stream();
+					return true;
+				end
+			end
+			module:fire_event("authentication-failure", { session = session, condition = "not-authorized" });
+			session.send(st.stanza("failure", { xmlns="urn:ietf:params:xml:ns:xmpp-sasl"}):tag"not-authorized");
 		else
 			session.send(st.stanza("failure", { xmlns="urn:ietf:params:xml:ns:xmpp-sasl"}):tag"encryption-required");
 		end
