@@ -87,7 +87,7 @@ local function handle_req(event)
 					if os_time() - recent_ips[req_body["ip"]] < throttle_time then
 						recent_ips[req_body["ip"]] = os_time()
 						module:log("warn", "JSON Registration request from %s has been throttled.", req_body["ip"])
-						return http_response(503, "Woah... How many users you want to register..? Request throttled, wait a bit and try again.")
+						return http_response(event, 503, "Woah... How many users you want to register..? Request throttled, wait a bit and try again.")
 					end
 					recent_ips[req_body["ip"]] = os_time()
 				end
