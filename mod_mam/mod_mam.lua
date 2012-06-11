@@ -193,10 +193,10 @@ module:hook("iq/self/"..xmlns_mam..":query", function(event)
 					module:log("debug", "Start of matching range found");
 					qset_matches = true;
 				end
-				if n >= qmax then
-					module:log("debug", "Max number of items matched");
-					break
-				end
+			end
+			if n >= qmax then
+				module:log("debug", "Max number of items matched");
+				break
 			end
 		end
 		-- That's all folks!
