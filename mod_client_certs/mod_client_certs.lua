@@ -106,7 +106,7 @@ module:hook("iq/self/"..xmlns_saslcert..":append", function(event)
 		end
 
 		local can_manage = key_info:get_child("no-cert-management", xmlns_saslcert) ~= nil;
-		local x509cert = key_info:get_child_text("x509cert");
+		local x509cert = key_info:get_child_text("x509cert"):gsub("^%s*(.-)%s*$", "%1");
 
 		local cert = x509.cert_from_pem(
 		"-----BEGIN CERTIFICATE-----\n"
