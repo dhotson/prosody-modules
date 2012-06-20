@@ -69,7 +69,7 @@ local function update_config()
 	end
 end
 update_config();
-module:hook("config-reloaded", update_config);
+module:hook_global("config-reloaded", update_config);
 
 local actor = module.host.."/"..module.name;
 
