@@ -5,7 +5,7 @@
 -- Config:
 -- Component "pubsub.example.com" "pubsub"
 -- modules_enabled = {
---   "pubsub_feed";
+--   "pubsub_feeds";
 -- }
 -- feeds = { -- node -> url
 --   prosody_blog = "http://blog.prosody.im/feed/atom.xml";
@@ -160,12 +160,13 @@ local function format_url(node)
 	return module:http_url(nil, "/callback") .. "?node=" .. urlencode(node);
 end	
 
-function subscribe(feed)
+function subscribe(feed, want)
+	want = want or "subscribe";
 	feed.token = uuid();
-	feed.secret = uuid();
+	feed.secret = feed.secret or uuid();
 	local body = formencode{
 		["hub.callback"] = format_url(feed.node);
-		["hub.mode"] = "subscribe"; --TODO unsubscribe
+		["hub.mode"] = want;
 		["hub.topic"] = feed.url;
 		["hub.verify"] = "async";
 		["hub.verify_token"] = feed.token;
@@ -176,7 +177,7 @@ function subscribe(feed)
 	--module:log("debug", "subscription request, body: %s", body);
 
 	--FIXME The subscription states and related stuff
-	feed.subscription = "subscribe";
+	feed.subscription = want;
 	http.request(feed.hub, { body = body }, function(data, code, req) 
 		module:log("debug", "subscription to %s submitted, status %s", feed.node, tostring(code));
 		if code >= 400 then
@@ -200,8 +201,12 @@ function handle_http_request(event)
 	--module:log("debug", "Headers: %s", dump(request.headers));
 
 	local feed = feed_list[query.node];
+	if not feed then
+		return 404;
+	end
+
 	if method == "GET" then
-		if query.node and feed then
+		if query.node then
 			if query["hub.topic"] ~= feed.url then
 				module:log("debug", "Invalid topic: %s", tostring(query["hub.topic"]))
 				return 404
@@ -216,15 +221,14 @@ function handle_http_request(event)
 			end
 			if query["hub.verify_token"] ~= feed.token then
 				module:log("debug", "Invalid verify_token: %s", tostring(query["hub.verify_token"]))
-				return 401
+				return 401;
 			end
 			module:log("debug", "Confirming %s request to %s", feed.subscription, feed.url)
 			return query["hub.challenge"];
 		end
 		return 400;
 	elseif method == "POST" then
-		local body = request.body;
-		if #body > 0 and feed then
+		if #body > 0 then
 			module:log("debug", "got %d bytes PuSHed for %s", #body, query.node);
 			local signature = request.headers.x_hub_signature;
 			if feed.secret then
