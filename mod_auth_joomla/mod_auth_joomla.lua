@@ -89,7 +89,8 @@ end
 
 
 local function getCryptedPassword(plaintext, salt)
-	return md5(plaintext..salt);
+	local salted = plaintext..salt;
+	return md5(salted, true);
 end
 local function joomlaCheckHash(password, hash)
 	local crypt, salt = hash:match("^([^:]*):(.*)$");
