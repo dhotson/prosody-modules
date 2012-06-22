@@ -12,6 +12,7 @@ local uuid_gen = require "util.uuid".generate;
 
 local connection;
 local params = module:get_option("sql");
+local prefix = params and params.prefix or "jos_";
 
 local resolve_relative_path = require "core.configmanager".resolve_relative_path;
 
@@ -79,7 +80,7 @@ local function setsql(sql, ...)
 end
 
 local function get_password(username)
-	local stmt, err = getsql("SELECT `password` FROM `jos_users` WHERE `username`=?", username);
+	local stmt, err = getsql("SELECT `password` FROM `"..prefix.."users` WHERE `username`=?", username);
 	if stmt then
 		for row in stmt:rows(true) do
 			return row.password;
@@ -119,7 +120,7 @@ function provider.get_password(username)
 end
 function provider.set_password(username, password)
 	local hash = joomlaCreateHash(password);
-	local stmt, err = setsql("UPDATE `jos_users` SET `password`=? WHERE `username`=?", hash, username);
+	local stmt, err = setsql("UPDATE `"..prefix.."users` SET `password`=? WHERE `username`=?", hash, username);
 	return stmt and true, err;
 end
 function provider.create_user(username, password)
