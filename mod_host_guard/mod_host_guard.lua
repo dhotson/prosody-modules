@@ -8,7 +8,7 @@ local guard_ball_wl = module:get_option_set("host_guard_blockall_exceptions", {}
 local guard_protect = module:get_option_set("host_guard_selective", {})
 local guard_block_bl = module:get_option_set("host_guard_blacklist", {})
 
-local config = require "core.configmanager"
+local config = configmanager
 local error_reply = require "util.stanza".error_reply
 
 local function s2s_hook (event)
