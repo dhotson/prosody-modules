@@ -96,11 +96,11 @@ local function handle_req(event)
 			-- We first check if the supplied username for registration is already there.
 			-- And nodeprep the username
 			local username = nodeprep(req_body["username"])
-			if not usermanager.user_exists(username, req_body["host"]) then
-				if not username then
-					module:log("debug", "%s supplied an username containing invalid characters: %s", user, username)
-					return http_response(event, 406, "Supplied username contains invalid characters, see RFC 6122.")
-				else
+			if not username then
+				module:log("debug", "%s supplied an username containing invalid characters: %s", user, username)
+				return http_response(event, 406, "Supplied username contains invalid characters, see RFC 6122.")
+			else
+				if not usermanager.user_exists(username, req_body["host"]) then
 					local ok, error = usermanager.create_user(username, req_body["password"], req_body["host"])
 					if ok then 
 						hosts[req_body["host"]].events.fire_event("user-registered", { username = username, host = req_body["host"], source = "mod_register_json", session = { ip = req_body["ip"] } })
@@ -110,10 +110,10 @@ local function handle_req(event)
 						module:log("error", "user creation failed: "..error)
 						return http_response(event, 500, "Encountered server error while creating the user: "..error)
 					end
+				else
+					module:log("debug", "%s registration data submission for %s failed (user already exists)", user, username)
+					return http_response(event, 409, "User already exists.")
 				end
-			else
-				module:log("debug", "%s registration data submission for %s failed (user already exists)", user, username)
-				return http_response(event, 409, "User already exists.")
 			end
 		end
 	end
