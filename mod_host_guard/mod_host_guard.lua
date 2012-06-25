@@ -63,7 +63,8 @@ local function handle_deactivation (host)
 end
 
 local function init_hosts()
-	for n,table in pairs(hosts) do
+	for n in pairs(hosts) do
+		-- This is a bit redundant but better safe then sorry.
 		hosts[n].events.remove_handler("s2sin-established", s2s_hook)
 		hosts[n].events.remove_handler("route/remote", rr_hook)
 		hosts[n].events.remove_handler("stanza/jabber:server:dialback:result", s2s_hook)
@@ -90,8 +91,18 @@ local function setup()
         init_hosts()
 end
 
+function module.unload()
+	module:log ("debug", "removing host handlers as module is being unloaded...")
+	for n in pairs(hosts) do
+		hosts[n].events.remove_handler("s2sin-established", s2s_hook)
+		hosts[n].events.remove_handler("route/remote", rr_hook)
+		hosts[n].events.remove_handler("stanza/jabber:server:dialback:result", s2s_hook)
+	end
+end
+
 if prosody.start_time then
 	setup()
 else
 	module:hook ("server-started", setup)
 end
+
