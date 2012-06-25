@@ -64,10 +64,6 @@ end
 
 local function init_hosts()
 	for n in pairs(hosts) do
-		-- This is a bit redundant but better safe then sorry.
-		hosts[n].events.remove_handler("s2sin-established", s2s_hook)
-		hosts[n].events.remove_handler("route/remote", rr_hook)
-		hosts[n].events.remove_handler("stanza/jabber:server:dialback:result", s2s_hook)
 		if guard_blockall:contains(n) or guard_protect:contains(n) then	handle_activation(n) end
 	end
 end
@@ -105,4 +101,3 @@ if prosody.start_time then
 else
 	module:hook ("server-started", setup)
 end
-
