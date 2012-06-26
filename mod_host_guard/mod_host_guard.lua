@@ -49,7 +49,7 @@ local function handle_activation (host, u)
                 	if not u then 
 				module:log ("debug", "adding host protection for: "..host)
 			else
-				module:log ("debug", "updating host protection for: "..host)
+				module:log ("debug", "updating or adding host protection for: "..host)
 			end
 		end
 	end
