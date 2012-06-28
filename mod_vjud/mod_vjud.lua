@@ -75,16 +75,19 @@ module:hook("iq/host/jabber:iq:search:query", function(event)
 		origin.send(st.reply(stanza):add_child(get_reply));
 	else -- type == "set"
 		local query = stanza.tags[1];
-		local reply = st.reply(stanza):query("jabber:iq:search");
 		local first, last, nick, email =
-			query:get_child_text"first",
-			query:get_child_text"last",
-			query:get_child_text"nick",
-			query:get_child_text"email";
-		first = first and #first and first;
-		last = last and #last and last;
-		nick = nick and #nick and nick;
-		email = email and #email and email;
+			(query:get_child_text"first" or false),
+			(query:get_child_text"last" or false),
+			(query:get_child_text"nick" or false),
+			(query:get_child_text"email" or false);
+
+		if not ( first or last or nick or email ) then
+			origin.send(st.error_reply(stanza, "modify", "not-acceptable", "All fields were empty"));
+			return true;
+		end
+
+		local reply = st.reply(stanza):query("jabber:iq:search");
+
 		local username, hostname = jid_split(email);
 		if hostname == module.host and username and usermanager.user_exists(username, hostname) then
 			local vCard = get_user_vcard(username);
@@ -101,10 +104,10 @@ module:hook("iq/host/jabber:iq:search:query", function(event)
 			for username in pairs(opted_in) do
 				local vCard = get_user_vcard(username);
 				if vCard and (
-				(not first or (vCard.N and vCard.N[2] == first)) or
-				(not last or (vCard.N and vCard.N[1] == last)) or
-				(not nick or (vCard.NICKNAME and vCard.NICKNAME[1] == nick)) or
-				(not email or (vCard.EMAIL and vCard.EMAIL[1] == email))) then
+				(vCard.N and vCard.N[2] == first) or
+				(vCard.N and vCard.N[1] == last) or
+				(vCard.NICKNAME and vCard.NICKNAME[1] == nick) or
+				(vCard.EMAIL and vCard.EMAIL[1] == email)) then
 					reply:add_child(item_template.apply{
 						jid = username..at_host;
 						first = vCard.N and vCard.N[1] or nil;
