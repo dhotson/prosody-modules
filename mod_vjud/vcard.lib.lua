@@ -227,7 +227,6 @@ end
 local function from_xep54_item(item)
 	local prop_name = item.name;
 	local prop_def = vCard_dtd[prop_name];
-	if not prop_def then return nil end
 
 	local prop = { name = prop_name };
 
@@ -299,7 +298,7 @@ local function from_xep54_vCard(vCard)
 	local tags = vCard.tags;
 	local t = {};
 	for i=1,#tags do
-		t[i] = from_xep54_item(tags[i]);
+		t_insert(t, from_xep54_item(tags[i]));
 	end
 	return t
 end
@@ -312,9 +311,7 @@ function from_xep54(vCard)
 		local t = {};
 		local vCards = vCard.tags;
 		for i=1,#vCards do
-			local ti = from_xep54_vCard(vCards[i]);
-			t[i] = ti;
-			--t[ti.name] = ti;
+			t[i] = from_xep54_vCard(vCards[i]);
 		end
 		return t
 	elseif vCard.name == "vCard" then -- A single vCard

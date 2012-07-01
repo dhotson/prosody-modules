@@ -5,6 +5,7 @@ local usermanager = require "core.usermanager";
 local dataforms_new = require "util.dataforms".new;
 local jid_split = require "util.jid".prepped_split;
 local vcard = module:require "vcard";
+local rawget, rawset = rawget, rawset;
 
 local st = require "util.stanza";
 local template = require "util.template";
@@ -48,10 +49,12 @@ local opt_in_layout = dataforms_new{
 };
 local vCard_mt = {
 	__index = function(t, k)
+		if type(k) ~= "string" then return nil end
 		for i=1,#t do
-			if t[i].name == k then
-				t[k] = t[i];
-				return t[i]
+			local t_i = rawget(t, i);
+			if t_i and t_i.name == k then
+				rawset(t, k, t_i);
+				return t_i;
 			end
 		end
 	end
@@ -60,8 +63,11 @@ local vCard_mt = {
 local function get_user_vcard(user)
 	local vCard = dm_load(user, module.host, "vcard");
 	if vCard then
+		module:log("warn", require"util.serialization".serialize(vCard));
 		vCard = st.deserialize(vCard);
+		module:log("warn", require"util.serialization".serialize(vCard));
 		vCard = vcard.from_xep54(vCard);
+		module:log("warn", require"util.serialization".serialize(vCard));
 		return setmetatable(vCard, vCard_mt);
 	end
 end
