@@ -94,8 +94,8 @@ module:hook("iq/host/jabber:iq:search:query", function(event)
 			if vCard then
 				reply:add_child(item_template.apply{
 					jid = username..at_host;
-					first = vCard.N and vCard.N[1] or nil;
-					last = vCard.N and vCard.N[2] or nil;
+					first = vCard.N and vCard.N[2] or nil;
+					last = vCard.N and vCard.N[1] or nil;
 					nick = vCard.NICKNAME and vCard.NICKNAME[1] or username;
 					email = vCard.EMAIL and vCard.EMAIL[1] or nil;
 				});
@@ -110,8 +110,8 @@ module:hook("iq/host/jabber:iq:search:query", function(event)
 				(vCard.EMAIL and vCard.EMAIL[1] == email)) then
 					reply:add_child(item_template.apply{
 						jid = username..at_host;
-						first = vCard.N and vCard.N[1] or nil;
-						last = vCard.N and vCard.N[2] or nil;
+						first = vCard.N and vCard.N[2] or nil;
+						last = vCard.N and vCard.N[1] or nil;
 						nick = vCard.NICKNAME and vCard.NICKNAME[1] or username;
 						email = vCard.EMAIL and vCard.EMAIL[1] or nil;
 					});
