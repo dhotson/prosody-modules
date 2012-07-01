@@ -5,20 +5,26 @@
 --
 
 -- TODO
--- function lua_to_xep54()
--- function lua_to_text()
--- replace text_to_xep54() and xep54_to_text() with intermediate lua?
+-- Fix folding.
 
 local st = require "util.stanza";
 local t_insert, t_concat = table.insert, table.concat;
 local type = type;
 local next, pairs, ipairs = next, pairs, ipairs;
 
-local lua_to_text, lua_to_xep54, text_to_lua, text_to_xep54, xep54_to_lua, xep54_to_text;
-local from_text, to_text, from_xep54, to_xep54; --TODO implement these, replace the above
+local from_text, to_text, from_xep54, to_xep54;
 
+local line_sep = "\n";
 
-local vCard_dtd;
+local vCard_dtd; -- See end of file
+
+local function fold_line()
+	error "Not implemented" --TODO
+end
+local function unfold_line()
+	error "Not implemented"
+	-- gsub("\r?\n[ \t]([^\r\n])", "%1");
+end
 
 local function vCard_esc(s)
 	return s:gsub("[,:;\\]", "\\%1"):gsub("\n","\\n");
@@ -28,6 +34,7 @@ local function vCard_unesc(s)
 	return s:gsub("\\?[\\nt:;,]", {
 		["\\\\"] = "\\",
 		["\\n"] = "\n",
+		["\\r"] = "\r",
 		["\\t"] = "\t",
 		["\\:"] = ":", -- FIXME Shouldn't need to espace : in values, just params
 		["\\;"] = ";",
@@ -38,87 +45,72 @@ local function vCard_unesc(s)
 	});
 end
 
-function text_to_xep54(data)
-	--[[ TODO
-	return lua_to_xep54(text_to_lua(data));
-	--]]
-	data = data
-		:gsub("\r\n","\n")
-		:gsub("\n ", "")
-		:gsub("\n\n+","\n");
-	local c = st.stanza("xCard", { xmlns = "vcard-temp" });
-	for line in data:gmatch("[^\n]+") do
-		local line = vCard_unesc(line);
-		local name, params, value = line:match("^([-%a]+)(\30?[^\29]*)\29(.*)$");
-		value = value:gsub("\29",":");
-		if #params > 0 then
-			local _params = {};
-			for k,isval,v in params:gmatch("\30([^=]+)(=?)([^\30]*)") do
-				k = k:upper();
-				local _vt = {};
-				for _p in v:gmatch("[^\31]+") do
-					_vt[#_vt+1]=_p
-					_vt[_p]=true;
-				end
-				if isval == "=" then
-					_params[k]=_vt;
-				else
-					_params[k]=true;
-				end
-			end
-			params = _params;
-		end
-		if name == "BEGIN" and value == "VCARD" then
-			c:tag("vCard", { xmlns = "vcard-temp" });
-		elseif name == "END" and value == "VCARD" then
-			c:up();
-		elseif vCard_dtd[name] then
-			local dtd = vCard_dtd[name];
-			c:tag(name);
-			if dtd.types then
-				for _, t in ipairs(dtd.types) do
-					if ( params.TYPE and params.TYPE[t] == true)
-							or params[t] == true then
-						c:tag(t):up();
-					end
-				end
-			end
-			if dtd.props then
-				for _, p in ipairs(dtd.props) do
-					if params[p] then
-						if params[p] == true then
-							c:tag(p):up();
-						else
-							for _, prop in ipairs(params[p]) do
-								c:tag(p):text(prop):up();
-							end
+local function item_to_xep54(item)
+	local t = st.stanza(item.name, { xmlns = "vcard-temp" });
+
+	local prop_def = vCard_dtd[item.name];
+	if prop_def == "text" then
+		t:text(item[1]);
+	elseif type(prop_def) == "table" then
+		if prop_def.types and item.TYPE then
+			if type(item.TYPE) == "table" then
+				for _,v in pairs(prop_def.types) do
+					for _,typ in pairs(item.TYPE) do
+						if typ:upper() == v then
+							t:tag(v):up();
+							break;
 						end
 					end
 				end
+			else
+				t:tag(item.TYPE:upper()):up();
 			end
-			if dtd == "text" then
-				c:text(value);
-			elseif dtd.value then
-				c:tag(dtd.value):text(value):up();
-			elseif dtd.values then
-				local values = dtd.values;
-				local i = 1;
-				local value = "\30"..value;
-				for p in value:gmatch("\30([^\30]*)") do
-					c:tag(values[i]):text(p):up();
-					if i < #values then
-						i = i + 1;
-					end
+		end
+
+		if prop_def.props then
+			for _,v in pairs(prop_def.props) do
+				if item[v] then
+					t:tag(v):up();
 				end
 			end
-			c:up();
+		end
+
+		if prop_def.value then
+			t:tag(prop_def.value):text(item[1]):up();
+		elseif prop_def.values then
+			local prop_def_values = prop_def.values;
+			local repeat_last = prop_def_values.behaviour == "repeat-last" and prop_def_values[#prop_def_values];
+			for i=1,#item do
+				t:tag(prop_def.values[i] or repeat_last):text(item[i]):up();
+			end
 		end
 	end
-	return c;
+
+	return t;
 end
 
-function text_to_lua(data) --table
-	data = data
+local function vcard_to_xep54(vCard)
+	local t = st.stanza("vCard", { xmlns = "vcard-temp" });
+	for i=1,#vCard do
+		t:add_child(item_to_xep54(vCard[i]));
+	end
+	return t;
+end
+
+function to_xep54(vCards)
+	if vCards[1].name then
+		return vcard_to_xep54(vCards)
+	else
+		local t = st.stanza("xCard", { xmlns = "vcard-temp" });
+		for i=1,#vCards do
+			t:add_child(vcard_to_xep54(vCards[i]));
+		end
+		return t;
+	end
+end
+
+function from_text(data)
+	data = data -- unfold and remove empty lines
 		:gsub("\r\n","\n")
 		:gsub("\n ", "")
 		:gsub("\n\n+","\n");
@@ -193,127 +185,46 @@ function text_to_lua(data) --table
 	return vCards;
 end
 
-function to_text(vcard)
-	local t={};
-	t_insert(t, "BEGIN:VCARD")
-	for i=1,#vcard do
-		t_insert(t, ("%s:%s"):format(vcard[i].name, t_concat(vcard[i], ";")));
+local function item_to_text(item)
+	local value = {};
+	for i=1,#item do
+		value[i] = vCard_esc(item[i]);
 	end
-	t_insert(t, "END:VCARD")
-	return t_concat(t,"\n");
-end
+	value = t_concat(value, ";");
 
-local function vCard_prop(item) -- single item staza object to text line
-	local prop_name = item.name;
-	local prop_def = vCard_dtd[prop_name];
-	if not prop_def then return nil end
-
-	local value, params = "", {};
-
-	if prop_def == "text" then
-		value = item:get_text();
-	elseif type(prop_def) == "table" then
-		if prop_def.value then --single item
-			value = item:get_child_text(prop_def.value) or "";
-		elseif prop_def.values then --array
-			local value_names = prop_def.values;
-			value = {};
-			if value_names.behaviour == "repeat-last" then
-				for i=1,#item do
-					t_insert(value, item[i]:get_text() or "");
-				end
-			else
-				for i=1,#value_names do
-					t_insert(value, item:get_child_text(value_names[i]) or "");
-				end
-			end
-		elseif prop_def.names then
-			local names = prop_def.names;
-			for i=1,#names do
-				if item:get_child(names[i]) then
-					value = names[i];
-					break;
-				end
-			end
+	local params = "";
+	for k,v in pairs(item) do
+		if type(k) == "string" and k ~= "name" then
+			params = params .. (";%s=%s"):format(k, type(v) == "table" and t_concat(v,",") or v);
 		end
-		
-		if prop_def.props_verbatim then
-			for k,v in pairs(prop_def.props_verbatim) do
-				params[k] = v;
-			end
-		end
-
-		if prop_def.types then
-			local types = prop_def.types;
-			params.TYPE = {};
-			for i=1,#types do
-				if item:get_child(types[i]) then
-					t_insert(params.TYPE, types[i]:lower());
-				end
-			end
-			if #params.TYPE == 0 then
-				params.TYPE = nil;
-			end
-		end
-
-		if prop_def.props then
-			local props = prop_def.props;
-			for i=1,#props do
-				local prop = props[i]
-				local p = item:get_child_text(prop);
-				if p then
-					params[prop] = params[prop] or {};
-					t_insert(params[prop], p);
-				end
-			end
-		end
-	else
-		return nil
-	end
-
-	if type(value) == "table" then
-		for i=1,#value do
-			value[i]=vCard_esc(value[i]);
-		end
-		value = t_concat(value, ";");
-	else
-		value = vCard_esc(value);
-	end
-
-	if next(params) then
-		local sparams = "";
-		for k,v in pairs(params) do
-			sparams = sparams .. (";%s=%s"):format(k, t_concat(v,","));
-		end
-		params = sparams;
-	else
-		params = "";
 	end
 
 	return ("%s%s:%s"):format(item.name, params, value)
-		:gsub(("."):rep(75), "%0\r\n "):gsub("\r\n $","");
 end
 
-function xep54_to_text(vCard)
-	--[[ TODO
-	return lua_to_text(xep54_to_lua(vCard))
-	--]]
-	local r = {};
-	t_insert(r, "BEGIN:VCARD");
-	for i = 1,#vCard do
-		local item = vCard[i];
-		if item.name then
-			local s = vCard_prop(item);
-			if s then
-				t_insert(r, s);
-			end
-		end
+local function vcard_to_text(vcard)
+	local t={};
+	t_insert(t, "BEGIN:VCARD")
+	for i=1,#vcard do
+		t_insert(t, item_to_text(vcard[i]));
 	end
-	t_insert(r, "END:VCARD");
-	return t_concat(r, "\r\n");
+	t_insert(t, "END:VCARD")
+	return t_concat(t, line_sep);
 end
 
-local function xep54_item_to_lua(item)
+function to_text(vCards)
+	if vCards[1].name then
+		return vcard_to_text(vCards)
+	else
+		local t = {};
+		for i=1,#vCards do
+			t[i]=vcard_to_text(vCards[i]);
+		end
+		return t_concat(t, line_sep);
+	end
+end
+
+local function from_xep54_item(item)
 	local prop_name = item.name;
 	local prop_def = vCard_dtd[prop_name];
 	if not prop_def then return nil end
@@ -384,30 +295,30 @@ local function xep54_item_to_lua(item)
 	return prop;
 end
 
-local function xep54_vCard_to_lua(vCard)
+local function from_xep54_vCard(vCard)
 	local tags = vCard.tags;
 	local t = {};
 	for i=1,#tags do
-		t[i] = xep54_item_to_lua(tags[i]);
+		t[i] = from_xep54_item(tags[i]);
 	end
 	return t
 end
 
-function xep54_to_lua(vCard)
+function from_xep54(vCard)
 	if vCard.attr.xmlns ~= "vcard-temp" then
-		return false
+		return nil, "wrong-xmlns";
 	end
-	if vCard.name == "xCard" then
+	if vCard.name == "xCard" then -- A collection of vCards
 		local t = {};
 		local vCards = vCard.tags;
 		for i=1,#vCards do
-			local ti = xep54_vCard_to_lua(vCards[i]);
+			local ti = from_xep54_vCard(vCards[i]);
 			t[i] = ti;
 			--t[ti.name] = ti;
 		end
 		return t
-	elseif vCard.name == "vCard" then
-		return xep54_vCard_to_lua(vCard)
+	elseif vCard.name == "vCard" then -- A single vCard
+		return from_xep54_vCard(vCard)
 	end
 end
 
@@ -538,14 +449,19 @@ vCard_dtd.LOGO = vCard_dtd.PHOTO;
 vCard_dtd.SOUND = vCard_dtd.PHOTO;
 
 return {
-	text_to_xep54 = text_to_xep54;
-	text_to_lua = text_to_lua;
-	xep54_to_text = xep54_to_text;
-	xep54_to_lua = xep54_to_lua;
-	--[[ TODO
 	from_text = from_text;
 	to_text = to_text;
+
 	from_xep54 = from_xep54;
 	to_xep54 = to_xep54;
-	--]]
+
+	-- COMPAT:
+	lua_to_text = to_text;
+	lua_to_xep54 = to_xep54;
+
+	text_to_lua = from_text;
+	text_to_xep54 = function (...) return to_xep54(from_text(...)); end;
+
+	xep54_to_lua = from_xep54;
+	xep54_to_text = function (...) return to_text(from_xep54(...)) end;
 };

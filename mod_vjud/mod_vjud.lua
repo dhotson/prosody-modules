@@ -61,7 +61,7 @@ local function get_user_vcard(user)
 	local vCard = dm_load(user, module.host, "vcard");
 	if vCard then
 		vCard = st.deserialize(vCard);
-		vCard = vcard.xep54_to_lua(vCard);
+		vCard = vcard.from_xep54(vCard);
 		return setmetatable(vCard, vCard_mt);
 	end
 end
