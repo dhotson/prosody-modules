@@ -87,7 +87,7 @@ local function store_msg(msg, node, host, isfrom)
     local thread = msg:child_with_name("thread");
 	local data = dm.list_load(node, host, ARCHIVE_DIR);
     local tag = isfrom and "from" or "to";
-    local with = isfrom and msg.attr.to or msg.attr.from;
+    local with = isfrom and msg.attr.from or msg.attr.to;
     local utc_datetime = date_time();
     local utc_secs = date_parse(utc_datetime);
     if data then
@@ -759,11 +759,11 @@ local function msg_handler(data, local_jid, other_jid, isfrom)
 end
 
 local function message_handler(data)
-    msg_handler(data, data.stanza.attr.to,  data.stanza.attr.from, false)
+    msg_handler(data, data.stanza.attr.to,  data.stanza.attr.from, true)
 end
 
 local function premessage_handler(data)
-    msg_handler(data, data.stanza.attr.from,  data.stanza.attr.to, true)
+    msg_handler(data, data.stanza.attr.from,  data.stanza.attr.to, false)
 end
 
 -- Preferences
