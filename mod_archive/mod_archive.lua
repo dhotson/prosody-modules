@@ -37,15 +37,7 @@ local function store_prefs(data, node, host)
     dm.store(node, host, PREFS_DIR, st.preserialize(data));
 end
 
-local function os_date()
-    return os.date("!*t");
-end
-
 local date_time = datetime.datetime;
-
-local function date_format(s)
-	return os.date("%Y-%m-%dT%H:%M:%SZ", s);
-end
 
 local function date_parse(s)
 	local year, month, day, hour, min, sec = s:match("(....)-?(..)-?(..)T(..):(..):(..)Z");
@@ -96,9 +88,8 @@ local function store_msg(msg, node, host, isfrom)
 	local data = dm.list_load(node, host, ARCHIVE_DIR);
     local tag = isfrom and "from" or "to";
     local with = isfrom and msg.attr.to or msg.attr.from;
-    local utc = os_date();
-    local utc_secs = os.time(utc);
-    local utc_datetime = date_format(utc_secs);
+    local utc_datetime = date_time();
+    local utc_secs = date_parse(utc_datetime);
     if data then
         -- The collection list are in REVERSE chronological order 
         for k, v in ipairs(data) do
