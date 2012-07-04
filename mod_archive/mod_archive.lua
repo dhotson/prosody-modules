@@ -743,23 +743,27 @@ local function apply_pref(node, host, jid, thread)
     return AUTO_ARCHIVING_ENABLED;
 end
 
-local function msg_handler(data)
+local function msg_handler(data, local_jid, other_jid, isfrom)
     module:log("debug", "-- Enter msg_handler()");
     local origin, stanza = data.origin, data.stanza;
     local body = stanza:child_with_name("body");
     local thread = stanza:child_with_name("thread");
     if body then
-        local from_node, from_host = jid.split(stanza.attr.from);
-        local to_node, to_host = jid.split(stanza.attr.to);
-        if hosts[from_host] and um.user_exists(from_node, from_host) and apply_pref(from_node, from_host, stanza.attr.to, thread) then
-            store_msg(stanza, from_node, from_host, true);
-        end
-        if hosts[to_host] and um.user_exists(to_node, to_host) and apply_pref(to_node, to_host, stanza.attr.from, thread) then
-            store_msg(stanza, to_node, to_host, false);
+        local local_node, local_host = jid.split(local_jid);
+        if hosts[local_host] and um.user_exists(local_node, local_host) and apply_pref(local_node, local_host, other_jid, thread) then
+            store_msg(stanza, local_node, local_host, isfrom);
         end
     end
 
     return nil;
+end
+
+local function message_handler(data)
+    msg_handler(data, data.stanza.attr.to,  data.stanza.attr.from, false)
+end
+
+local function premessage_handler(data)
+    msg_handler(data, data.stanza.attr.from,  data.stanza.attr.to, true)
 end
 
 -- Preferences
@@ -776,10 +780,10 @@ module:hook("iq/self/urn:xmpp:archive:remove", remove_handler);
 -- Replication
 module:hook("iq/self/urn:xmpp:archive:modified", modified_handler);
 
-module:hook("message/full", msg_handler, 10);
-module:hook("message/bare", msg_handler, 10);
-module:hook("pre-message/full", msg_handler, 10);
-module:hook("pre-message/bare", msg_handler, 10);
+module:hook("message/full", message_handler, 10);
+module:hook("message/bare", message_handler, 10);
+module:hook("pre-message/full", premessage_handler, 10);
+module:hook("pre-message/bare", premessage_handler, 10);
 
 -- TODO exactmatch
 -- TODO <item/> JID match
