@@ -63,11 +63,8 @@ local vCard_mt = {
 local function get_user_vcard(user)
 	local vCard = dm_load(user, module.host, "vcard");
 	if vCard then
-		module:log("warn", require"util.serialization".serialize(vCard));
 		vCard = st.deserialize(vCard);
-		module:log("warn", require"util.serialization".serialize(vCard));
 		vCard = vcard.from_xep54(vCard);
-		module:log("warn", require"util.serialization".serialize(vCard));
 		return setmetatable(vCard, vCard_mt);
 	end
 end
