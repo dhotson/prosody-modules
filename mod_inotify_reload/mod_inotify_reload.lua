@@ -44,16 +44,19 @@ function watch_module(name, host, path)
 	local k = host.."\0"..name;
 	watches[k] = { id = id, path = path, name = name, host = host };
 	watch_ids[id] = k;
+	module:log("debug", "Watching %s:%s with id %d", name, host, id);
 	return true;
 end
 
 function unwatch_module(name, host)
 	local k = host.."\0"..name;
 	if not watches[k] then
+		module:log("warn", "Not watching %s:%s", name, host);
 		return nil, "not-watching";
 	end
 	local id = watches[k].id;
 	local ok, err = inh:rmwatch(id);
+	module:log("info", "Removed watch %d", id);
 	watches[k] = nil;
 	watch_ids[id] = nil;
 	return ok, err;
