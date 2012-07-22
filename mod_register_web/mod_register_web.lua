@@ -1,4 +1,5 @@
 local captcha_options = module:get_option("captcha_options", {});
+local nodeprep = require "util.encodings".stringprep.nodeprep;
 
 function generate_captcha(display_options)
 	return (([[
@@ -50,10 +51,11 @@ function generate_page(event, display_options)
 end
 
 function register_user(form)
-	if usermanager.user_exists(form.username, module.host) then
-		return nil, "user-exists";
-	end
-	return usermanager.create_user(form.username, form.password, module.host);
+        local prepped_username = nodeprep(form.username);
+        if usermanager.user_exists(prepped_username, module.host) then
+                return nil, "user-exists";
+        end
+        return usermanager.create_user(prepped_username, form.password, module.host);
 end
 
 function generate_success(event, form)
