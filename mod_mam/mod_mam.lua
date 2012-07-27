@@ -11,6 +11,7 @@ local st = require "util.stanza";
 local rsm = module:require "rsm";
 local jid_bare = require "util.jid".bare;
 local jid_split = require "util.jid".split;
+local jid_prep = require "util.jid".prep;
 local host = module.host;
 
 local dm_load = require "util.datamanager".load;
@@ -125,7 +126,23 @@ module:hook("iq/self/"..xmlns_mam..":query", function(event)
 		module:log("debug", "Archive query, id %s with %s from %s until %s)",
 			tostring(qid), qwith or "anyone", qstart or "the dawn of time", qend or "now");
 
-		qstart, qend = (qstart and timestamp_parse(qstart)), (qend and timestamp_parse(qend))
+		if qstart or qend then -- Validate timestamps
+			local vstart, vend = (qstart and timestamp_parse(qstart)), (qend and timestamp_parse(qend))
+			if (qstart and not qwith) or (qend and not vend) then
+				origin.send(st.error_reply(stanza, "modify", "bad-request", "Invalid timestamp"))
+				return true
+			end
+			qstart, qend = vstart, vend;
+		end
+
+		if qwith then -- Validate the 'with' jid
+			local pwith = qwith and jid_prep(qwith);
+			if pwith and not qwith then -- it failed prepping
+				origin.send(st.error_reply(stanza, "modify", "bad-request", "Invalid JID"))
+				return true
+			end
+			qwith = pwith;
+		end
 
 		-- Load all the data!
 		local data, err = dm_list_load(origin.username, origin.host, archive_store);
