@@ -23,6 +23,10 @@ local kickable_error_conditions = {
 	["service-unavailable"] = true;
 	["malformed error"] = true;
 };
+local function get_error_condition(stanza)
+	local _, condition = stanza:get_error();
+ 	return condition or "malformed error";
+end
 local function is_kickable_error(stanza)
 	local cond = get_error_condition(stanza);
 	return kickable_error_conditions[cond] and cond;

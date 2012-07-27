@@ -6,7 +6,7 @@
 -- Redirects IP addresses not in the whitelist to a web page or another method to complete the registration.
 
 local st = require "util.stanza"
-local cman = require "core.configmanager"
+local cman = configmanager
 
 function reg_redirect(event)
 	local stanza, origin = event.stanza, event.origin

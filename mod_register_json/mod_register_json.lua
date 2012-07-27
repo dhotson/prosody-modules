@@ -6,7 +6,7 @@
 
 local jid_prep = require "util.jid".prep
 local jid_split = require "util.jid".split
-local usermanager = require "core.usermanager"
+local usermanager = usermanager
 local b64_decode = require "util.encodings".base64.decode
 local json_decode = require "util.json".decode
 local os_time = os.time
@@ -78,29 +78,31 @@ local function handle_req(event)
 			module:log("warn", "%s tried to submit registration data for %s but he's not an admin", user, req_body["host"])
 			return http_response(event, 401, "I obey only to my masters... Have a nice day.")
 		else	
-			-- Checks for both Throttling/Whitelist and Blacklist (basically copycatted from prosody's register.lua code)
+			-- Blacklist can be checked here.
 			if blacklist:contains(req_body["ip"]) then module:log("warn", "Attempt of reg. submission to the JSON servlet from blacklisted address: %s", req_body["ip"]) ; return http_response(403, "The specified address is blacklisted, sorry sorry.") end
-			if throttle_time and not whitelist:contains(req_body["ip"]) then
-				if not recent_ips[req_body["ip"]] then
-					recent_ips[req_body["ip"]] = os_time()
-				else
-					if os_time() - recent_ips[req_body["ip"]] < throttle_time then
-						recent_ips[req_body["ip"]] = os_time()
-						module:log("warn", "JSON Registration request from %s has been throttled.", req_body["ip"])
-						return http_response(event, 503, "Woah... How many users you want to register..? Request throttled, wait a bit and try again.")
-					end
-					recent_ips[req_body["ip"]] = os_time()
-				end
-			end
 
 			-- We first check if the supplied username for registration is already there.
 			-- And nodeprep the username
 			local username = nodeprep(req_body["username"])
-			if not usermanager.user_exists(username, req_body["host"]) then
-				if not username then
-					module:log("debug", "%s supplied an username containing invalid characters: %s", user, username)
-					return http_response(event, 406, "Supplied username contains invalid characters, see RFC 6122.")
-				else
+			if not username then
+				module:log("debug", "%s supplied an username containing invalid characters: %s", user, username)
+				return http_response(event, 406, "Supplied username contains invalid characters, see RFC 6122.")
+			else
+				if not usermanager.user_exists(username, req_body["host"]) then
+					-- if username fails to register successive requests shouldn't be throttled until one is successful.
+					if throttle_time and not whitelist:contains(req_body["ip"]) then
+						if not recent_ips[req_body["ip"]] then
+							recent_ips[req_body["ip"]] = os_time()
+						else
+							if os_time() - recent_ips[req_body["ip"]] < throttle_time then
+								recent_ips[req_body["ip"]] = os_time()
+								module:log("warn", "JSON Registration request from %s has been throttled.", req_body["ip"])
+								return http_response(event, 503, "Woah... How many users you want to register..? Request throttled, wait a bit and try again.")
+							end
+							recent_ips[req_body["ip"]] = os_time()
+						end
+					end
+
 					local ok, error = usermanager.create_user(username, req_body["password"], req_body["host"])
 					if ok then 
 						hosts[req_body["host"]].events.fire_event("user-registered", { username = username, host = req_body["host"], source = "mod_register_json", session = { ip = req_body["ip"] } })
@@ -110,10 +112,10 @@ local function handle_req(event)
 						module:log("error", "user creation failed: "..error)
 						return http_response(event, 500, "Encountered server error while creating the user: "..error)
 					end
+				else
+					module:log("debug", "%s registration data submission for %s failed (user already exists)", user, username)
+					return http_response(event, 409, "User already exists.")
 				end
-			else
-				module:log("debug", "%s registration data submission for %s failed (user already exists)", user, username)
-				return http_response(event, 409, "User already exists.")
 			end
 		end
 	end
