@@ -298,7 +298,7 @@ module:hook_stanza(xmlns_sm, "resume", function (session, stanza)
 			session.send(queue[i]);
 		end
 	else
-		log("warn", "Client %s@%s[%s] tried to resume stream for %s@%s[%s]",
+		module:log("warn", "Client %s@%s[%s] tried to resume stream for %s@%s[%s]",
 			session.username or "?", session.host or "?", session.type,
 			original_session.username or "?", original_session.host or "?", original_session.type);
 		session.send(st.stanza("failed", sm_attr)
