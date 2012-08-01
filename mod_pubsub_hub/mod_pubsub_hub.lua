@@ -144,15 +144,14 @@ end
 local function periodic()
 	local now = time();
 	local next_check = now + max_lease;
-	local purge = false
+	local purge = false;
 	for topic, callbacks in pairs(subs_by_topic) do
 		for callback, subscription in pairs(callbacks) do
 			if subscription.mode == "subscribed" then
 				if subscription.expires < now then
 					-- Subscription has expired, drop it.
-					purge = true
-				end
-				if subscription.expires < now + min_lease  then
+					purge = true;
+				elseif subscription.expires < now + min_lease  then
 					-- Subscription set to expire soon, re-confirm it.
 					local challenge = uuid();
 					local callback_url = callback .. (callback:match("%?") and "&" or "?") .. formencode{
@@ -168,7 +167,7 @@ local function periodic()
 						end
 					end);
 				else
-					next_check = m_min(next_check, now - subscription.expires)
+					next_check = m_min(next_check, subscription.expires);
 				end
 			end
 		end
@@ -180,10 +179,11 @@ local function periodic()
 					new_callbacks[callback] = subscription;
 				end
 			end
-			subs_by_topic[topic] = new_callbacks
+			subs_by_topic[topic] = new_callbacks;
+			purge = false;
 		end
 	end
-	return m_max(next_check - min_lease, min_lease);
+	return now - m_max(next_check - min_lease, min_lease);
 end
 
 local function on_notify(subscription, content)
