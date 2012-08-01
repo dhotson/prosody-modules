@@ -33,7 +33,7 @@ local function handle_extended_addressing(data)
 		for _, destination in ipairs(destinations) do
 			stanza.attr.to = destination;
 			module:log("debug", "posting stanza to %s", destination)
-			core_post_stanza(hosts[module.host], stanza);
+			module:send(stanza);
 		end
 		stanza.attr.to = orig_to;
 		return stanza.attr.to == module.host or nil;
