@@ -17,7 +17,6 @@ local save_roster = require "core.rostermanager".save_roster;
 local rm_remove_from_roster = require "core.rostermanager".remove_from_roster;
 local rm_add_to_roster = require "core.rostermanager".add_to_roster;
 local rm_roster_push = require "core.rostermanager".roster_push;
-local core_post_stanza = core_post_stanza;
 local user_exists = require "core.usermanager".user_exists;
 local add_task = require "util.timer".add_task;
 
@@ -76,10 +75,10 @@ module:hook("iq-set/bare/jabber:iq:roster:query", function(event)
 					if r_item then
 						local to_bare = node and (node.."@"..host) or host; -- bare JID
 						--if r_item.subscription == "both" or r_item.subscription == "from" or (roster.pending and roster.pending[jid]) then
-						--	core_post_stanza(hosts[module.host], st.presence({type="unsubscribed", from=stanza.attr.to, to=to_bare}));
+						--	module:send(st.presence({type="unsubscribed", from=stanza.attr.to, to=to_bare}));
 						--end
 						--if r_item.subscription == "both" or r_item.subscription == "to" or r_item.ask then
-						--	core_post_stanza(hosts[module.host], st.presence({type="unsubscribe", from=stanza.attr.to, to=to_bare}));
+						--	module:send(st.presence({type="unsubscribe", from=stanza.attr.to, to=to_bare}));
 						--end
 						roster[jid] = nil;
 						if save_roster(from_node, from_host, roster) then
@@ -150,7 +149,7 @@ function component_roster_push(node, host, jid)
 		end
 		stanza:up(); -- move out from item
 		stanza:up(); -- move out from stanza
-		core_post_stanza(hosts[module.host], stanza);
+		module:send(stanza);
 	end
 end
 
