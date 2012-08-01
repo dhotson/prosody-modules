@@ -16,11 +16,7 @@
 -- http://pubsubhubbub.googlecode.com/svn/trunk/pubsubhubbub-core-0.3.html
 
 local modules = hosts[module.host].modules;
-if not modules.pubsub or module:get_option("component_module") ~= "pubsub" then
-	module:log("warn", "Pubsub needs to be loaded on this host");
-	--module:log("debug", "component_module is %s", tostring(module:get_option("component_module")));
-	return
-end
+module:depends"pubsub";
 
 local date, time = os.date, os.time;
 local dt_parse, dt_datetime = require "util.datetime".parse, require "util.datetime".datetime;
