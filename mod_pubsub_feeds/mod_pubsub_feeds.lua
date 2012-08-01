@@ -51,6 +51,9 @@ local function update_config()
 	refresh_interval = module:get_option_number("feed_pull_interval", 15) * 60;
 	local new_feed_list = {};
 	for node, url in pairs(config) do
+		if type(node) == "number" then
+			node = url;
+		end
 		new_feed_list[node] = true;
 		if not feed_list[node] then
 			feed_list[node] = { url = url; node = node; last_update = 0 };
