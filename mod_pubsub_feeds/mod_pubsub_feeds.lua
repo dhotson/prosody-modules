@@ -71,8 +71,6 @@ end
 update_config();
 module:hook_global("config-reloaded", update_config);
 
-local actor = module.host.."/"..module.name;
-
 function update_entry(item)
 	local node = item.node;
 	module:log("debug", "parsing %d bytes of data in node %s", #item.data or 0, node)
@@ -94,16 +92,16 @@ function update_entry(item)
 			-- TODO Put data from /feed into item/source
 
 			--module:log("debug", "publishing to %s, id %s", node, id);
-			local ok, err = modules.pubsub.service:publish(node, actor, id, xitem);
+			local ok, err = modules.pubsub.service:publish(node, true, id, xitem);
 			if not ok then
 				if err == "item-not-found" then -- try again
 					--module:log("debug", "got item-not-found, creating %s and trying again", node);
-					local ok, err = modules.pubsub.service:create(node, actor);
+					local ok, err = modules.pubsub.service:create(node, true);
 					if not ok then
 						module:log("error", "could not create node %s: %s", node, err);
 						return;
 					end
-					local ok, err = modules.pubsub.service:publish(node, actor, id, xitem);
+					local ok, err = modules.pubsub.service:publish(node, true, id, xitem);
 					if not ok then
 						module:log("error", "could not create or publish node %s: %s", node, err);
 						return
