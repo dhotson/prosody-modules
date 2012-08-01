@@ -50,7 +50,7 @@ local function handle_request(event)
 			local callback = body["hub.callback"];
 			local mode = body["hub.mode"];
 			local topic = body["hub.topic"];
-			local lease_seconds = m_min(tonumber(body["hub.lease_seconds"]) or default_lease, max_lease);
+			local lease_seconds = m_max(min_lease, m_min(tonumber(body["hub.lease_seconds"]) or default_lease, max_lease));
 			local secret = body["hub.secret"];
 			local verify_token = body["hub.verify_token"];
 
