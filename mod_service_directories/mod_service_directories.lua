@@ -14,7 +14,6 @@ local jid_split = require "util.jid".split;
 local adhoc_new = module:require "adhoc".new;
 local to_ascii = require "util.encodings".idna.to_ascii;
 local nameprep = require "util.encodings".stringprep.nameprep;
-local core_post_stanza = core_post_stanza;
 local pairs, ipairs = pairs, ipairs;
 local module = module;
 local hosts = hosts;
@@ -39,18 +38,18 @@ module:hook("presence/host", function(event) -- inbound presence to the host
 
 	local t = stanza.attr.type;
 	if t == "probe" then
-		core_post_stanza(hosts[module.host], st.presence({ from = module.host, to = host, id = stanza.attr.id }));
+		module:send(st.presence({ from = module.host, to = host, id = stanza.attr.id }));
 	elseif t == "subscribe" then
 		subscription_from[host] = true;
-		core_post_stanza(hosts[module.host], st.presence({ from = module.host, to = host, id = stanza.attr.id, type = "subscribed" }));
-		core_post_stanza(hosts[module.host], st.presence({ from = module.host, to = host, id = stanza.attr.id }));
+		module:send(st.presence({ from = module.host, to = host, id = stanza.attr.id, type = "subscribed" }));
+		module:send(st.presence({ from = module.host, to = host, id = stanza.attr.id }));
 		add_contact(host);
 	elseif t == "subscribed" then
 		subscription_to[host] = true;
 		query_host(host);
 	elseif t == "unsubscribe" then
 		subscription_from[host] = nil;
-		core_post_stanza(hosts[module.host], st.presence({ from = module.host, to = host, id = stanza.attr.id, type = "unsubscribed" }));
+		module:send(st.presence({ from = module.host, to = host, id = stanza.attr.id, type = "unsubscribed" }));
 		remove_contact(host);
 	elseif t == "unsubscribed" then
 		subscription_to[host] = nil;
@@ -64,16 +63,16 @@ function remove_contact(host, id)
 	contact_vcards[host] = nil;
 	if subscription_to[host] then
 		subscription_to[host] = nil;
-		core_post_stanza(hosts[module.host], st.presence({ from = module.host, to = host, id = id, type = "unsubscribe" }));
+		module:send(st.presence({ from = module.host, to = host, id = id, type = "unsubscribe" }));
 	end
 	if subscription_from[host] then
 		subscription_from[host] = nil;
-		core_post_stanza(hosts[module.host], st.presence({ from = module.host, to = host, id = id, type = "unsubscribed" }));
+		module:send(st.presence({ from = module.host, to = host, id = id, type = "unsubscribed" }));
 	end
 end
 function add_contact(host, id)
 	if not subscription_to[host] then
-		core_post_stanza(hosts[module.host], st.presence({ from = module.host, to = host, id = id, type = "subscribe" }));
+		module:send(st.presence({ from = module.host, to = host, id = id, type = "subscribe" }));
 	end
 end
 
@@ -110,7 +109,7 @@ module:add_item("adhoc", add_contact_command);
 function query_host(host)
 	local stanza = st.iq({ from = module.host, to = host, type = "get", id = "mod_service_directories:disco" })
 		:query("http://jabber.org/protocol/disco#info");
-	core_post_stanza(hosts[module.host], stanza);
+	module:send(stanza);
 end
 
 -- Handle disco query result
@@ -135,7 +134,7 @@ module:hook("iq-result/bare/mod_service_directories:disco", function(event)
 	if features["urn:ietf:params:xml:ns:vcard-4.0"] then
 		local stanza = st.iq({ from = module.host, to = host, type = "get", id = "mod_service_directories:vcard" })
 			:tag("vcard", { xmlns = "urn:ietf:params:xml:ns:vcard-4.0" });
-		core_post_stanza(hosts[module.host], stanza);
+		module:send(stanza);
 	end
 	return true;
 end);
