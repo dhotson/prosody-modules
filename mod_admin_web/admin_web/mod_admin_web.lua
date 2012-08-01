@@ -144,10 +144,25 @@ function module.add_host(module)
 		}
 	});
 
+	local function simple_broadcast(node, jids, item)
+		item = st.clone(item);
+		item.attr.xmlns = nil; -- Clear the pubsub namespace
+		local message = st.message({ from = module.host, type = "headline" })
+			:tag("event", { xmlns = xmlns_adminsub .. "#event" })
+				:tag("items", { node = node })
+					:add_child(item);
+		for jid in pairs(jids) do
+			module:log("debug", "Sending notification to %s", jid);
+			message.attr.to = jid;
+			module:send(message);
+		end
+	end
+
+
 	-- Setup adminsub service
 	local ok, err;
 	service[module.host] = pubsub.new({
-		broadcaster = function(node, jids, item) return simple_broadcast(node, jids, item, module.host) end;
+		broadcaster = simple_broadcast;
 		normalize_jid = jid_bare;
 		get_affiliation = function(jid) return get_affiliation(jid, module.host) end;
 		capabilities = {
@@ -319,20 +334,6 @@ function module.add_host(module)
 	module:hook("s2sin-destroyed", function(event)
 		del_host(event.session, "in", module.host);
 	end);
-end
-
-function simple_broadcast(node, jids, item, host)
-	item = st.clone(item);
-	item.attr.xmlns = nil; -- Clear the pubsub namespace
-	local message = st.message({ from = host, type = "headline" })
-		:tag("event", { xmlns = xmlns_adminsub .. "#event" })
-			:tag("items", { node = node })
-				:add_child(item);
-	for jid in pairs(jids) do
-		module:log("debug", "Sending notification to %s", jid);
-		message.attr.to = jid;
-		core_post_stanza(hosts[host], message);
-	end
 end
 
 function get_affiliation(jid, host)
