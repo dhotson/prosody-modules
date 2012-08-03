@@ -144,6 +144,7 @@ function module.add_host(module)
 		}
 	});
 
+	-- Setup adminsub service
 	local function simple_broadcast(node, jids, item)
 		item = st.clone(item);
 		item.attr.xmlns = nil; -- Clear the pubsub namespace
@@ -158,8 +159,6 @@ function module.add_host(module)
 		end
 	end
 
-
-	-- Setup adminsub service
 	local ok, err;
 	service[module.host] = pubsub.new({
 		broadcaster = simple_broadcast;
