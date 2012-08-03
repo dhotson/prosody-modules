@@ -131,8 +131,12 @@ function serve_file(event, path)
 end
 
 function module.add_host(module)
-	-- Setup HTTP server
+	-- Dependencies
+	module:depends("bosh");
+	module:depends("admin_adhoc");
 	module:depends("http");
+
+	-- Setup HTTP server
 	module:provides("http", {
 		name = "admin";
 		route = {
