@@ -15,7 +15,6 @@ function check_subscribed(event)
 	end
 end
 
-module:hook("message/bare", check_subscribed, 100);
-module:hook("message/full", check_subscribed, 100);
-
-module:hook("iq/full", check_subscribed, 100);
+module:hook("message/bare", check_subscribed, 200);
+module:hook("message/full", check_subscribed, 200);
+module:hook("iq/full", check_subscribed, 200);
