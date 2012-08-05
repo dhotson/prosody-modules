@@ -43,6 +43,6 @@ module:hook("user-registered", function(event)
 		rostermanager.save_roster(node, host, roster);
 		rostermanager.roster_push(node, host, jid);
 	else
-		core_post_stanza(hosts[event.host], st.presence({from=jid, to=support_contact, type="subscribe"}));
+		module:send(st.presence({from=jid, to=support_contact, type="subscribe"}));
 	end
 end);
