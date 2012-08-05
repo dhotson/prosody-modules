@@ -1,6 +1,7 @@
 local rostermanager = require "core.rostermanager";
 local jid = require "util.jid";
 local st = require "util.stanza";
+local core_post_stanza = prosody.core_post_stanza;
 
 local function handle_inbound_subscription_request(origin, stanza)
 	local to_bare, from_bare = jid.bare(stanza.attr.to), jid.bare(stanza.attr.from);
