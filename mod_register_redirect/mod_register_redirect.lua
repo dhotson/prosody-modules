@@ -58,7 +58,7 @@ function reg_redirect(event)
 				end
 			end
 		end
-	elseif text and oob then
+	elseif instt_text and oob then
 		if not url:match("^%w+[:].*$") then
 			module:log("error", "Please check your configuration, the URL specified is not valid.")
 			origin.send(st.error_reply(stanza, "wait", "internal-server-error")) -- bouncing request.
