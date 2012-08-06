@@ -36,11 +36,11 @@ function reg_redirect(event)
 					module:log("error", "This module supports only http/https, mailto or xmpp as URL formats.")
 					module:log("error", "If you want to use personalized instructions without an Out-Of-Band method,")
 					module:log("error", "specify: register_oob = false; -- in your configuration along your banner string (register_text).")
-					origin.send(st.error_reply(stanza, "wait", "internal-server-error")) ; return true -- bouncing request.
+					return origin.send(st.error_reply(stanza, "wait", "internal-server-error")) -- bouncing request.
 				end
 			else
 				module:log("error", "Please check your configuration, the URL you specified is invalid")
-				origin.send(st.error_reply(stanza, "wait", "internal-server-error")) ; return true -- bouncing request.
+				return origin.send(st.error_reply(stanza, "wait", "internal-server-error")) -- bouncing request.
 			end
 		else
 			if admins_l then
@@ -53,15 +53,14 @@ function reg_redirect(event)
 				else
 					module:log("error", "Please be sure to, _at the very least_, configure one server administrator either global or hostwise...")
 					module:log("error", "if you want to use this module, or read it's configuration wiki at: http://code.google.com/p/prosody-modules/wiki/mod_register_redirect")
-					origin.send(st.error_reply(stanza, "wait", "internal-server-error")) -- bouncing request.
-					return true
+					return origin.send(st.error_reply(stanza, "wait", "internal-server-error")) -- bouncing request.
 				end
 			end
 		end
 	elseif inst_text and url and oob then
 		if not url:match("^%w+[:].*$") then
 			module:log("error", "Please check your configuration, the URL specified is not valid.")
-			origin.send(st.error_reply(stanza, "wait", "internal-server-error")) -- bouncing request.
+			return origin.send(st.error_reply(stanza, "wait", "internal-server-error")) -- bouncing request.
 		end
 	end
 
@@ -85,11 +84,9 @@ function reg_redirect(event)
 	end
 	
 	if stanza.attr.type == "get" then
-		origin.send(reply)
-		return true
+		return origin.send(reply)
 	else
-		origin.send(st.error_reply(stanza, "cancel", "not-authorized"))
-		return true
+		return origin.send(st.error_reply(stanza, "cancel", "not-authorized"))
 	end
 end
 
