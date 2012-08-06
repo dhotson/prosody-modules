@@ -183,7 +183,7 @@ local function periodic()
 			purge = false;
 		end
 	end
-	return now - m_max(next_check - min_lease, min_lease);
+	return m_max((now - next_check) - min_lease, min_lease);
 end
 
 local function on_notify(subscription, content)
