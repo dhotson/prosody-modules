@@ -28,6 +28,12 @@ local item_template = template[[
 </item>
 ]];
 
+local base_host = module:get_option_string("vjud_search_domain",
+	module:get_host_type() == "component"
+		and module.host:gsub("^[^.]+%.","")
+		or module.host);
+
+module:depends"disco";
 module:add_feature("jabber:iq:search");
 
 local opted_in;
@@ -60,8 +66,8 @@ local vCard_mt = {
 	end
 };
 
-local function get_user_vcard(user)
-	local vCard = dm_load(user, module.host, "vcard");
+local function get_user_vcard(user, host)
+	local vCard = dm_load(user, host or base_host, "vcard");
 	if vCard then
 		vCard = st.deserialize(vCard);
 		vCard = vcard.from_xep54(vCard);
@@ -69,7 +75,7 @@ local function get_user_vcard(user)
 	end
 end
 
-local at_host = "@"..module.host;
+local at_host = "@"..base_host;
 
 module:hook("iq/host/jabber:iq:search:query", function(event)
 	local origin, stanza = event.origin, event.stanza;
@@ -92,7 +98,7 @@ module:hook("iq/host/jabber:iq:search:query", function(event)
 		local reply = st.reply(stanza):query("jabber:iq:search");
 
 		local username, hostname = jid_split(email);
-		if hostname == module.host and username and usermanager.user_exists(username, hostname) then
+		if hostname == base_host and username and usermanager.user_exists(username, hostname) then
 			local vCard = get_user_vcard(username);
 			if vCard then
 				reply:add_child(item_template.apply{
@@ -133,7 +139,7 @@ local function opt_in_handler(self, data, state)
 			return { status = "canceled" };
 		end
 
-		if not username or not hostname or hostname ~= module.host then
+		if not username or not hostname or hostname ~= base_host then
 			return { status = "error", error = { type = "cancel",
 				condition = "forbidden", message = "Invalid user or hostname." } };
 		end
