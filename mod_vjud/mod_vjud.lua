@@ -144,7 +144,7 @@ local function opt_in_handler(self, data, state)
 		return { status = "completed" }
 	else -- No state, send the form.
 		return { status = "executing", actions  = { "complete" },
-			form = { layout = opt_in_layout, data = { searchable = opted_in[username] } } }, true;
+			form = { layout = opt_in_layout, values = { searchable = opted_in[username] } } }, true;
 	end
 end
 
