@@ -238,8 +238,8 @@ local function from_xep54_item(item)
 		elseif prop_def.values then --array
 			local value_names = prop_def.values;
 			if value_names.behaviour == "repeat-last" then
-				for i=1,#item do
-					t_insert(prop, item[i]:get_text() or "");
+				for i=1,#item.tags do
+					t_insert(prop, item.tags[i]:get_text() or "");
 				end
 			else
 				for i=1,#value_names do
