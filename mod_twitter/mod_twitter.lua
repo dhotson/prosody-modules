@@ -11,7 +11,7 @@ local componentmanager = require "core.componentmanager";
 local datamanager = require "util.datamanager";
 local timer = require "util.timer";
 local http = require "net.http";
-local json = require "json";
+local json = require "util.json";
 local base64 = require "util.encodings".base64;
 
 local component_host = module:get_host();
