@@ -35,7 +35,7 @@ function generate_page(event, display_options)
 	[[	<table>
 		<tr>
 			<td>Username:</td>
-			<td><input type="text" name="username">@server</td>
+			<td><input type="text" name="username">@]]..module.host..[[</td>
 		</tr>
 		<tr>
 			<td>Password:</td>
