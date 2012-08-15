@@ -15,8 +15,7 @@
 -- Reference
 -- http://pubsubhubbub.googlecode.com/svn/trunk/pubsubhubbub-core-0.3.html
 
-local modules = hosts[module.host].modules;
-module:depends"pubsub";
+local pubsub = module:depends"pubsub";
 
 local date, time = os.date, os.time;
 local dt_parse, dt_datetime = require "util.datetime".parse, require "util.datetime".datetime;
@@ -91,16 +90,16 @@ function update_entry(item)
 			-- TODO Put data from /feed into item/source
 
 			--module:log("debug", "publishing to %s, id %s", node, id);
-			local ok, err = modules.pubsub.service:publish(node, true, id, xitem);
+			local ok, err = pubsub.service:publish(node, true, id, xitem);
 			if not ok then
 				if err == "item-not-found" then -- try again
 					--module:log("debug", "got item-not-found, creating %s and trying again", node);
-					local ok, err = modules.pubsub.service:create(node, true);
+					local ok, err = pubsub.service:create(node, true);
 					if not ok then
 						module:log("error", "could not create node %s: %s", node, err);
 						return;
 					end
-					local ok, err = modules.pubsub.service:publish(node, true, id, xitem);
+					local ok, err = pubsub.service:publish(node, true, id, xitem);
 					if not ok then
 						module:log("error", "could not create or publish node %s: %s", node, err);
 						return
