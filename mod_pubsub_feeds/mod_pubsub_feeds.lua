@@ -47,7 +47,8 @@ function module.load()
 		prosody_blog = "http://blog.prosody.im/feed/atom.xml";
 	};
 	refresh_interval = module:get_option_number("feed_pull_interval", 15) * 60;
-	local nodes = pubsub.service:get_nodes(true);
+	local ok, nodes = pubsub.service:get_nodes(true);
+	if not ok then nodes = {}; end
 	local new_feed_list = {};
 	for node, url in pairs(config) do
 		if type(node) == "number" then
