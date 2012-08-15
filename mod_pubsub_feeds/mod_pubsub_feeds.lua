@@ -41,8 +41,7 @@ local urlencode  = http.urlencode;
 local feed_list = module:shared("feed_list");
 local refresh_interval;
 
--- Dynamically reloadable config.
-local function update_config()
+function module.load()
 	local config = module:get_option("feeds") or {
 		planet_jabber = "http://planet.jabber.org/atom.xml";
 		prosody_blog = "http://blog.prosody.im/feed/atom.xml";
@@ -66,8 +65,6 @@ local function update_config()
 		end
 	end
 end
-update_config();
-module:hook_global("config-reloaded", update_config);
 
 function update_entry(item)
 	local node = item.node;
