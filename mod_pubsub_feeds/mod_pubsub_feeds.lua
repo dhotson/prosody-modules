@@ -138,13 +138,13 @@ function fetch(item, callback) -- HTTP Pull
 	end);
 end
 
-function refresh_feeds()
+function refresh_feeds(force)
 	local now = time();
 	--module:log("debug", "Refreshing feeds");
 	for node, item in pairs(feed_list) do
 		--FIXME Don't fetch feeds which have a subscription
 		-- Otoho, what if the subscription expires or breaks?
-		if item.last_update + refresh_interval < now then 
+		if force or item.last_update + refresh_interval < now then 
 			--module:log("debug", "checking %s", item.node);
 			fetch(item, update_entry);
 		end
