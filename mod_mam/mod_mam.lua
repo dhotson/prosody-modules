@@ -135,13 +135,16 @@ module:hook("iq/self/"..xmlns_mam..":query", function(event)
 			qstart, qend = vstart, vend;
 		end
 
+		local qres;
 		if qwith then -- Validate the 'with' jid
 			local pwith = qwith and jid_prep(qwith);
 			if pwith and not qwith then -- it failed prepping
 				origin.send(st.error_reply(stanza, "modify", "bad-request", "Invalid JID"))
 				return true
 			end
-			qwith = pwith;
+			local _, _, resource = jid_split(qwith);
+			qwith = jid_bare(pwith);
+			qres = resource;
 		end
 
 		-- Load all the data!
@@ -166,7 +169,7 @@ module:hook("iq/self/"..xmlns_mam..":query", function(event)
 		module:log("debug", "Loaded %d items, about to filter", #data);
 		for i=start,#data do
 			local item = data[i];
-			local when, with, with_bare = item.when, item.with, item.with_bare;
+			local when, with, resource = item.when, item.with, item.resource;
 			local id = item.id;
 			--module:log("debug", "id is %s", id);
 
@@ -181,7 +184,7 @@ module:hook("iq/self/"..xmlns_mam..":query", function(event)
 
 			--module:log("debug", "message with %s at %s", with, when or "???");
 			-- Apply query filter
-			if (not qwith or ((qwith == with) or (qwith == with_bare)))
+			if (not qwith or ((qwith == with) and (not qres or qres == resource)))
 					and (not qstart or when >= qstart)
 					and (not qend or when <= qend)
 					and (not qset or qset_matches) then
@@ -281,6 +284,7 @@ local function message_handler(event, c2s)
 	local store_user, store_host = jid_split(c2s and orig_from or orig_to);
 	local target_jid = c2s and orig_to or orig_from;
 	local target_bare = jid_bare(target_jid);
+	local _, _, target_resource = jid_split(target_jid);
 
 	if shall_store(store_user, target_bare) then
 		module:log("debug", "Archiving stanza: %s", stanza:top_tag());
@@ -292,8 +296,8 @@ local function message_handler(event, c2s)
 			-- WARNING This format may change.
 			id = id,
 			when = when,
-			with = target_jid,
-			with_bare = target_bare, -- Optimization, to avoid loads of jid_bare() calls when filtering.
+			with = target_bare,
+			resource = target_resource,
 			stanza = st.preserialize(stanza)
 		});
 		--[[ This was dropped from the spec
