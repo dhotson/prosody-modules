@@ -225,7 +225,7 @@ module:hook("iq/self/"..xmlns_mam..":query", function(event)
 		local reply = st.reply(stanza);
 		if last then
 			-- This is a bit redundant, isn't it?
-			reply:query(xmlns_mam):add_child(rsm.generate{last = last});
+			reply:query(xmlns_mam):add_child(rsm.generate{first = first, last = last, count = n});
 		end
 		origin.send(reply);
 		return true
