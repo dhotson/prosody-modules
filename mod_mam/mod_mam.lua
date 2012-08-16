@@ -232,7 +232,7 @@ end);
 local function has_in_roster(user, who)
 	local roster = rm_load_roster(user, host);
 	module:log("debug", "%s has %s in roster? %s", user, who, roster[who] and "yes" or "no");
-	return roster and roster[who];
+	return roster[who];
 end
 
 local function shall_store(user, who)
