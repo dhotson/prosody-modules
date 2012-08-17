@@ -186,7 +186,14 @@ local function periodic()
 	return m_max((now - next_check) - min_lease, min_lease);
 end
 
+local xmlns_atom = "http://www.w3.org/2005/Atom";
+local st = require "util.stanza";
+
 local function on_notify(subscription, content)
+	if content.attr and content.attr.xmlns == xmlns_atom then
+		-- COMPAT This is required by the PubSubHubbub spec.
+		content = st.stanza("feed", {xmlns=xmlns_atom}):add_child(content);
+	end
 	local body = tostring(content);
 	local headers = {
 		["Content-Type"] = "application/xml",
