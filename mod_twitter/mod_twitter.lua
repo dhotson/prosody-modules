@@ -22,16 +22,10 @@ function print_r(obj)
 	return require("util.serialization").serialize(obj);
 end
 
-function send_stanza(stanza)
-	if stanza ~= nil then
-		core_route_stanza(prosody.hosts[component_host], stanza)
-	end
-end
-
 function dmsg(jid, msg)
 	module:log("debug", msg or "nil");
 	if jid ~= nil then
-		send_stanza(st.message({to=jid, from=component_host, type='chat'}):tag("body"):text(msg or "nil"):up());
+		module:send(st.message({to=jid, from=component_host, type='chat'}):tag("body"):text(msg or "nil"):up());
 	end
 end
 
@@ -99,21 +93,21 @@ function user:login()
 		if self.data['_twitter_sess'] ~= nil then
 			http_headers['Cookie'] = "_twitter_sess="..self.data['_twitter_sess']..";";
 		end
-		send_stanza(st.presence({to=self.jid, from=component_host}));
+		module:send(st.presence({to=self.jid, from=component_host}));
 		self:twitterAction("VerifyCredentials");
 		if self.data.dosync == 1 then
 			self.dosync = true;
 			timer.add_task(self.data.refreshrate, function() return users[self.jid]:sync(); end)
 		end
 	else
-		send_stanza(st.message({to=self.jid, from=component_host, type='chat'}):tag("body"):text("You are not signed in."));
+		module:send(st.message({to=self.jid, from=component_host, type='chat'}):tag("body"):text("You are not signed in."));
 	end
 end
 
 function user:logout()
 	datamanager.store(self.jid, component_host, "data", self.data);
 	self.dosync = false;
-	send_stanza(st.presence({to=self.jid, from=component_host, type='unavailable'}));
+	module:send(st.presence({to=self.jid, from=component_host, type='unavailable'}));
 end
 
 function user:sync()
@@ -126,17 +120,17 @@ end
 function user:signin()
 	if datamanager.load(self.jid, component_host, "data") == nil then
 		datamanager.store(self.jid, component_host, "data", {login=self.data.login, password=self.data.password, refreshrate=60, dosync=1, synclines={{name='HomeTimeline', sinceid=0}}, syncstatus=0})
-		send_stanza(st.presence{to=self.jid, from=component_host, type='subscribe'});
-		send_stanza(st.presence{to=self.jid, from=component_host, type='subscribed'});
+		module:send(st.presence{to=self.jid, from=component_host, type='subscribe'});
+		module:send(st.presence{to=self.jid, from=component_host, type='subscribed'});
 	end
 end
 
 function user:signout()
 	if datamanager.load(self.jid, component_host, "data") ~= nil then
 		datamanager.store(self.jid, component_host, "data", nil);
-		send_stanza(st.presence({to=self.jid, from=component_host, type='unavailable'}));
-		send_stanza(st.presence({to=self.jid, from=component_host, type='unsubscribe'}));
-		send_stanza(st.presence({to=self.jid, from=component_host, type='unsubscribed'}));
+		module:send(st.presence({to=self.jid, from=component_host, type='unavailable'}));
+		module:send(st.presence({to=self.jid, from=component_host, type='unsubscribe'}));
+		module:send(st.presence({to=self.jid, from=component_host, type='unsubscribed'}));
 	end
 end
 
@@ -202,17 +196,17 @@ function user:twitterAction(line, params)
 		end
 		http_add_action(line, url, action.method, post, function(...) self:twitterActionResult(...) end);
 	else
-		send_stanza(st.message({to=self.jid, from=component_host, type='chat'}):tag("body"):text("Wrong twitter action!"):up());
+		module:send(st.message({to=self.jid, from=component_host, type='chat'}):tag("body"):text("Wrong twitter action!"):up());
 	end
 end
 
 local twitterActionResultMap = {
 	PublicTimeline = {exec=function(jid, response)
-		--send_stanza(st.message({to=jid, from=component_host, type='chat'}):tag("body"):text(print_r(response)):up());
+		--module:send(st.message({to=jid, from=component_host, type='chat'}):tag("body"):text(print_r(response)):up());
 		return
 	end},
 	HomeTimeline = {exec=function(jid, response)
-		--send_stanza(st.message({to=jid, from=component_host, type='chat'}):tag("body"):text(print_r(response)):up());
+		--module:send(st.message({to=jid, from=component_host, type='chat'}):tag("body"):text(print_r(response)):up());
 		return
 	end},
 	FriendsTimeline = {function(jid, response)
