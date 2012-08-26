@@ -10,25 +10,18 @@ local xmlns_carbons = "urn:xmpp:carbons:1";
 local xmlns_forward = "urn:xmpp:forward:0";
 local host_sessions = hosts[module.host].sessions;
 
-module:hook("iq/self/"..xmlns_carbons..":enable", function(event)
+local function toggle_carbons(event)
 	local origin, stanza = event.origin, event.stanza;
 	if stanza.attr.type == "set" then
-		module:log("debug", "%s enabled carbons", origin.full_jid);
-		origin.want_carbons = true;
+		local state = stanza.tags[1].name;
+		module:log("debug", "%s %sd carbons", origin.full_jid, state);
+		origin.want_carbons = state == "enable";
 		origin.send(st.reply(stanza));
 		return true
 	end
-end);
-
-module:hook("iq/self/"..xmlns_carbons..":disable", function(event)
-	local origin, stanza = event.origin, event.stanza;
-	if stanza.attr.type == "set" then
-		module:log("debug", "%s disabled carbons", origin.full_jid);
-		origin.want_carbons = nil;
-		origin.send(st.reply(stanza));
-		return true
-	end
-end);
+end
+module:hook("iq/self/"..xmlns_carbons..":disable", toggle_carbons);
+module:hook("iq/self/"..xmlns_carbons..":enable", toggle_carbons);
 
 local function message_handler(event, c2s)
 	local origin, stanza = event.origin, event.stanza;
