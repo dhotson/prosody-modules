@@ -98,7 +98,7 @@ local function vcard_to_xep54(vCard)
 end
 
 function to_xep54(vCards)
-	if vCards[1].name then
+	if not vCards[1] or vCards[1].name then
 		return vcard_to_xep54(vCards)
 	else
 		local t = st.stanza("xCard", { xmlns = "vcard-temp" });
@@ -213,7 +213,7 @@ local function vcard_to_text(vcard)
 end
 
 function to_text(vCards)
-	if vCards[1].name then
+	if vCards[1] and vCards[1].name then
 		return vcard_to_text(vCards)
 	else
 		local t = {};
