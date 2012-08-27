@@ -128,7 +128,7 @@ module:hook("iq/self/"..xmlns_mam..":query", function(event)
 
 		if qstart or qend then -- Validate timestamps
 			local vstart, vend = (qstart and timestamp_parse(qstart)), (qend and timestamp_parse(qend))
-			if (qstart and not qwith) or (qend and not vend) then
+			if (qstart and not vstart) or (qend and not vend) then
 				origin.send(st.error_reply(stanza, "modify", "bad-request", "Invalid timestamp"))
 				return true
 			end
