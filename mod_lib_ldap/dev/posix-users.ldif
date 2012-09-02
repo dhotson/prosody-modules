@@ -1,0 +1,92 @@
+# This is an LDIF file containing simple user definitions for a POSIX-style LDAP
+# setup.
+
+dn: dc=example,dc=com
+objectclass: dcObject
+objectclass: organization
+o: Example
+dc: example
+
+dn: cn=Manager,dc=example,dc=com
+objectclass: organizationalRole
+cn: Manager
+
+dn: ou=Groups,dc=example,dc=com
+ou: Groups
+objectclass: organizationalUnit
+
+dn: ou=Users,dc=example,dc=com
+ou: Users
+objectclass: organizationalUnit
+
+dn: uid=one,ou=Users,dc=example,dc=com
+objectclass: posixAccount
+objectclass: person
+uid: one
+uidNumber: 1000
+gidNumber: 1000
+sn: Testerson
+cn: John Testerson
+userPassword: 12345
+homeDirectory: /home/one
+
+dn: uid=two,ou=Users,dc=example,dc=com
+objectclass: posixAccount
+objectclass: person
+uid: two
+uidNumber: 1001
+gidNumber: 1001
+sn: Testerson
+cn: Jane Testerson
+userPassword: 23451
+homeDirectory: /home/two
+
+dn: uid=three,ou=Users,dc=example,dc=com
+objectclass: posixAccount
+objectclass: person
+uid: three
+uidNumber: 1002
+gidNumber: 1002
+sn: Testerson
+cn: Jerry Testerson
+userPassword: 34512
+homeDirectory: /home/three
+
+dn: uid=four,ou=Users,dc=example,dc=com
+objectclass: posixAccount
+objectclass: person
+uid: four
+uidNumber: 1003
+gidNumber: 1003
+sn: Testerson
+cn: Jack Testerson
+userPassword: 45123
+homeDirectory: /home/four
+
+dn: uid=five,ou=Users,dc=example,dc=com
+objectclass: posixAccount
+objectclass: person
+uid: five
+uidNumber: 1004
+gidNumber: 1004
+sn: Testerson
+cn: Jimmy Testerson
+userPassword: 51234
+homeDirectory: /home/five
+
+dn: cn=Everyone,ou=Groups,dc=example,dc=com
+objectclass: posixGroup
+cn: Everyone
+gidNumber: 2000
+memberUid: one
+memberUid: two
+memberUid: three
+memberUid: four
+memberUid: five
+
+dn: cn=Admin,ou=Groups,dc=example,dc=com
+objectclass: posixGroup
+cn: Admin
+gidNumber: 2001
+memberUid: one
+memberUid: two
