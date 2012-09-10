@@ -84,7 +84,7 @@ local function wrap_session(session, resume)
 			queue[#queue+1] = cached_stanza;
 		end
 		local ok, err = _send(stanza);
-		if ok and #queue > max_unacked_stanzas and not session.awaiting_ack then
+		if ok and #queue > max_unacked_stanzas and not session.awaiting_ack and attr and not attr.xmlns then
 			session.awaiting_ack = true;
 			return _send(st.stanza("r", sm_attr));
 		end
