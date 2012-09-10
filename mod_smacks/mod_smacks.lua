@@ -224,7 +224,7 @@ module:hook("pre-resource-unbind", function (event)
 				-- matches the smacks session this timer is for in case it changed
 				-- (for example, the client may have bound a new resource and
 				-- started a new smacks session, or not be using smacks)
-				local curr_session = hosts[session.host].sessions[session.username].sessions[session.resource];
+				local curr_session = full_sessions[session.full_jid];
 				if curr_session.resumption_token == resumption_token
 				-- Check the hibernate time still matches what we think it is,
 				-- otherwise the session resumed and re-hibernated.
