@@ -76,4 +76,4 @@ function driver:open(datastore, typ)
 	return instance;
 end
 
-module:add_item("data-driver", driver);
+module:provides("storage", driver);

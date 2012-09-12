@@ -167,7 +167,7 @@ end
 -- Driver Definition --
 ----------------------------------------
 
-local driver = { name = "ldap" };
+local driver = {};
 
 function driver:open(store, typ)
     local adapter = adapters[store];
@@ -177,4 +177,4 @@ function driver:open(store, typ)
     end
     return nil, "unsupported-store";
 end
-module:add_item("data-driver", driver);
+module:provides("storage", driver);
