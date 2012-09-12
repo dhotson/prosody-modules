@@ -104,7 +104,7 @@ local function joomlaCreateHash(password)
 end
 
 
-provider = { name = "joomla" };
+provider = {};
 
 function provider.test_password(username, password)
 	local hash = get_password(username);
@@ -178,5 +178,5 @@ function provider.get_sasl_handler()
 	return sasl;
 end
 
-module:add_item("auth-provider", provider);
+module:provides("auth", provider);
 

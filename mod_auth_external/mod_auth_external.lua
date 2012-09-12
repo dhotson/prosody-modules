@@ -94,7 +94,7 @@ function do_query(kind, username, password)
 end
 
 function new_external_provider(host)
-	local provider = { name = "external" };
+	local provider = {};
 
 	function provider.test_password(username, password)
 		return do_query("auth", username, password);
@@ -142,4 +142,4 @@ function new_external_provider(host)
 	return provider;
 end
 
-module:add_item("auth-provider", new_external_provider(module.host));
+module:provides("auth", new_external_provider(module.host));

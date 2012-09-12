@@ -46,7 +46,7 @@ local yubikey = require "yubikey".new_authenticator({
 local global_yubikey_key = module:get_option_string("yubikey_key");
 
 function new_default_provider(host)
-	local provider = { name = "internal_yubikey" };
+	local provider = {};
 	log("debug", "initializing default authentication provider for host '%s'", host);
 
 	function provider.test_password(username, password)
@@ -121,7 +121,7 @@ function new_default_provider(host)
 	return provider;
 end
 
-module:add_item("auth-provider", new_default_provider(module.host));
+module:provides("auth", new_default_provider(module.host));
 
 function module.command(arg)
 	local command = arg[1];

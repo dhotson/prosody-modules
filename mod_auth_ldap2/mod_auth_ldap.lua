@@ -20,7 +20,7 @@ if not ldap then
     return;
 end
 
-local provider = { name = 'ldap' }
+local provider = {}
 
 function provider.test_password(username, password)
     return ldap.bind(username, password);
@@ -81,4 +81,4 @@ function provider.is_admin(jid)
     };
 end
 
-module:add_item("auth-provider", provider);
+module:provides("auth", provider);
