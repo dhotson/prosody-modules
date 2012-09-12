@@ -45,83 +45,80 @@ local yubikey = require "yubikey".new_authenticator({
 
 local global_yubikey_key = module:get_option_string("yubikey_key");
 
-function new_default_provider(host)
-	local provider = {};
-	log("debug", "initializing default authentication provider for host '%s'", host);
+local host = module.host;
+local provider = {};
+log("debug", "initializing default authentication provider for host '%s'", host);
 
-	function provider.test_password(username, password)
-		log("debug", "test password '%s' for user %s at host %s", password, username, module.host);
-	
-		local account_info = datamanager.load(username, host, "accounts") or {};
-		local yubikey_key = account_info.yubikey_key or global_yubikey_key;
-		if account_info.yubikey_key then
-			log("debug", "Authenticating Yubikey OTP for %s", username);
-			local authed, err = yubikey:authenticate(password, account_info.yubikey_key, account_info.yubikey_state or {}, { account = account_info, username = username, host = host });
-			if not authed then
-				log("debug", "Failed to authenticate %s via OTP: %s", username, err);
-				return authed, err;
-			end
-			return authed;
-		elseif account_info.password and password == account_info.password then
-			-- No yubikey configured for this user, treat as normal password
-			log("debug", "No yubikey configured for %s, successful login using password auth", username);
-			return true;
-		else
-			return nil, "Auth failed. Invalid username or password.";
-		end
-	end
+function provider.test_password(username, password)
+	log("debug", "test password '%s' for user %s at host %s", password, username, module.host);
 
-	function provider.get_password(username)
-		log("debug", "get_password for username '%s' at host '%s'", username, module.host);
-		return (datamanager.load(username, host, "accounts") or {}).password;
-	end
-	
-	function provider.set_password(username, password)
-		local account = datamanager.load(username, host, "accounts");
-		if account then
-			account.password = password;
-			return datamanager.store(username, host, "accounts", account);
+	local account_info = datamanager.load(username, host, "accounts") or {};
+	local yubikey_key = account_info.yubikey_key or global_yubikey_key;
+	if account_info.yubikey_key then
+		log("debug", "Authenticating Yubikey OTP for %s", username);
+		local authed, err = yubikey:authenticate(password, account_info.yubikey_key, account_info.yubikey_state or {}, { account = account_info, username = username, host = host });
+		if not authed then
+			log("debug", "Failed to authenticate %s via OTP: %s", username, err);
+			return authed, err;
 		end
-		return nil, "Account not available.";
-	end
-
-	function provider.user_exists(username)
-		local account = datamanager.load(username, host, "accounts");
-		if not account then
-			log("debug", "account not found for username '%s' at host '%s'", username, module.host);
-			return nil, "Auth failed. Invalid username";
-		end
+		return authed;
+	elseif account_info.password and password == account_info.password then
+		-- No yubikey configured for this user, treat as normal password
+		log("debug", "No yubikey configured for %s, successful login using password auth", username);
 		return true;
+	else
+		return nil, "Auth failed. Invalid username or password.";
 	end
-
-	function provider.create_user(username, password)
-		return datamanager.store(username, host, "accounts", {password = password});
-	end
-	
-	function provider.delete_user(username)
-		return datamanager.store(username, host, "accounts", nil);
-	end
-
-	function provider.get_sasl_handler()
-		local realm = module:get_option("sasl_realm") or module.host;
-		local getpass_authentication_profile = {
-			plain_test = function(sasl, username, password, realm)
-				local prepped_username = nodeprep(username);
-				if not prepped_username then
-					log("debug", "NODEprep failed on username: %s", username);
-					return false, nil;
-				end
-				
-				return usermanager.test_password(username, realm, password), true;
-			end
-		};
-		return new_sasl(realm, getpass_authentication_profile);
-	end
-	
-	return provider;
 end
 
-module:provides("auth", new_default_provider(module.host));
+function provider.get_password(username)
+	log("debug", "get_password for username '%s' at host '%s'", username, module.host);
+	return (datamanager.load(username, host, "accounts") or {}).password;
+end
+
+function provider.set_password(username, password)
+	local account = datamanager.load(username, host, "accounts");
+	if account then
+		account.password = password;
+		return datamanager.store(username, host, "accounts", account);
+	end
+	return nil, "Account not available.";
+end
+
+function provider.user_exists(username)
+	local account = datamanager.load(username, host, "accounts");
+	if not account then
+		log("debug", "account not found for username '%s' at host '%s'", username, module.host);
+		return nil, "Auth failed. Invalid username";
+	end
+	return true;
+end
+
+function provider.create_user(username, password)
+	return datamanager.store(username, host, "accounts", {password = password});
+end
+
+function provider.delete_user(username)
+	return datamanager.store(username, host, "accounts", nil);
+end
+
+function provider.get_sasl_handler()
+	local realm = module:get_option("sasl_realm") or module.host;
+	local getpass_authentication_profile = {
+		plain_test = function(sasl, username, password, realm)
+			local prepped_username = nodeprep(username);
+			if not prepped_username then
+				log("debug", "NODEprep failed on username: %s", username);
+				return false, nil;
+			end
+			
+			return usermanager.test_password(username, realm, password), true;
+		end
+	};
+	return new_sasl(realm, getpass_authentication_profile);
+end
+	
+module:provides("auth", provider);
 
 function module.command(arg)
 	local command = arg[1];

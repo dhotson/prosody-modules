@@ -93,53 +93,50 @@ function do_query(kind, username, password)
 	end
 end
 
-function new_external_provider(host)
-	local provider = {};
+local host = module.host;
+local provider = {};
 
-	function provider.test_password(username, password)
-		return do_query("auth", username, password);
-	end
-
-	function provider.set_password(username, password)
-		return do_query("setpass", username, password);
-	end
-
-	function provider.user_exists(username)
-		return do_query("isuser", username);
-	end
-
-	function provider.create_user(username, password) return nil, "Account creation/modification not available."; end
-	
-	function provider.get_sasl_handler()
-		local testpass_authentication_profile = {
-			plain_test = function(sasl, username, password, realm)
-				local prepped_username = nodeprep(username);
-				if not prepped_username then
-					log("debug", "NODEprep failed on username: %s", username);
-					return "", nil;
-				end
-				return usermanager.test_password(prepped_username, realm, password), true;
-			end,
-		};
-		return new_sasl(module.host, testpass_authentication_profile);
-	end
-
-	function provider.is_admin(jid)
-		local admins = config.get(host, "core", "admins");
-		if admins ~= config.get("*", "core", "admins") then
-			if type(admins) == "table" then
-				jid = jid_bare(jid);
-				for _,admin in ipairs(admins) do
-					if admin == jid then return true; end
-				end
-			elseif admins then
-				log("error", "Option 'admins' for host '%s' is not a table", host);
-			end
-		end
-		return usermanager.is_admin(jid); -- Test whether it's a global admin instead
-	end
-
-	return provider;
+function provider.test_password(username, password)
+	return do_query("auth", username, password);
 end
 
-module:provides("auth", new_external_provider(module.host));
+function provider.set_password(username, password)
+	return do_query("setpass", username, password);
+end
+
+function provider.user_exists(username)
+	return do_query("isuser", username);
+end
+
+function provider.create_user(username, password) return nil, "Account creation/modification not available."; end
+
+function provider.get_sasl_handler()
+	local testpass_authentication_profile = {
+		plain_test = function(sasl, username, password, realm)
+			local prepped_username = nodeprep(username);
+			if not prepped_username then
+				log("debug", "NODEprep failed on username: %s", username);
+				return "", nil;
+			end
+			return usermanager.test_password(prepped_username, realm, password), true;
+		end,
+	};
+	return new_sasl(host, testpass_authentication_profile);
+end
+
+function provider.is_admin(jid)
+	local admins = config.get(host, "core", "admins");
+	if admins ~= config.get("*", "core", "admins") then
+		if type(admins) == "table" then
+			jid = jid_bare(jid);
+			for _,admin in ipairs(admins) do
+				if admin == jid then return true; end
+			end
+		elseif admins then
+			log("error", "Option 'admins' for host '%s' is not a table", host);
+		end
+	end
+	return usermanager.is_admin(jid); -- Test whether it's a global admin instead
+end
+
+module:provides("auth", provider);
