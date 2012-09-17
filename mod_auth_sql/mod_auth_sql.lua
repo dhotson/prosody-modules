@@ -81,7 +81,7 @@ local function get_password(username)
 end
 
 
-provider = { name = "sql" };
+provider = {};
 
 function provider.test_password(username, password)
 	return password and get_password(username) == password;
@@ -114,4 +114,4 @@ function provider.get_sasl_handler()
 	return new_sasl(module.host, profile);
 end
 
-module:add_item("auth-provider", provider);
+module:provides("auth", provider);

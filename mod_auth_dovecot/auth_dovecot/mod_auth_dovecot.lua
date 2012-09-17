@@ -48,9 +48,7 @@ do
 	log("debug", "Mechanims found: %s", table.concat(m, ", "));
 end
 
-provider = {
-	name = module.name:gsub("^auth_","");
-};
+provider = {};
 
 function provider.test_password(username, password)
 	return new_sasl(module.host):plain_test(username, password);
@@ -90,5 +88,5 @@ if append_host then
 	provider.get_sasl_handler = nil
 end
 
-module:add_item("auth-provider", provider);
+module:provides("auth", provider);
 

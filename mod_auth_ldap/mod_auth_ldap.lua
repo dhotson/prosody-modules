@@ -19,7 +19,7 @@ function do_query(query)
 	end
 end
 
-local provider = { name = "ldap" };
+local provider = {};
 
 local function ldap_filter_escape(s) return (s:gsub("[\\*\\(\\)\\\\%z]", function(c) return ("\\%02x"):format(c:byte()) end)); end
 function provider.test_password(username, password)
@@ -53,4 +53,4 @@ function provider.get_sasl_handler()
 	return new_sasl(module.host, testpass_authentication_profile);
 end
 
-module:add_item("auth-provider", provider);
+module:provides("auth", provider);

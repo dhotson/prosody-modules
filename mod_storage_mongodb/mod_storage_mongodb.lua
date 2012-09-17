@@ -44,7 +44,7 @@ function keyval_store:set(username, data)
 	end;
 end
 
-local driver = { name = "mongodb" };
+local driver = {};
 
 function driver:open(store, typ)
 	if not conn then
@@ -61,4 +61,4 @@ function driver:open(store, typ)
 	return nil, "unsupported-store";
 end
 
-module:add_item("data-driver", driver);
+module:provides("storage", driver);
