@@ -34,5 +34,9 @@ ldap = {
     vcard_format = {
       displayname = 'cn', -- Consult the vCard configuration section in the README
       nickname    = 'uid',
+      photo       = {
+        type   = 'binval',
+        binval = 'jpegPhoto',
+      }
     },
 }
