@@ -46,7 +46,7 @@ sub test_vcard {
                 }
             }
 
-            is_deeply $expected_fields, $vcard or diag(explain($vcard));
+            is_deeply $vcard, $expected_fields or diag(explain($vcard));
             $conn->cond->send;
         });
     });
