@@ -15,8 +15,39 @@ local VCARD_NS = 'vcard-temp';
 
 local builder_methods = {};
 
+local base64_encode = require('util.encodings').base64.encode;
+
 function builder_methods:addvalue(key, value)
     self.vcard:tag(key):text(value):up();
+end
+
+function builder_methods:addphotofield(tagname, format_section)
+    local record = self.record;
+    local format = self.format;
+    local vcard  = self.vcard;
+    local config = format[format_section];
+
+    if not config then
+        return;
+    end
+
+    if config.extval then
+        if record[config.extval] then
+            local tag = vcard:tag(tagname);
+            tag:tag('EXTVAL'):text(record[config.extval]):up();
+        end
+    elseif config.type and config.binval then
+        if record[config.binval] then
+            local tag = vcard:tag(tagname);
+            tag:tag('TYPE'):text(config.type):up();
+            tag:tag('BINVAL'):text(base64_encode(record[config.binval])):up();
+        end
+    else
+        module:log('error', 'You have an invalid %s config section', tagname);
+        return;
+    end
+
+    vcard:up();
 end
 
 function builder_methods:addregularfield(tagname, format_section)
@@ -73,7 +104,7 @@ function builder_methods:build()
     self:addvalue(              'FN',          record[format.displayname]);
     self:addregularfield(       'N',           'name');
     self:addvalue(              'NICKNAME',    record[format.nickname]);
-    self:addregularfield(       'PHOTO',       'photo');
+    self:addphotofield(         'PHOTO',       'photo');
     self:addvalue(              'BDAY',        record[format.birthday]);
     self:addmultisectionedfield('ADR',         'address');
     self:addvalue(              'LABEL',       nil); -- we don't support LABEL...yet.
@@ -85,7 +116,7 @@ function builder_methods:build()
     self:addregularfield(       'GEO',         'geo');
     self:addvalue(              'TITLE',       record[format.title]);
     self:addvalue(              'ROLE',        record[format.role]);
-    self:addregularfield(       'LOGO',        'logo');
+    self:addphotofield(         'LOGO',        'logo');
     self:addvalue(              'AGENT',       nil); -- we don't support AGENT...yet.
     self:addregularfield(       'ORG',         'org');
     self:addvalue(              'CATEGORIES',  nil); -- we don't support CATEGORIES...yet.
