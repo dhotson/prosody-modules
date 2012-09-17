@@ -4,6 +4,7 @@ use lib 't';
 
 use TestConnection;
 use AnyEvent::XMPP::Ext::VCard;
+use MIME::Base64 qw(decode_base64);
 use Test::More;
 
 sub test_vcard {
@@ -66,7 +67,7 @@ my $photo_data = do {
     my $data = <DATA>;
     chomp $data;
 
-    $data
+    decode_base64($data)
 };
 
 test_vcard(one => {
