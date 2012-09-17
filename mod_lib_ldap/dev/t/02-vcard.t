@@ -95,12 +95,10 @@ test_vcard(four => {
 });
 
 test_vcard(five => {
-    FN       => 'Jimmy Testerson',
-    NICKNAME => 'five',
-    PHOTO    => {
-        TYPE   => 'image/jpeg',
-        BINVAL => $photo_data,
-    }
+    FN           => 'Jimmy Testerson',
+    NICKNAME     => 'five',
+    _avatar      => $photo_data,
+    _avatar_type => 'image/jpeg',
 });
 
 __DATA__
