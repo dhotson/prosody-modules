@@ -35,10 +35,14 @@ sub test_vcard {
                 return;
             }
 
+            delete $vcard->{'_avatar_hash'}; # we don't check this
+            delete $vcard->{'PHOTO'};        # PHOTO data is treated specially
+                                             # by the vCard extension
+
             foreach my $key (keys %$vcard) {
                 my $value = $vcard->{$key};
 
-                $value = $value->[0];
+                $value = $value->[0] if ref($value) eq 'ARRAY';
 
                 if($value eq '') {
                     delete $vcard->{$key};
