@@ -51,9 +51,12 @@ local function message_handler(event, c2s)
 		elseif user_sessions then
 			local top_resources = user_sessions.top_resources;
 			if top_resources then
-				for _, session in ipairs(top_resources) do
-					module:log("debug", "Not sending carbons to top resource %s", session.resource);
-					no_carbon_to[session.resource] = true;
+				-- These will already receive this message per normal routing rules,
+				-- so we skip them to avoid duplicated messages.
+				for i=1,#top_resources do
+					local resource = top_resources[i].resource;
+					module:log("debug", "Not sending carbons to top resource %s", resource);
+					no_carbon_to[resource] = true;
 				end
 			end
 		end
@@ -73,20 +76,22 @@ local function message_handler(event, c2s)
 		return
 	end
 
-	local msg = st.clone(stanza);
-	msg.attr.xmlns = "jabber:client";
-	local fwd = st.message{ from = bare_jid, type = orig_type, }
+	-- Create the carbon copy and wrap it as per the Stanza Forwarding XEP
+	local copy = st.clone(stanza);
+	copy.attr.xmlns = "jabber:client";
+	local carbon = st.message{ from = bare_jid, type = orig_type, }
 		:tag(c2s and "sent" or "received", { xmlns = xmlns_carbons }):up()
 			:tag("forwarded", { xmlns = xmlns_forward })
-				:add_child(msg):reset();
+				:add_child(copy):reset();
 
+	-- And finally, send the carbon to the sessions that should have it.
 	user_sessions = user_sessions and user_sessions.sessions;
 	for resource, session in pairs(user_sessions) do
 		local full_jid = bare_jid .. "/" .. resource;
 		if session.want_carbons and ((c2s and session ~= origin) or (not c2s and not no_carbon_to[resource])) then
-			fwd.attr.to = full_jid;
+			carbon.attr.to = full_jid;
 			module:log("debug", "Sending carbon to %s", full_jid);
-			session.send(fwd);
+			session.send(carbon);
 		end
 	end
 end
