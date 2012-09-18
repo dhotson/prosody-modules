@@ -5,10 +5,10 @@
 
 local st = require "util.stanza";
 local jid_bare = require "util.jid".bare;
-local jid_split = require "util.jid".split;
 local xmlns_carbons = "urn:xmpp:carbons:1";
 local xmlns_forward = "urn:xmpp:forward:0";
 local host_sessions = hosts[module.host].sessions;
+local full_sessions, bare_sessions = full_sessions, bare_sessions;
 
 local function toggle_carbons(event)
 	local origin, stanza = event.origin, event.stanza;
@@ -27,7 +27,6 @@ local function message_handler(event, c2s)
 	local origin, stanza = event.origin, event.stanza;
 	local orig_type = stanza.attr.type;
 	local orig_to = stanza.attr.to;
-	local orig_from = stanza.attr.from;
 	
 	if not (orig_type == nil
 			or orig_type == "normal"
@@ -35,30 +34,22 @@ local function message_handler(event, c2s)
 		return -- No carbons for messages of type error or headline
 	end
 
-	local bare_jid, user_sessions;
-	local no_carbon_to = {};
-	module:log("debug", "Message from %s to %s", tostring(orig_from), tostring(orig_to));
-	if c2s then -- Stanza sent by a local client
-		bare_jid = (origin.username.."@"..origin.host)
-		user_sessions = host_sessions[origin.username];
-	else -- Stanza about to be delivered to a local client
-		local username, hostname, resource = jid_split(orig_to);
+	-- Stanza sent by a local client
+	local bare_jid = origin.username .. "@" .. origin.host;
+	local target_session = origin;
+	local top_priority = false;
+	local user_sessions = host_sessions[origin.username];
+
+	-- Stanza about to be delivered to a local client
+	if not c2s then
 		bare_jid = jid_bare(orig_to);
-		user_sessions = host_sessions[username];
-		if resource then
-			module:log("debug", "Message was to resource %s, it will not get carbon", resource);
-			no_carbon_to[resource] = true;
-		elseif user_sessions then
+		target_session = full_sessions[orig_to]
+		user_sessions = bare_sessions[bare_jid];
+		if not target_session and user_sessions then
+			-- The top resources will already receive this message per normal routing rules,
+			-- so we are going to skip them in order to avoid sending duplicated messages.
 			local top_resources = user_sessions.top_resources;
-			if top_resources then
-				-- These will already receive this message per normal routing rules,
-				-- so we skip them to avoid duplicated messages.
-				for i=1,#top_resources do
-					local resource = top_resources[i].resource;
-					module:log("debug", "Not sending carbons to top resource %s", resource);
-					no_carbon_to[resource] = true;
-				end
-			end
+			top_priority = top_resources and top_resources[1].priority
 		end
 	end
 
@@ -84,13 +75,16 @@ local function message_handler(event, c2s)
 			:tag("forwarded", { xmlns = xmlns_forward })
 				:add_child(copy):reset();
 
-	-- And finally, send the carbon to the sessions that should have it.
 	user_sessions = user_sessions and user_sessions.sessions;
-	for resource, session in pairs(user_sessions) do
-		local full_jid = bare_jid .. "/" .. resource;
-		if session.want_carbons and ((c2s and session ~= origin) or (not c2s and not no_carbon_to[resource])) then
-			carbon.attr.to = full_jid;
-			module:log("debug", "Sending carbon to %s", full_jid);
+	for _, session in pairs(user_sessions) do
+		-- Carbons are sent to resources that have enabled it
+		if session.want_carbons
+		-- but not the resource that sent the message, or the one that it's directed to
+		and session ~= target_session
+		-- and isn't among the top resources that would receive the message per standard routing rules
+		and (not c2s or session.priority ~= top_priority) then
+			carbon.attr.to = session.full_jid;
+			module:log("debug", "Sending carbon to %s", session.full_jid);
 			session.send(carbon);
 		end
 	end
