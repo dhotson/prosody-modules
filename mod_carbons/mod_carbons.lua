@@ -26,6 +26,7 @@ module:hook("iq/self/"..xmlns_carbons..":enable", toggle_carbons);
 local function message_handler(event, c2s)
 	local origin, stanza = event.origin, event.stanza;
 	local orig_type = stanza.attr.type;
+	local orig_from = stanza.attr.from;
 	local orig_to = stanza.attr.to;
 	
 	if not (orig_type == nil
@@ -35,7 +36,7 @@ local function message_handler(event, c2s)
 	end
 
 	-- Stanza sent by a local client
-	local bare_jid = origin.username .. "@" .. origin.host;
+	local bare_jid = origin.type == "c2s" and origin.username .. "@" .. origin.host or jid_bare(orig_from);
 	local target_session = origin;
 	local top_priority = false;
 	local user_sessions = host_sessions[origin.username];
