@@ -7,7 +7,6 @@ local st = require "util.stanza";
 local jid_bare = require "util.jid".bare;
 local xmlns_carbons = "urn:xmpp:carbons:1";
 local xmlns_forward = "urn:xmpp:forward:0";
-local host_sessions = hosts[module.host].sessions;
 local full_sessions, bare_sessions = full_sessions, bare_sessions;
 
 local function toggle_carbons(event)
@@ -36,15 +35,15 @@ local function message_handler(event, c2s)
 	end
 
 	-- Stanza sent by a local client
-	local bare_jid = origin.type == "c2s" and origin.username .. "@" .. origin.host or jid_bare(orig_from);
+	local bare_jid = jid_bare(orig_from);
 	local target_session = origin;
 	local top_priority = false;
-	local user_sessions = host_sessions[origin.username];
+	local user_sessions = bare_sessions[bare_jid];
 
 	-- Stanza about to be delivered to a local client
 	if not c2s then
 		bare_jid = jid_bare(orig_to);
-		target_session = full_sessions[orig_to]
+		target_session = full_sessions[orig_to];
 		user_sessions = bare_sessions[bare_jid];
 		if not target_session and user_sessions then
 			-- The top resources will already receive this message per normal routing rules,
