@@ -82,7 +82,7 @@ local function message_handler(event, c2s)
 		-- but not the resource that sent the message, or the one that it's directed to
 		and session ~= target_session
 		-- and isn't among the top resources that would receive the message per standard routing rules
-		and (not c2s or session.priority ~= top_priority) then
+		and (c2s or session.priority ~= top_priority) then
 			carbon.attr.to = session.full_jid;
 			module:log("debug", "Sending carbon to %s", session.full_jid);
 			session.send(carbon);
