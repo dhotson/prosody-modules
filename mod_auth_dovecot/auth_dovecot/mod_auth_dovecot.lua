@@ -37,7 +37,10 @@ local new_sasl = function(realm)
 end
 
 do
-	local s = new_sasl(module.host)
+	local s, err = new_sasl(module.host)
+	if not s then
+		log("error", "%s", tostring(err));
+	end
 	assert(s, "Could not create a new SASL object");
 	assert(s.mechanisms, "SASL object has no mechanims method");
 	local m, _m = {}, s:mechanisms();

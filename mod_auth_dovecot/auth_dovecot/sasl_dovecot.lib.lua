@@ -62,27 +62,29 @@ local function connect(socket_info)
 	end
 
 	if not ok then
-		log("error", "error connecting to dovecot %s socket at '%s'. error was '%s'", socket_type, socket_path or socket_info, err);
-		return false;
+		return false, "error connecting to dovecot "..tostring(socket_type).." socket at '"
+			..tostring(socket_path or socket_info).."'. error was '"..tostring(err).."'";
 	end
 
 	-- Send our handshake
 	pid = tonumber(tostring(conn):match("0x%x*$"));
 	log("debug", "sending handshake to dovecot. version 1.1, cpid '%d'", pid);
-	if not conn:send("VERSION\t1\t1\n") then
-		return false
+	local success,err = conn:send("VERSION\t1\t1\n");
+	if not success then
+		return false, "Unable to send version data to socket: "..tostring(err);
 	end
-	if not conn:send("CPID\t" .. pid .. "\n") then
-		return false
+	local success,err = conn:send("CPID\t" .. pid .. "\n");
+	if not success then
+		return false, "Unable to send PID to socket: "..tostring(err);
 	end
 
 	-- Parse Dovecot's handshake
 	local done = false;
 	supported_mechs = {};
 	while (not done) do
-		local line = conn:receive();
+		local line, err = conn:receive();
 		if not line then
-			return false;
+			return false, "No data read from socket: "..tostring(err);
 		end
 
 		--log("debug", "dovecot handshake: '%s'", line);
@@ -93,9 +95,8 @@ local function connect(socket_info)
 			local major_version = parts();
 
 			if major_version ~= "1" then
-				log("error", "dovecot server version is not 1.x. it is %s.x", major_version);
 				conn:close();
-				return false;
+				return false, "dovecot server version is not 1.x. it is "..tostring(major_version)..".x";
 			end
 		elseif first == "MECH" then
 			local mech = parts();
@@ -118,7 +119,7 @@ function _M.new(realm, service_name, socket_info, config)
 	if not conn then
 		conn, mechs = connect(socket_info);
 		if not conn then
-			return nil, "Socket connection failure";
+			return nil, "Dovecot connection failure: "..tostring(mechs);
 		end
 	end
 	sasl_i.conn, sasl_i.mechs = conn, mechs;
