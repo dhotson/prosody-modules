@@ -29,10 +29,12 @@ local xmlns_xmpp_streams = "urn:ietf:params:xml:ns:xmpp-streams";
 local log = module._log;
 
 local c2s_timeout = module:get_option_number("c2s_timeout");
+local stream_close_timeout = module:get_option_number("c2s_close_timeout", 5);
 local opt_keepalives = module:get_option_boolean("tcp_keepalives", false);
 local self_closing_stream = module:get_option_boolean("websocket_self_closing_stream", true);
 
 local sessions = module:shared("sessions");
+local core_process_stanza = prosody.core_process_stanza;
 
 local stream_callbacks = { default_ns = "jabber:client", handlestanza = core_process_stanza };
 local listener = {};
@@ -162,7 +164,7 @@ end
 
 function stream_callbacks.streamclosed(session)
 	session.log("debug", "Received </stream:stream>");
-	session:close();
+	session:close(false);
 end
 
 function stream_callbacks.error(session, error, data)
@@ -212,9 +214,9 @@ local function session_close(session, reason)
 				session.send("<?xml version='1.0'?>"..st.stanza("stream:stream", default_stream_attr):top_tag());
 			end
 		end
-		if reason then
+		if reason then -- nil == no err, initiated by us, false == initiated by client
 			if type(reason) == "string" then -- assume stream error
-				log("info", "Disconnecting client, <stream:error> is: %s", reason);
+				log("debug", "Disconnecting client, <stream:error> is: %s", reason);
 				session.send(st.stanza("stream:error"):tag(reason, {xmlns = 'urn:ietf:params:xml:ns:xmpp-streams' }));
 			elseif type(reason) == "table" then
 				if reason.condition then
@@ -225,19 +227,47 @@ local function session_close(session, reason)
 					if reason.extra then
 						stanza:add_child(reason.extra);
 					end
-					log("info", "Disconnecting client, <stream:error> is: %s", tostring(stanza));
+					log("debug", "Disconnecting client, <stream:error> is: %s", tostring(stanza));
 					session.send(stanza);
 				elseif reason.name then -- a stanza
-					log("info", "Disconnecting client, <stream:error> is: %s", tostring(reason));
+					log("debug", "Disconnecting client, <stream:error> is: %s", tostring(reason));
 					session.send(reason);
 				end
 			end
 		end
 		session.send("</stream:stream>");
-		session.conn:close();
-		listener.ondisconnect(session.conn, (reason and (reason.text or reason.condition)) or reason or "session closed");
+		function session.send() return false; end
+
+		local reason = (reason and (reason.text or reason.condition)) or reason;
+		session.log("info", "c2s stream for %s closed: %s", session.full_jid or ("<"..session.ip..">"), reason or "session closed");
+
+		-- Authenticated incoming stream may still be sending us stanzas, so wait for </stream:stream> from remote
+		local conn = session.conn;
+		if reason == nil and not session.notopen and session.type == "c2s" then
+			-- Grace time to process data from authenticated cleanly-closed stream
+			add_task(stream_close_timeout, function ()
+				if not session.destroyed then
+					session.log("warn", "Failed to receive a stream close response, closing connection anyway...");
+					sm_destroy_session(session, reason);
+					conn:close();
+				end
+			end);
+		else
+			sm_destroy_session(session, reason);
+			conn:close();
+		end
 	end
 end
+
+module:hook_global("user-deleted", function(event)
+	local username, host = event.username, event.host;
+	local user = hosts[host].sessions[username];
+	if user and user.sessions then
+		for jid, session in pairs(user.sessions) do
+			session:close{ condition = "not-authorized", text = "Account deleted" };
+		end
+	end
+end, 200);
 
 --- Port listener
 function listener.onconnect(conn)
@@ -331,10 +361,9 @@ end
 function listener.ondisconnect(conn, err)
 	local session = sessions[conn];
 	if session then
-		(session.log or log)("info", "Client disconnected: %s", err);
+		(session.log or log)("info", "Client disconnected: %s", err or "connection closed");
 		sm_destroy_session(session, err);
 		sessions[conn]  = nil;
-		session = nil;
 	end
 end
 
