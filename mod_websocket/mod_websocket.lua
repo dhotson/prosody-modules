@@ -69,7 +69,7 @@ local function parse_frame(frame)
 
 	for i = 1, length_bytes do
 		pos = pos + 1;
-		result.length = result.length * 255 + string.byte(frame, pos);
+		result.length = result.length * 256 + string.byte(frame, pos);
 	end
 
 	if result.MASK then
