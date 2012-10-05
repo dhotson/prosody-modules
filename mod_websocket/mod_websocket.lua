@@ -446,7 +446,14 @@ function handle_request(event, path)
 			</body></html>]];
 	end
 
-	-- TODO: Handle requested subprotocols
+	local wants_xmpp = false;
+	(request.headers.sec_websocket_protocol or ""):gsub("([^,]*),?", function (proto)
+		if proto == "xmpp" then wants_xmpp = true; end
+	end);
+
+	if not wants_xmpp then
+		return 501;
+	end
 
 	response.conn:setlistener(listener);
 	response.status = "101 Switching Protocols";
