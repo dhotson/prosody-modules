@@ -47,6 +47,8 @@ local function parse_frame(frame)
 	local counter = 0;
 	local tmp_byte;
 
+	if #frame < 2 then return; end
+
 	tmp_byte = string.byte(frame, pos);
 	result.FIN = band(tmp_byte, 0x80) > 0;
 	result.RSV1 = band(tmp_byte, 0x40) > 0;
@@ -67,10 +69,14 @@ local function parse_frame(frame)
 		result.length = 0;
 	end
 
+	if #frame < (2 + length_bytes) then return; end
+
 	for i = 1, length_bytes do
 		pos = pos + 1;
 		result.length = result.length * 256 + string.byte(frame, pos);
 	end
+
+	if #frame < (2 + length_bytes + (result.MASK and 4 or 0) + result.length) then return; end
 
 	if result.MASK then
 		result.key = {string.byte(frame, pos+1), string.byte(frame, pos+2),
@@ -86,16 +92,17 @@ local function parse_frame(frame)
 		result.data = frame:sub(pos + 1, pos + result.length);
 	end
 
-	return result;
+	return result, 2 + length_bytes + (result.MASK and 4 or 0) + result.length;
 end
 
 local function build_frame(desc)
 	local length;
 	local result = "";
+	local data = desc.data or "";
 
 	result = result .. string.char(0x80 * (desc.FIN and 1 or 0) + desc.opcode);
 
-	length = #desc.data;
+	length = #data;
 	if length <= 125 then -- 7-bit length
 		result = result .. string.char(length);
 	elseif length <= 0xFFFF then -- 2-byte length
@@ -108,7 +115,7 @@ local function build_frame(desc)
 		end
 	end
 
-	result = result .. desc.data;
+	result = result .. data;
 
 	return result;
 end
@@ -296,26 +303,71 @@ function listener.onconnect(conn)
 		session.stream:reset();
 	end
 
-	local filter = session.filter;
-	local buffer = "";
-	function session.data(data)
-		local frame = parse_frame(data);
+	local function websocket_close(code, message)
+		local data = string.char(code/0x100) .. string.char(code%0x100) .. message;
+		conn:write(build_frame({opcode = 0x8, FIN = true, data = data}));
+		conn:close();
+	end
 
+	local filter = session.filter;
+	local dataBuffer;
+	local function handle_frame(frame)
 		module:log("debug", "Websocket received: %s (%i bytes)", frame.data, #frame.data);
-		if frame.opcode == 0x0 or frame.opcode == 0x1 then -- Text or continuation frame
-			buffer = buffer .. frame.data;
+
+		-- Error cases
+		if frame.RSV1 or frame.RSV2 or frame.RSV3 then -- Reserved bits non zero
+			websocket_close(1002, "Reserved bits not zero");
+			return false;
+		end
+
+		if frame.opcode >= 0x8 and frame.length > 125 then -- Control frame with too much payload
+			websocket_close(1002, "Payload too large");
+			return false;
+		end
+
+		if frame.opcode >= 0x8 and not frame.FIN then -- Fragmented control frame
+			websocket_close(1002, "Fragmented control frame");
+			return false;
+		end
+
+		if (frame.opcode > 0x2 and frame.opcode < 0x8) or (frame.opcode > 0xA) then
+			websocket_close(1002, "Reserved opcode");
+			return false;
+		end
+
+		if frame.opcode == 0x0 and not dataBuffer then
+			websocket_close(1002, "Unexpected continuation frame");
+			return false;
+		end
+
+		if (frame.opcode == 0x1 or frame.opcode == 0x2) and dataBuffer then
+			websocket_close(1002, "Continuation frame expected");
+			return false;
+		end
+
+		-- Valid cases
+		if frame.opcode == 0x0 then -- Continuation frame
+			dataBuffer = dataBuffer .. frame.data;
+		elseif frame.opcode == 0x1 then -- Text frame
+			dataBuffer = frame.data;
+		elseif frame.opcode == 0x2 then -- Binary frame
+			websocket_close(1003, "Only text frames are supported");
+			return false;
+		elseif frame.opcode == 0x8 then -- Close request
+			websocket_close(1000, "Goodbye");
+			return false;
 		elseif frame.opcode == 0x9 then -- Ping frame
 			frame.opcode = 0xA;
 			conn:write(build_frame(frame));
-			return;
+			return true;
 		else
 			log("warn", "Received frame with unsupported opcode %i", frame.opcode);
-			return;
+			return true;
 		end
 
 		if frame.FIN then
-			data = buffer;
-			buffer = "";
+			data = dataBuffer;
+			dataBuffer = nil;
 
 			-- COMPAT: Current client implementations send a self-closing <stream:stream>
 			if self_closing_stream then
@@ -329,6 +381,19 @@ function listener.onconnect(conn)
 				log("debug", "Received invalid XML (%s) %d bytes: %s", tostring(err), #data, data:sub(1, 300):gsub("[\r\n]+", " "):gsub("[%z\1-\31]", "_"));
 				session:close("not-well-formed");
 			end
+		end
+		return true;
+	end
+
+	local frameBuffer = "";
+	function session.data(data)
+		frameBuffer = frameBuffer .. data;
+		local frame, length = parse_frame(frameBuffer);
+
+		while frame do
+			frameBuffer = frameBuffer:sub(length + 1);
+			if not handle_frame(frame) then return; end
+			frame, length = parse_frame(frameBuffer);
 		end
 	end
 
@@ -380,6 +445,8 @@ function handle_request(event, path)
 			<p>It works! Now point your WebSocket client to this URL to connect to Prosody.</p>
 			</body></html>]];
 	end
+
+	-- TODO: Handle requested subprotocols
 
 	response.conn:setlistener(listener);
 	response.status = "101 Switching Protocols";
