@@ -114,4 +114,18 @@ function provider.get_sasl_handler()
 	return new_sasl(module.host, profile);
 end
 
+function provider.users()
+	local stmt, err = getsql("SELECT `username` FROM `authreg` WHERE `realm`=?", module.host);
+	if stmt then
+		local next, state = stmt:rows(true)
+		return function()
+			for row in next, state do
+				return row.username;
+			end
+		end
+	end
+	return stmt, err;
+end
+
+
 module:provides("auth", provider);
