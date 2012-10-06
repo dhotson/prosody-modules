@@ -17,7 +17,7 @@ options.length = options.length or 8;
 local st = require "util.stanza";
 
 function check_password(password)
-	return #password <= options.length;
+	return #password >= options.length;
 end
 
 function handler(event)
