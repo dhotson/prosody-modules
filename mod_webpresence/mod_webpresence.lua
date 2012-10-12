@@ -56,14 +56,15 @@ local function handle_request(event, path)
 		statuses[status].image = { status_code = 200, headers = { content_type = "image/png" }, 
 			body = require_resource("status_"..status..".png") };
 	elseif type == "html" then
+		local jid_hash = sha1(jid, true);
 		statuses[status].html = { status_code = 200, headers = { content_type = "text/html" },
-			body = [[<div id="]]..sha1(jid,true)..[[_status" class="xmpp_status">]]..
-					[[<img id="]]..sha1(jid,true)..[[_img" class="xmpp_status_image" ]]..
+			body = [[<div id="]]..jid_hash..[[_status" class="xmpp_status">]]..
+					[[<img id="]]..jid_hash..[[_img" class="xmpp_status_image" ]]..
 						[[src="data:image/png;base64,]]..
 						b64(require_resource("status_"..status..".png"))..[[">]]..
-					[[<span id="]]..sha1(jid,true)..[[_name" ]]..
+					[[<span id="]]..jid_hash..[[_name" ]]..
 						[[class="xmpp_status_name">]]..status..[[</span>]]..
-					(message and [[<span id="]]..sha1(jid,true)..[[_message" ]]..
+					(message and [[<span id="]]..jid_hash..[[_message" ]]..
 						[[class="xmpp_status_message">]]..message..[[</span>]] or "")..
 				[[</div>]] };
 	elseif type == "text" then
