@@ -12,7 +12,7 @@
 
 local nodeprep = require "util.encodings".stringprep.nodeprep;
 --local process = require "process";
-local lpc = require "lpc";
+local lpc; pcall(function() lpc = require "lpc"; end);
 
 local config = require "core.configmanager";
 local log = module._log;
@@ -26,37 +26,56 @@ local usermanager = require "core.usermanager";
 local jid_bare = require "util.jid".bare;
 local new_sasl = require "util.sasl".new;
 
---local proc;
-local pid;
-local readfile;
-local writefile;
-
 local function send_query(text)
-	if pid and lpc.wait(pid,1) ~= nil then
-    	    log("debug","error, process died, force reopen");
-	    pid=nil;
-	end
-	if not pid then
-		log("debug", "Opening process " .. command);
-		-- proc = process.popen(command);
-		pid, writefile, readfile = lpc.run(command);
-	end
-	-- if not proc then
-	if not pid then
-		log("debug", "Process failed to open");
-		return nil;
-	end
-	-- proc:write(text);
-	-- proc:flush();
-
-	writefile:write(text);
-	writefile:flush();
+	local tmpname = os.tmpname();
+	local tmpfile = io.open(tmpname, "wb");
+	tmpfile:write(text);
+	tmpfile:close();
+	local p = io.popen(command.." < "..tmpname, "r");
+	local result;
 	if script_type == "ejabberd" then
-		-- return proc:read(4); -- FIXME do properly
-		return readfile:read(4); -- FIXME do properly
+		result = p:read(4);
 	elseif script_type == "generic" then
-		-- return proc:read(1);
-		return readfile:read();
+		result = p:read();
+	end
+	os.remove(tmpname);
+	p:close();
+	return result;
+end
+
+if lpc then
+	--local proc;
+	local pid;
+	local readfile;
+	local writefile;
+
+	function send_query(text)
+		if pid and lpc.wait(pid,1) ~= nil then
+	    	    log("debug","error, process died, force reopen");
+		    pid=nil;
+		end
+		if not pid then
+			log("debug", "Opening process " .. command);
+			-- proc = process.popen(command);
+			pid, writefile, readfile = lpc.run(command);
+		end
+		-- if not proc then
+		if not pid then
+			log("debug", "Process failed to open");
+			return nil;
+		end
+		-- proc:write(text);
+		-- proc:flush();
+
+		writefile:write(text);
+		writefile:flush();
+		if script_type == "ejabberd" then
+			-- return proc:read(4); -- FIXME do properly
+			return readfile:read(4); -- FIXME do properly
+		elseif script_type == "generic" then
+			-- return proc:read(1);
+			return readfile:read();
+		end
 	end
 end
 
