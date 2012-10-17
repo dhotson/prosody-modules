@@ -5,7 +5,8 @@
 
 local st = require "util.stanza";
 local jid_bare = require "util.jid".bare;
-local xmlns_carbons = "urn:xmpp:carbons:1";
+local xmlns_carbons = "urn:xmpp:carbons:2";
+local xmlns_carbons_old = "urn:xmpp:carbons:1";
 local xmlns_forward = "urn:xmpp:forward:0";
 local full_sessions, bare_sessions = full_sessions, bare_sessions;
 
@@ -14,13 +15,17 @@ local function toggle_carbons(event)
 	if stanza.attr.type == "set" then
 		local state = stanza.tags[1].name;
 		module:log("debug", "%s %sd carbons", origin.full_jid, state);
-		origin.want_carbons = state == "enable";
+		origin.want_carbons = state == "enable" and stanza.tags[1].attr.xmlns;
 		origin.send(st.reply(stanza));
 		return true
 	end
 end
 module:hook("iq/self/"..xmlns_carbons..":disable", toggle_carbons);
 module:hook("iq/self/"..xmlns_carbons..":enable", toggle_carbons);
+
+-- COMPAT
+module:hook("iq/self/"..xmlns_carbons_old..":disable", toggle_carbons);
+module:hook("iq/self/"..xmlns_carbons_old..":enable", toggle_carbons);
 
 local function message_handler(event, c2s)
 	local origin, stanza = event.origin, event.stanza;
@@ -75,6 +80,12 @@ local function message_handler(event, c2s)
 			:tag("forwarded", { xmlns = xmlns_forward })
 				:add_child(copy):reset();
 
+	-- COMPAT
+	local carbon_old = st.message{ from = bare_jid, type = orig_type, }
+		:tag(c2s and "sent" or "received", { xmlns = xmlns_carbons_old }):up()
+		:tag("forwarded", { xmlns = xmlns_forward })
+			:add_child(copy):reset();
+
 	user_sessions = user_sessions and user_sessions.sessions;
 	for _, session in pairs(user_sessions) do
 		-- Carbons are sent to resources that have enabled it
@@ -85,6 +96,7 @@ local function message_handler(event, c2s)
 		and (c2s or session.priority ~= top_priority) then
 			carbon.attr.to = session.full_jid;
 			module:log("debug", "Sending carbon to %s", session.full_jid);
+			local carbon = session.want_carbons == xmlns_carbons_old and carbon_old or carbon; -- COMPAT
 			session.send(carbon);
 		end
 	end
