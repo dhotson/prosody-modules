@@ -16,7 +16,7 @@ module:depends("http")
 
 -- Pick up configuration.
 
-local secure = module:get_option_boolean("reg_servlet_secure", true)
+local secure = module:get_option_boolean("reg_servlet_secure", false)
 local set_realm_name = module:get_option_string("reg_servlet_realm", "Restricted")
 local base_path = module:get_option_string("reg_servlet_base", "/register_account/")
 local throttle_time = module:get_option_number("reg_servlet_ttime", nil)
@@ -41,6 +41,7 @@ end
 local function handle_req(event)
 	local request = event.request
 	local body = request.body
+	if secure and not request.secure then return nil end
 
 	if request.method ~= "POST" then
 		return http_response(event, 405, "Bad method...", {["Allow"] = "POST"})
