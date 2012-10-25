@@ -294,6 +294,8 @@ function listener.onconnect(conn)
 
 	session.close = session_close;
 
+	session.conn.starttls = nil;
+
 	local stream = new_xmpp_stream(session, stream_callbacks);
 	session.stream = stream;
 	session.notopen = true;
