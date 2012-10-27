@@ -114,3 +114,4 @@ module:hook("message/bare", message_handler, 1);
 module:hook("message/full", message_handler, 1);
 
 module:add_feature(xmlns_carbons);
+module:add_feature(xmlns_carbons_old);
