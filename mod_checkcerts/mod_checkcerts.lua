@@ -1,32 +1,45 @@
 local ssl = require"ssl";
-if not ssl.cert_from_pem then
-	module:log("error", "This version of LuaSec (%s) doesn't support certificate checking", ssl._VERSION);
+local load_cert = ssl.x509 and ssl.x509.load
+	or ssl.cert_from_pem; -- COMPAT mw/luasec-hg
+
+if not load_cert then
+	module:log("error", "This version of LuaSec (%s) does not support certificate checking", ssl._VERSION);
 	return
 end
 
 local function check_certs_validity()
+	-- First, let's find out what certificate this host uses.
 	local ssl_config = config.rawget(module.host, "core", "ssl");
 	if not ssl_config then
 		local base_host = module.host:match("%.(.*)");
 		ssl_config = config.get(base_host, "core", "ssl");
 	end
 
-	if ssl.cert_from_pem and ssl_config.certificate then
+	if ssl_config.certificate then
 		local certfile = ssl_config.certificate;
 		local cert;
-		local fh, err = io.open(certfile);
-		cert = fh and fh:read"*a";
-		cert = cert and ssl.cert_from_pem(cert);
-		if not cert then return end
-		fh:close();
 
-		if not cert:valid_at(os.time()) then
+		local fh = io.open(certfile); -- Load the file.
+		cert = fh and fh:read"*a";
+		fh:close();
+		cert = cert and load_cert(cert); -- And parse
+		if not cert then return end
+		-- No error reporting, certmanager should complain already
+
+		local now = os.time();
+		local valid_at = cert.valid_at or cert.validat;
+		if not valid_at then return end -- Broken or uncommon LuaSec version?
+
+		-- This might be wrong if the certificate has NotBefore in the future.
+		-- However this is unlikely to happen in the wild.
+		if not valid_at(cert, now) then
 			module:log("warn", "The certificate %s has expired", certfile);
-		elseif not cert:valid_at(os.time()+86400*7) then
+		elseif not valid_at(cert, now+86400*7) then
 			module:log("warn", "The certificate %s will expire this week", certfile);
-		elseif not cert:valid_at(os.time()+86400*30) then
+		elseif not valid_at(cert, now+86400*30) then
 			module:log("info", "The certificate %s will expire later this month", certfile);
 		end
+		-- TODO Maybe notify admins
 	end
 end
 
