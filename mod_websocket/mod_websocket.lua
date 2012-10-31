@@ -33,6 +33,18 @@ local stream_close_timeout = module:get_option_number("c2s_close_timeout", 5);
 local opt_keepalives = module:get_option_boolean("tcp_keepalives", false);
 local self_closing_stream = module:get_option_boolean("websocket_self_closing_stream", true);
 
+local cross_domain = module:get_option("cross_domain_websocket");
+if cross_domain then
+	if cross_domain == true then
+		cross_domain = "*";
+	elseif type(cross_domain) == "table" then
+		cross_domain = table.concat(cross_domain, ", ");
+	end
+	if type(cross_domain) ~= "string" then
+		cross_domain = nil;
+	end
+end
+
 local sessions = module:shared("sessions");
 local core_process_stanza = prosody.core_process_stanza;
 
@@ -463,6 +475,7 @@ function handle_request(event, path)
 	response.headers.Connection = "Upgrade";
 	response.headers.Sec_WebSocket_Accept = base64(sha1(request.headers.sec_websocket_key .. "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"));
 	response.headers.Sec_WebSocket_Protocol = "xmpp";
+	response.headers.Access_Control_Allow_Origin = cross_domain;
 
 	return "";
 end
