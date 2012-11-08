@@ -31,7 +31,6 @@ local log = module._log;
 local c2s_timeout = module:get_option_number("c2s_timeout");
 local stream_close_timeout = module:get_option_number("c2s_close_timeout", 5);
 local opt_keepalives = module:get_option_boolean("tcp_keepalives", false);
-local self_closing_stream = module:get_option_boolean("websocket_self_closing_stream", true);
 
 local cross_domain = module:get_option("cross_domain_websocket");
 if cross_domain then
@@ -154,8 +153,8 @@ function stream_callbacks.streamopened(session, attr)
 		return;
 	end
 
-	-- COMPAT: Current client implementations need this to be self-closing
-	if self_closing_stream then
+	-- COMPAT: Some current client implementations need this to be self-closing
+	if session.self_closing_stream then
 		send("<?xml version='1.0'?>"..tostring(st.stanza("stream:stream", {
 			xmlns = 'jabber:client', ["xmlns:stream"] = 'http://etherx.jabber.org/streams';
 			id = session.streamid, from = session.host, version = '1.0', ["xml:lang"] = 'en' })));
@@ -226,8 +225,8 @@ local function session_close(session, reason)
 	local log = session.log or log;
 	if session.conn then
 		if session.notopen then
-			-- COMPAT: Current client implementations need this to be self-closing
-			if self_closing_stream then
+			-- COMPAT: Some current client implementations need this to be self-closing
+			if session.self_closing_stream then
 				session.send("<?xml version='1.0'?>"..tostring(st.stanza("stream:stream", default_stream_attr)));
 			else
 				session.send("<?xml version='1.0'?>"..st.stanza("stream:stream", default_stream_attr):top_tag());
@@ -383,10 +382,9 @@ function listener.onconnect(conn)
 			data = dataBuffer;
 			dataBuffer = nil;
 
-			-- COMPAT: Current client implementations send a self-closing <stream:stream>
-			if self_closing_stream then
-				data = data:gsub("(<stream:stream.*)/>$", "%1>");
-			end
+			-- COMPAT: Some current client implementations send a self-closing <stream:stream>
+			data, session.self_closing_stream = data:gsub("^(<stream:stream.*)/>$", "%1>");
+			session.self_closing_stream = (session.self_closing_stream == 1)
 
 			data = filter("bytes/in", data);
 			if data then
