@@ -1,6 +1,6 @@
 -- Use Include 'prosody-posix-ldap.cfg.lua' from prosody.cfg.lua to include this file
-authentication = 'ldap' -- Indicate that we want to use LDAP for authentication
-storage        = 'ldap' -- Indicate that we want to use LDAP for roster/vcard storage
+authentication = 'ldap2' -- Indicate that we want to use LDAP for authentication
+storage        = 'ldap'  -- Indicate that we want to use LDAP for roster/vcard storage
 
 ldap = {
     hostname      = 'localhost',                    -- LDAP server location

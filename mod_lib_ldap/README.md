@@ -12,7 +12,7 @@ with you, don't use it! (Or better yet, fix it =) )
 With that note in mind, you need to set 'allow\_unencrypted\_plain\_auth' to true in your configuration if
 you want to use LDAP authentication.
 
-To enable LDAP authentication, set 'authentication' to 'ldap' in your configuration file.
+To enable LDAP authentication, set 'authentication' to 'ldap2' in your configuration file.
 See also http://prosody.im/doc/authentication.
 
 # LDAP Storage
