@@ -179,18 +179,15 @@ end
 function _M.bind(username, password)
     local conn         = _M.getconnection();
     local filter       = format('%s=%s', params.user.usernamefield, username);
-    local search_attrs = {
+    local who          = _M.singlematch {
         attrs     = params.user.usernamefield,
         base      = params.user.basedn,
-        scope     = 'subtree',
-        sizelimit = 1,
         filter    = filter,
     };
-    local who;
 
-    for dn in conn:search(search_attrs) do
-        module:log('debug', '_M.bind - who: %s', dn);
-        who = dn;
+    if who then
+        who = who.dn;
+        module:log('debug', '_M.bind - who: %s', who);
     end
 
     local conn, err = ldap.open_simple(params.hostname, who, password, params.use_tls);
