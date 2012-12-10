@@ -11,6 +11,7 @@ my @users = (
     'three',
     'four',
     'five',
+    'six',
 );
 
 plan tests => scalar(@users) + 2;
