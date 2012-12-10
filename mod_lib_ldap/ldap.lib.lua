@@ -207,7 +207,7 @@ function _M.singlematch(query)
     local ld = _M.getconnection();
 
     query.sizelimit = 1;
-    query.scope     = 'onelevel';
+    query.scope     = 'subtree';
 
     for dn, attribs in ld:search(query) do
         return attribs;
