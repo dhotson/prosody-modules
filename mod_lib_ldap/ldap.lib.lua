@@ -177,7 +177,27 @@ end
 
 -- XXX consider renaming this...it doesn't bind the current connection
 function _M.bind(username, password)
-    local who = format('%s=%s,%s', params.user.usernamefield, username, params.user.basedn);
+    local conn   = _M.getconnection();
+    local filter = format('%s=%s', params.user.usernamefield, username);
+
+    if filter then
+        filter = _M.filter.combine_and(filter, params.user.filter);
+    end
+
+    local who = _M.singlematch {
+        attrs     = params.user.usernamefield,
+        base      = params.user.basedn,
+        filter    = filter,
+    };
+
+    if who then
+        who = who.dn;
+        module:log('debug', '_M.bind - who: %s', who);
+    else
+        module:log('debug', '_M.bind - no DN found for username = %s', username);
+        return nil, format('no DN found for username = %s', username);
+    end
+
     local conn, err = ldap.open_simple(params.hostname, who, password, params.use_tls);
 
     if conn then
@@ -192,9 +212,10 @@ function _M.singlematch(query)
     local ld = _M.getconnection();
 
     query.sizelimit = 1;
-    query.scope     = 'onelevel';
+    query.scope     = 'subtree';
 
     for dn, attribs in ld:search(query) do
+        attribs.dn = dn;
         return attribs;
     end
 end

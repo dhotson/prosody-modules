@@ -8,10 +8,10 @@ ldap = {
     bind_password = 'prosody',                      -- Bind password (optional if anonymous bind is supported)
 
     user = {
-      basedn        = 'ou=Users,dc=example,dc=com', -- The base DN where user records can be found
-      filter        = 'objectClass=posixAccount',   -- Filter expression to find user records under basedn
-      usernamefield = 'uid',                        -- The field that contains the user's ID (this will be the username portion of the JID)
-      namefield     = 'cn',                         -- The field that contains the user's full name (this will be the alias found in the roster)
+      basedn        = 'ou=Users,dc=example,dc=com',                  -- The base DN where user records can be found
+      filter        = '(&(objectClass=posixAccount)(!(uid=seven)))', -- Filter expression to find user records under basedn
+      usernamefield = 'uid',                                         -- The field that contains the user's ID (this will be the username portion of the JID)
+      namefield     = 'cn',                                          -- The field that contains the user's full name (this will be the alias found in the roster)
     },
 
     groups = {
