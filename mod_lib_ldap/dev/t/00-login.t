@@ -14,7 +14,7 @@ my @users = (
     'six',
 );
 
-plan tests => scalar(@users) + 2;
+plan tests => scalar(@users) + 3;
 
 foreach my $username (@users) {
     my $conn = TestConnection->new($username);
@@ -40,6 +40,17 @@ do {
 
 do {
     my $conn = TestConnection->new('six', password => '12345');
+
+    $conn->reg_cb(session_ready => sub {
+        $conn->cond->send;
+    });
+
+    my $error = $conn->cond->recv;
+    ok($error);
+};
+
+do {
+    my $conn = TestConnection->new('seven', password => '1234567');
 
     $conn->reg_cb(session_ready => sub {
         $conn->cond->send;
