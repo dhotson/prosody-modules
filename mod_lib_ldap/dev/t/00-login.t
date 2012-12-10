@@ -24,7 +24,7 @@ foreach my $username (@users) {
     });
 
     my $error = $conn->cond->recv;
-    ok(! $error) or diag($error);
+    ok(! $error) or diag("$username login failed: $error");
 }
 
 do {
