@@ -227,6 +227,17 @@ cn: Admin Testerson
 userPassword: 123456
 homeDirectory: /home/six
 
+dn: uid=seven,ou=Users,dc=example,dc=com
+objectclass: posixAccount
+objectclass: person
+uid: seven
+uidNumber: 1006
+gidNumber: 1006
+sn: User
+cn: Invalid User
+userPassword: 1234567
+homeDirectory: /home/seven
+
 dn: cn=Everyone,ou=Groups,dc=example,dc=com
 objectclass: posixGroup
 cn: Everyone
