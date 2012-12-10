@@ -39,7 +39,7 @@ do {
 };
 
 do {
-    my $conn = TestConnection->new('six', password => '12345');
+    my $conn = TestConnection->new('invalid', password => '12345');
 
     $conn->reg_cb(session_ready => sub {
         $conn->cond->send;
