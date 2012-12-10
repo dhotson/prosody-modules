@@ -188,6 +188,9 @@ function _M.bind(username, password)
     if who then
         who = who.dn;
         module:log('debug', '_M.bind - who: %s', who);
+    else
+        module:log('debug', '_M.bind - no DN found for username = %s', username);
+        return nil, format('no DN found for username = %s', username);
     end
 
     local conn, err = ldap.open_simple(params.hostname, who, password, params.use_tls);
