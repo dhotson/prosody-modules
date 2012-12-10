@@ -177,7 +177,22 @@ end
 
 -- XXX consider renaming this...it doesn't bind the current connection
 function _M.bind(username, password)
-    local who = format('%s=%s,%s', params.user.usernamefield, username, params.user.basedn);
+    local conn         = _M.getconnection();
+    local filter       = format('%s=%s', params.user.usernamefield, username);
+    local search_attrs = {
+        attrs     = params.user.usernamefield,
+        base      = params.user.basedn,
+        scope     = 'subtree',
+        sizelimit = 1,
+        filter    = filter,
+    };
+    local who;
+
+    for dn in conn:search(search_attrs) do
+        module:log('debug', '_M.bind - who: %s', dn);
+        who = dn;
+    end
+
     local conn, err = ldap.open_simple(params.hostname, who, password, params.use_tls);
 
     if conn then
