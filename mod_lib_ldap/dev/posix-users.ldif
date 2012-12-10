@@ -19,6 +19,10 @@ dn: ou=Users,dc=example,dc=com
 ou: Users
 objectclass: organizationalUnit
 
+dn: ou=Admins,ou=Users,dc=example,dc=com
+ou: Admins
+objectclass: organizationalUnit
+
 dn: uid=one,ou=Users,dc=example,dc=com
 objectclass: posixAccount
 objectclass: person
@@ -211,6 +215,17 @@ jpegPhoto:: /9j/4AAQSkZJRgABAQAAAQABAAD//gA+Q1JFQVRPUjogZ2QtanBlZyB2MS4wICh1c2lu
  sM9yCDtU/UV13hzxZPo91FMbNJQjAkbyOlFFP2cR+0l3PS7b4w2rqBNpMyt/sSg/0Fa0PxT0OTG+
  K7j+qA4/I0UUNElHxV4s0HW/D81vBcP54IeNWiYZP5ehNeM3NrP5rFImYZ6gUUVDirmsJNKxGsE6
  9YZB/wABNTJkcEEfWiigpM6rwgyR6vDLJ/q4zvb6Dmiiioe5dj//2Q==
+
+dn: uid=six,ou=Admins,ou=Users,dc=example,dc=com
+objectclass: posixAccount
+objectclass: person
+uid: six
+uidNumber: 1005
+gidNumber: 1005
+sn: Testerson
+cn: Admin Testerson
+userPassword: 123456
+homeDirectory: /home/six
 
 dn: cn=Everyone,ou=Groups,dc=example,dc=com
 objectclass: posixGroup
