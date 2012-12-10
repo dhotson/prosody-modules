@@ -177,9 +177,14 @@ end
 
 -- XXX consider renaming this...it doesn't bind the current connection
 function _M.bind(username, password)
-    local conn         = _M.getconnection();
-    local filter       = format('%s=%s', params.user.usernamefield, username);
-    local who          = _M.singlematch {
+    local conn   = _M.getconnection();
+    local filter = format('%s=%s', params.user.usernamefield, username);
+
+    if filter then
+        filter = _M.filter.combine_and(filter, params.user.filter);
+    end
+
+    local who = _M.singlematch {
         attrs     = params.user.usernamefield,
         base      = params.user.basedn,
         filter    = filter,
