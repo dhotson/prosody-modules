@@ -30,6 +30,7 @@ local item_template = template[[
 </item>
 ]];
 
+local search_mode = module:get_option_string("vjud_mode", "opt-in");
 local base_host = module:get_option_string("vjud_search_domain",
 	module:get_host_type() == "component"
 		and module.host:gsub("^[^.]+%.","")
@@ -38,23 +39,6 @@ local base_host = module:get_option_string("vjud_search_domain",
 module:depends"disco";
 module:add_feature("jabber:iq:search");
 
-local opted_in;
-function module.load()
-	opted_in = dm_load(nil, module.host, "user_index") or {};
-end
-function module.unload()
-	dm_store(nil, module.host, "user_index", opted_in);
-end
-
-local opt_in_layout = dataforms_new{
-	title = "Search settings";
-	instructions = "Do you want to appear in search results?";
-	{
-		name = "searchable",
-		label = "Appear in search results?",
-		type = "boolean",
-	},
-};
 local vCard_mt = {
 	__index = function(t, k)
 		if type(k) ~= "string" then return nil end
@@ -78,6 +62,8 @@ local function get_user_vcard(user, host)
 end
 
 local at_host = "@"..base_host;
+
+local users; -- The user iterator
 
 module:hook("iq/host/jabber:iq:search:query", function(event)
 	local origin, stanza = event.origin, event.stanza;
@@ -116,7 +102,7 @@ module:hook("iq/host/jabber:iq:search:query", function(event)
 				});
 			end
 		else
-			for username in pairs(opted_in) do
+			for username in users() do
 				local vCard = get_user_vcard(username);
 				if vCard
 				and ((first and vCard.N and s_find(s_lower(vCard.N[2]), first, nil, true))
@@ -138,30 +124,55 @@ module:hook("iq/host/jabber:iq:search:query", function(event)
 	return true;
 end);
 
-local function opt_in_handler(self, data, state)
-	local username, hostname = jid_split(data.from);
-	if state then -- the second return value
-		if data.action == "cancel" then
-			return { status = "canceled" };
-		end
-
-		if not username or not hostname or hostname ~= base_host then
-			return { status = "error", error = { type = "cancel",
-				condition = "forbidden", message = "Invalid user or hostname." } };
-		end
-
-		local fields = opt_in_layout:data(data.form);
-		opted_in[username] = fields.searchable or nil
-
-		return { status = "completed" }
-	else -- No state, send the form.
-		return { status = "executing", actions  = { "complete" },
-			form = { layout = opt_in_layout, values = { searchable = opted_in[username] } } }, true;
+if search_mode == "all" then
+	function users()
+		return usermanager.users(base_host);
 	end
+else -- if "opt-in", default
+	local opted_in;
+	function module.load()
+		opted_in = dm_load(nil, module.host, "user_index") or {};
+	end
+	function module.unload()
+		dm_store(nil, module.host, "user_index", opted_in);
+	end
+	function users()
+		return pairs(opted_in);
+	end
+	local opt_in_layout = dataforms_new{
+		title = "Search settings";
+		instructions = "Do you want to appear in search results?";
+		{
+			name = "searchable",
+			label = "Appear in search results?",
+			type = "boolean",
+		},
+	};
+	local function opt_in_handler(self, data, state)
+		local username, hostname = jid_split(data.from);
+		if state then -- the second return value
+			if data.action == "cancel" then
+				return { status = "canceled" };
+			end
+
+			if not username or not hostname or hostname ~= base_host then
+				return { status = "error", error = { type = "cancel",
+				condition = "forbidden", message = "Invalid user or hostname." } };
+			end
+
+			local fields = opt_in_layout:data(data.form);
+			opted_in[username] = fields.searchable or nil
+
+			return { status = "completed" }
+		else -- No state, send the form.
+			return { status = "executing", actions  = { "complete" },
+			form = { layout = opt_in_layout, values = { searchable = opted_in[username] } } }, true;
+		end
+	end
+
+	local adhoc_new = module:require "adhoc".new;
+	local adhoc_vjudsetup = adhoc_new("Search settings", "vjudsetup", opt_in_handler);--, "self");-- and nil);
+	module:depends"adhoc";
+	module:provides("adhoc", adhoc_vjudsetup);
+
 end
-
-local adhoc_new = module:require "adhoc".new;
-local adhoc_vjudsetup = adhoc_new("Search settings", "vjudsetup", opt_in_handler);--, "self");-- and nil);
-module:depends"adhoc";
-module:provides("adhoc", adhoc_vjudsetup);
-
