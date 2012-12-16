@@ -31,6 +31,7 @@ local item_template = template[[
 ]];
 
 local search_mode = module:get_option_string("vjud_mode", "opt-in");
+local allow_remote = module:get_option_boolean("allow_remote_searches", search_mode ~= "all");
 local base_host = module:get_option_string("vjud_search_domain",
 	module:get_host_type() == "component"
 		and module.host:gsub("^[^.]+%.","")
@@ -67,6 +68,11 @@ local users; -- The user iterator
 
 module:hook("iq/host/jabber:iq:search:query", function(event)
 	local origin, stanza = event.origin, event.stanza;
+
+	if not (allow_remote or origin.type == "c2s") then
+		origin.send(st.error_reply(stanza, "cancel", "not-allowed"))
+		return true;
+	end
 
 	if stanza.attr.type == "get" then
 		origin.send(st.reply(stanza):add_child(get_reply));
