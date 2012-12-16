@@ -6,6 +6,8 @@ local dataforms_new = require "util.dataforms".new;
 local jid_split = require "util.jid".prepped_split;
 local vcard = module:require "vcard";
 local rawget, rawset = rawget, rawset;
+local s_lower = string.lower;
+local s_find = string.find;
 
 local st = require "util.stanza";
 local template = require "util.template";
@@ -116,11 +118,11 @@ module:hook("iq/host/jabber:iq:search:query", function(event)
 		else
 			for username in pairs(opted_in) do
 				local vCard = get_user_vcard(username);
-				if vCard and (
-				(vCard.N and vCard.N[2] == first) or
-				(vCard.N and vCard.N[1] == last) or
-				(vCard.NICKNAME and vCard.NICKNAME[1] == nick) or
-				(vCard.EMAIL and vCard.EMAIL[1] == email)) then
+				if vCard
+				and ((first and vCard.N and s_find(s_lower(vCard.N[2]), first, nil, true))
+				or (last and vCard.N and s_find(s_lower(vCard.N[1]), last, nil, true))
+				or (nick and vCard.NICKNAME and s_find(s_lower(vCard.NICKNAME[1]), nick, nil, true))
+				or (email and vCard.EMAIL and s_find(s_lower(vCard.EMAIL[1]), email, nil, true))) then
 					reply:add_child(item_template.apply{
 						jid = username..at_host;
 						first = vCard.N and vCard.N[2] or nil;
