@@ -85,13 +85,17 @@ module:hook("iq/host/jabber:iq:search:query", function(event)
 	else -- type == "set"
 		local query = stanza.tags[1];
 		local first, last, nick, email =
-			(query:get_child_text"first" or false),
-			(query:get_child_text"last" or false),
-			(query:get_child_text"nick" or false),
-			(query:get_child_text"email" or false);
+			s_lower(query:get_child_text"first" or ""),
+			s_lower(query:get_child_text"last" or ""),
+			s_lower(query:get_child_text"nick" or ""),
+			s_lower(query:get_child_text"email" or "");
 
+		first = #first >= 2 and first;
+		last  = #last  >= 2 and last;
+		nick  = #nick  >= 2 and nick;
+		email = #email >= 2 and email;
 		if not ( first or last or nick or email ) then
-			origin.send(st.error_reply(stanza, "modify", "not-acceptable", "All fields were empty"));
+			origin.send(st.error_reply(stanza, "modify", "not-acceptable", "All fields were empty or too short"));
 			return true;
 		end
 
