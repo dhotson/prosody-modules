@@ -22,26 +22,14 @@ local uuid_generate = require "util.uuid".generate;
 local is_admin = require "core.usermanager".is_admin;
 local pubsub = require "util.pubsub";
 local jid_bare = require "util.jid".bare;
-local lfs = require "lfs";
-local open = io.open;
-local stat = lfs.attributes;
 
 module:set_global();
 
 local service = {};
 
-local http_base = module.path:gsub("/[^/]+$","") .. "/www_files/";
-
 local xmlns_adminsub = "http://prosody.im/adminsub";
 local xmlns_c2s_session = "http://prosody.im/streams/c2s";
 local xmlns_s2s_session = "http://prosody.im/streams/s2s";
-
-local mime_map = {
-	html = "text/html";
-	xml = "text/xml";
-	js = "text/javascript";
-	css = "text/css";
-};
 
 local idmap = {};
 
@@ -104,37 +92,14 @@ function del_host(session, type, host)
 	end
 end
 
-function serve_file(event, path)
-	local full_path = http_base .. path;
-
-	if stat(full_path, "mode") == "directory" then
-		if stat(full_path.."/index.html", "mode") == "file" then
-			return serve_file(event, path.."/index.html");
-		end
-		return 403;
-	end
-
-	local f, err = open(full_path, "rb");
-	if not f then
-		return 404;
-	end
-
-	local data = f:read("*a");
-	f:close();
-	if not data then
-		return 403;
-	end
-
-	local ext = path:match("%.([^.]*)$");
-	event.response.headers.content_type = mime_map[ext]; -- Content-Type should be nil when not known
-	return data;
-end
-
 function module.add_host(module)
 	-- Dependencies
 	module:depends("bosh");
 	module:depends("admin_adhoc");
 	module:depends("http");
+	local serve_file = module:depends("http_files").serve {
+		path = module:get_directory() .. "/www_files";
+	};
 
 	-- Setup HTTP server
 	module:provides("http", {
