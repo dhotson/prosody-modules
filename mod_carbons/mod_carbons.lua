@@ -29,15 +29,17 @@ module:hook("iq/self/"..xmlns_carbons_old..":disable", toggle_carbons);
 module:hook("iq/self/"..xmlns_carbons_old..":enable", toggle_carbons);
 
 -- COMPAT :(
-module:hook("iq/self/"..xmlns_carbons_really_old..":carbons", function(event)
-	local origin, stanza = event.origin, event.stanza;
-	if stanza.attr.type == "set" then
-		local state = stanza.tags[1].attr.mode;
-		origin.want_carbons = state == "enable" and xmlns_carbons_really_old;
-		origin.send(st.reply(stanza));
-		return true;
-	end
-end);
+if module:get_option_boolean("carbons_v0") then
+	module:hook("iq/self/"..xmlns_carbons_really_old..":carbons", function(event)
+		local origin, stanza = event.origin, event.stanza;
+		if stanza.attr.type == "set" then
+			local state = stanza.tags[1].attr.mode;
+			origin.want_carbons = state == "enable" and xmlns_carbons_really_old;
+			origin.send(st.reply(stanza));
+			return true;
+		end
+	end);
+end
 
 local function message_handler(event, c2s)
 	local origin, stanza = event.origin, event.stanza;
@@ -109,7 +111,9 @@ local function message_handler(event, c2s)
 		-- but not the resource that sent the message, or the one that it's directed to
 		and session ~= target_session
 		-- and isn't among the top resources that would receive the message per standard routing rules
-		and (c2s or session.priority ~= top_priority) then
+		and (c2s or session.priority ~= top_priority)
+		-- don't send v0 carbons (or copies) for c2s
+		and (not c2s or session.want_carbons ~= xmlns_carbons_really_old) then
 			carbon.attr.to = session.full_jid;
 			module:log("debug", "Sending carbon to %s", session.full_jid);
 			local carbon = session.want_carbons == xmlns_carbons_old and carbon_old -- COMPAT
@@ -133,4 +137,6 @@ module:hook("message/full", message_handler, 1);
 
 module:add_feature(xmlns_carbons);
 module:add_feature(xmlns_carbons_old);
-module:add_feature(xmlns_carbons_really_old);
+if module:get_option_boolean("carbons_v0") then
+	module:add_feature(xmlns_carbons_really_old);
+end
