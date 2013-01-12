@@ -28,10 +28,16 @@ end
 local function new_bidi(origin)
 	local bidi_session, remote_host;
 	origin.log("debug", "Creating bidirectional session wrapper");
-	if origin.direction == "incoming" then
+	if origin.direction == "incoming" then -- then we create an "outgoing" bidirectional session
+		local conflicting_session = hosts[origin.to_host].s2sout[origin.from_host]
+		if conflicting_session then
+			conflicting_session.log("warn", "We already have an outgoing connection to %s, closing it...", origin.from_host);
+			conflicting_session:close{ condition = "conflict", text = "Replaced by bidirectional stream" }
+			s2smanager.destroy_session(conflicting_session);
+		end
 		remote_host = origin.from_host;
 		bidi_session = s2smanager.new_outgoing(origin.to_host, origin.from_host)
-	else -- outgoing
+	else -- outgoing -- then we create an "incoming" bidirectional session
 		remote_host = origin.to_host;
 		bidi_session = s2smanager.new_incoming(origin.conn)
 		bidi_session.to_host = origin.from_host;
@@ -75,12 +81,6 @@ module:hook("stanza/urn:xmpp:bidi:bidi", function(event)
 	local origin = event.session or event.origin;
 	if not origin.is_bidi and not origin.bidi_session then
 		module:log("debug", "%s requested bidirectional stream", origin.from_host);
-		if hosts[module.host].s2sout[origin.from_host] then
-			local conflicting_session = hosts[module.host].s2sout[origin.from_host]
-			conflicting_session.log("warn", "We already have an outgoing connection to %s, closing it...", origin.from_host);
-			conflicting_session:close{ condition = "conflict", text = "Replaced by bidirectional stream" }
-			s2smanager.destroy_session(conflicting_session);
-		end
 		origin.do_bidi = true;
 		return true;
 	end
