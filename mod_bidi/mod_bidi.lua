@@ -31,7 +31,7 @@ local function new_bidi(origin)
 	if origin.direction == "incoming" then -- then we create an "outgoing" bidirectional session
 		local conflicting_session = hosts[origin.to_host].s2sout[origin.from_host]
 		if conflicting_session then
-			conflicting_session.log("warn", "We already have an outgoing connection to %s, closing it...", origin.from_host);
+			conflicting_session.log("info", "We already have an outgoing connection to %s, closing it...", origin.from_host);
 			conflicting_session:close{ condition = "conflict", text = "Replaced by bidirectional stream" }
 			s2smanager.destroy_session(conflicting_session);
 		end
