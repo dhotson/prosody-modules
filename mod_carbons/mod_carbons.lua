@@ -90,7 +90,7 @@ local function message_handler(event, c2s)
 	local copy = st.clone(stanza);
 	copy.attr.xmlns = "jabber:client";
 	local carbon = st.message{ from = bare_jid, type = orig_type, }
-		:tag(c2s and "sent" or "received", { xmlns = xmlns_carbons }):up()
+		:tag(c2s and "sent" or "received", { xmlns = xmlns_carbons })
 			:tag("forwarded", { xmlns = xmlns_forward })
 				:add_child(copy):reset();
 
