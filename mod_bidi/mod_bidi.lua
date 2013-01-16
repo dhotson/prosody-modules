@@ -112,12 +112,12 @@ function disable_bidi(event)
 	local session = event.session;
 	if session.bidi_session then
 		local bidi_session = session.bidi_session;
-		session.bidi_session = nil;
+		session.bidi_session, bidi_session.orig_session = nil, nil;
 		session.log("debug", "Tearing down bidirectional stream");
 		s2smanager.destroy_session(bidi_session, event.reason);
 	elseif session.orig_session then
 		local orig_session = session.orig_session;
-		session.orig_session = nil;
+		orig_session.bidi_session, session.orig_session = nil, nil;
 		orig_session.log("debug", "Tearing down bidirectional stream");
 		s2smanager.destroy_session(orig_session, event.reason);
 	end
