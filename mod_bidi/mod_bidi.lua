@@ -12,7 +12,7 @@ local jid_split = require"util.jid".prepped_split;
 local xmlns_bidi_feature = "urn:xmpp:features:bidi"
 local xmlns_bidi = "urn:xmpp:bidi";
 local noop = function () end
-local core_process_stanza = prosody.core_process_stanza;
+local core_process_stanza = prosody.core_process_stanza or core_process_stanza;
 local traceback = debug.traceback;
 
 local function handleerr(err) log("error", "Traceback[s2s]: %s: %s", tostring(err), traceback()); end
