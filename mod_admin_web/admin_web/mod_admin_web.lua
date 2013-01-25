@@ -114,12 +114,14 @@ function module.add_host(module)
 	});
 
 	-- Setup adminsub service
-	local function simple_broadcast(node, jids, item)
-		item = st.clone(item);
-		item.attr.xmlns = nil; -- Clear the pubsub namespace
+	local function simple_broadcast(kind, node, jids, item)
+		if item then
+			item = st.clone(item);
+			item.attr.xmlns = nil; -- Clear the pubsub namespace
+		end
 		local message = st.message({ from = module.host, type = "headline" })
 			:tag("event", { xmlns = xmlns_adminsub .. "#event" })
-				:tag("items", { node = node })
+				:tag(kind, { node = node })
 					:add_child(item);
 		for jid in pairs(jids) do
 			module:log("debug", "Sending notification to %s", jid);
