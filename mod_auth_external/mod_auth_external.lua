@@ -10,7 +10,6 @@
 --
 
 
-local nodeprep = require "util.encodings".stringprep.nodeprep;
 --local process = require "process";
 local lpc; pcall(function() lpc = require "lpc"; end);
 
@@ -81,8 +80,6 @@ end
 
 function do_query(kind, username, password)
 	if not username then return nil, "not-acceptable"; end
-	username = nodeprep(username);
-	if not username then return nil, "jid-malformed"; end
 	
 	local query = (password and "%s:%s:%s:%s" or "%s:%s:%s"):format(kind, username, host, password);
 	local len = #query
@@ -132,12 +129,7 @@ function provider.create_user(username, password) return nil, "Account creation/
 function provider.get_sasl_handler()
 	local testpass_authentication_profile = {
 		plain_test = function(sasl, username, password, realm)
-			local prepped_username = nodeprep(username);
-			if not prepped_username then
-				log("debug", "NODEprep failed on username: %s", username);
-				return "", nil;
-			end
-			return usermanager.test_password(prepped_username, realm, password), true;
+			return usermanager.test_password(username, realm, password), true;
 		end,
 	};
 	return new_sasl(host, testpass_authentication_profile);
