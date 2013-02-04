@@ -14,6 +14,7 @@ local jid_split = require "util.jid".split;
 local adhoc_new = module:require "adhoc".new;
 local to_ascii = require "util.encodings".idna.to_ascii;
 local nameprep = require "util.encodings".stringprep.nameprep;
+local dataforms_new = require "util.dataforms".new;
 local pairs, ipairs = pairs, ipairs;
 local module = module;
 local hosts = hosts;
@@ -79,7 +80,7 @@ end
 -- Admin ad-hoc command to subscribe
 
 local function add_contact_handler(self, data, state)
-	local layout = {
+	local layout = dataforms_new{
 		title = "Adding a Server Buddy";
 		instructions = "Fill out this form to add a \"server buddy\".";
 
@@ -92,7 +93,7 @@ local function add_contact_handler(self, data, state)
 	elseif data.action == "canceled" then
 		return { status = "canceled" };
 	else
-		local fields = layout:data(data);
+		local fields = layout:data(data.form);
 		local peerjid = nameprep(fields.peerjid);
 		if not peerjid or peerjid == "" or #peerjid > 1023 or not to_ascii(peerjid) then
 			return { status = "completed", error = { message = "Invalid JID" } };
