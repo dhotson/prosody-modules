@@ -13,7 +13,10 @@ local base64 = require "util.encodings".base64.encode;
 local softreq = require "util.dependencies".softreq;
 local portmanager = require "core.portmanager";
 
-local bit = softreq"bit" or softreq"bit32" or module:log("error", "No bit module found. Either LuaJIT 2 or Lua 5.2 is required");
+local bit;
+pcall(function() bit = require"bit"; end);
+bit = bit or softreq"bit32"
+if not bit then module:log("error", "No bit module found. Either LuaJIT 2, lua-bitop or Lua 5.2 is required"); end
 local band = bit.band;
 local bxor = bit.bxor;
 
