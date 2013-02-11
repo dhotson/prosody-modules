@@ -83,6 +83,11 @@ local function wrap_session(session, resume)
 			
 			queue[#queue+1] = cached_stanza;
 		end
+		if session.hibernating then
+			-- The session is hibernating, no point in sending the stanza
+			-- over a dead connection.  It will be delivered upon resumption.
+			return true;
+		end
 		local ok, err = _send(stanza);
 		if ok and #queue > max_unacked_stanzas and not session.awaiting_ack and attr and not attr.xmlns then
 			session.awaiting_ack = true;
