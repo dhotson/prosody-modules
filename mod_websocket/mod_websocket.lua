@@ -245,7 +245,8 @@ end
 function module.add_host(module)
 	module:depends("http");
 	module:provides("http", {
-		name = "xmpp-websocket";
+		name = "websocket";
+		default_path = "xmpp-websocket";
 		route = {
 			["GET"] = handle_request;
 			["GET /"] = handle_request;
