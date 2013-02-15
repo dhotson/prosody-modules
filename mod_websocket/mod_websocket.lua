@@ -19,6 +19,7 @@ bit = bit or softreq"bit32"
 if not bit then module:log("error", "No bit module found. Either LuaJIT 2, lua-bitop or Lua 5.2 is required"); end
 local band = bit.band;
 local bxor = bit.bxor;
+local rshift = bit.rshift;
 
 local cross_domain = module:get_option("cross_domain_websocket");
 if cross_domain then
@@ -104,11 +105,11 @@ local function build_frame(desc)
 		result = result .. string.char(length);
 	elseif length <= 0xFFFF then -- 2-byte length
 		result = result .. string.char(126);
-		result = result .. string.char(length/0x100) .. string.char(length%0x100);
+		result = result .. string.char(rshift(length, 8)) .. string.char(length%0x100);
 	else -- 8-byte length
 		result = result .. string.char(127);
 		for i = 7, 0, -1 do
-			result = result .. string.char(( length / (2^(8*i)) ) % 0x100);
+			result = result .. string.char(rshift(length, 8*i) % 0x100);
 		end
 	end
 
@@ -139,7 +140,7 @@ function handle_request(event, path)
 	end
 
 	local function websocket_close(code, message)
-		local data = string.char(code/0x100) .. string.char(code%0x100) .. message;
+		local data = string.char(rshift(code, 8)) .. string.char(code%0x100) .. message;
 		conn:write(build_frame({opcode = 0x8, FIN = true, data = data}));
 		conn:close();
 	end
