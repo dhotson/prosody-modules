@@ -96,6 +96,7 @@ function onConnect(status) {
     if (status == Strophe.Status.CONNECTING) {
         log('Strophe is connecting.');
     } else if (status == Strophe.Status.CONNFAIL) {
+        alert('Connection failed (Wrong host?)');
         log('Strophe failed to connect.');
         showConnect();
     } else if (status == Strophe.Status.DISCONNECTING) {
@@ -104,6 +105,7 @@ function onConnect(status) {
         log('Strophe is disconnected.');
         showConnect();
     } else if (status == Strophe.Status.AUTHFAIL) {
+        alert('Wrong username and/or password');
         log('Authentication failed');
         if (connection) {
             connection.disconnect();
