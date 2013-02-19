@@ -120,7 +120,12 @@ function onConnect(status) {
                     return false;
                 }
                 for (i = 0; i < items.length; i++) {
-                    $('#host').append('<option>' + $(items[i]).text() + '</option>');
+                    var host = $(items[i]).text();
+                    if (host == Strophe.getDomainFromJid(connection.jid)) {
+                        $('#host').append('<option selected>' + host + '</option>');
+                    } else {
+                        $('#host').append('<option>' + host + '</option>');
+                    }
                 }
                 showDisconnect();
                 adminsubHost = $(items[0]).text();
