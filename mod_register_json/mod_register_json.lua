@@ -69,7 +69,6 @@ local function handle_req(event)
 		return http_response(event, 400, "JSON Decoding failed.")
 	else
 		-- Decode JSON data and check that all bits are there else throw an error
-		req_body = json_decode(body)
 		if req_body["username"] == nil or req_body["password"] == nil or req_body["host"] == nil or req_body["ip"] == nil then
 			module:log("debug", "%s supplied an insufficent number of elements or wrong elements for the JSON registration", user)
 			return http_response(event, 400, "Invalid syntax.")
