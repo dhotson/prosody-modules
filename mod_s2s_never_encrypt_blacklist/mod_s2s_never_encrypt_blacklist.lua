@@ -1,7 +1,7 @@
 -- Filter out servers which gets choppy and buggy when it comes to starttls.
 
-local bad_servers = module:get_option_set("tls_s2s_blacklist")
-local bad_servers_ip = module:get_option_set("tls_s2s_blacklist_ip")
+local bad_servers = module:get_option_set("tls_s2s_blacklist", {})
+local bad_servers_ip = module:get_option_set("tls_s2s_blacklist_ip", {})
 
 local function disable_tls_for_baddies_in(event)
 	if bad_servers:contains(event.origin.to_host) or bad_servers_ip:contains(event.origin.conn:ip())
