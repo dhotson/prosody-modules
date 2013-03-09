@@ -249,6 +249,14 @@ module:hook("pre-resource-unbind", function (event)
 end);
 
 module:hook_stanza(xmlns_sm, "resume", function (session, stanza)
+	if session.full_jid then
+		session.log("debug", "Tried to resume after resource binding");
+		session.send(st.stanza("failed", sm_attr)
+			:tag("unexpected-request", { xmlns = xmlns_errors })
+		);
+		return true;
+	end
+
 	local id = stanza.attr.previd;
 	local original_session = session_registry[id];
 	if not original_session then
