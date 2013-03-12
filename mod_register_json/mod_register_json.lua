@@ -69,7 +69,6 @@ local function handle_req(event)
 		return http_response(event, 400, "JSON Decoding failed.")
 	else
 		-- Decode JSON data and check that all bits are there else throw an error
-		req_body = json_decode(body)
 		if req_body["username"] == nil or req_body["password"] == nil or req_body["host"] == nil or req_body["ip"] == nil then
 			module:log("debug", "%s supplied an insufficent number of elements or wrong elements for the JSON registration", user)
 			return http_response(event, 400, "Invalid syntax.")
@@ -86,7 +85,7 @@ local function handle_req(event)
 			-- And nodeprep the username
 			local username = nodeprep(req_body["username"])
 			if not username then
-				module:log("debug", "%s supplied an username containing invalid characters: %s", user, username)
+				module:log("debug", "An username containing invalid characters was supplied: %s", user)
 				return http_response(event, 406, "Supplied username contains invalid characters, see RFC 6122.")
 			else
 				if not usermanager.user_exists(username, req_body["host"]) then

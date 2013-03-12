@@ -83,6 +83,11 @@ local function wrap_session(session, resume)
 			
 			queue[#queue+1] = cached_stanza;
 		end
+		if session.hibernating then
+			-- The session is hibernating, no point in sending the stanza
+			-- over a dead connection.  It will be delivered upon resumption.
+			return true;
+		end
 		local ok, err = _send(stanza);
 		if ok and #queue > max_unacked_stanzas and not session.awaiting_ack and attr and not attr.xmlns then
 			session.awaiting_ack = true;
@@ -203,7 +208,7 @@ end
 
 module:hook("pre-resource-unbind", function (event)
 	local session, err = event.session, event.error;
-	if session.smacks and err ~= "session closed" then
+	if session.smacks and err then
 		if not session.resumption_token then
 			local queue = session.outgoing_stanza_queue;
 			if #queue > 0 then
@@ -244,6 +249,14 @@ module:hook("pre-resource-unbind", function (event)
 end);
 
 module:hook_stanza(xmlns_sm, "resume", function (session, stanza)
+	if session.full_jid then
+		session.log("debug", "Tried to resume after resource binding");
+		session.send(st.stanza("failed", sm_attr)
+			:tag("unexpected-request", { xmlns = xmlns_errors })
+		);
+		return true;
+	end
+
 	local id = stanza.attr.previd;
 	local original_session = session_registry[id];
 	if not original_session then

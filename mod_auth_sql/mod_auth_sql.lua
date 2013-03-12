@@ -5,7 +5,6 @@
 
 local log = require "util.logger".init("auth_sql");
 local new_sasl = require "util.sasl".new;
-local nodeprep = require "util.encodings".stringprep.nodeprep;
 local DBI = require "DBI"
 
 local connection;
@@ -101,12 +100,7 @@ end
 function provider.get_sasl_handler()
 	local profile = {
 		plain = function(sasl, username, realm)
-			local prepped_username = nodeprep(username);
-			if not prepped_username then
-				module:log("debug", "NODEprep failed on username: %s", username);
-				return "", nil;
-			end
-			local password = get_password(prepped_username);
+			local password = get_password(username);
 			if not password then return "", nil; end
 			return password, true;
 		end

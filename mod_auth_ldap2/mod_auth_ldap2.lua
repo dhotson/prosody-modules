@@ -13,7 +13,6 @@
 
 local ldap     = module:require 'ldap';
 local new_sasl = require 'util.sasl'.new;
-local nodeprep = require 'util.encodings'.stringprep.nodeprep;
 local jsplit   = require 'util.jid'.split;
 
 if not ldap then
@@ -52,12 +51,7 @@ end
 function provider.get_sasl_handler()
     local testpass_authentication_profile = {
         plain_test = function(sasl, username, password, realm)
-            local prepped_username = nodeprep(username);
-            if not prepped_username then
-                module:log("debug", "NODEprep failed on username: %s", username);
-                return "", nil;
-            end
-            return provider.test_password(prepped_username, password), true;
+            return provider.test_password(username, password), true;
         end,
         mechanisms = { PLAIN = true },
     };

@@ -14,6 +14,8 @@ our %PASSWORD_FOR = (
     three => '34512',
     four  => '45123',
     five  => '51234',
+    six   => '123456',
+    seven => '1234567',
 );
 
 sub new {

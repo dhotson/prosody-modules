@@ -7,6 +7,7 @@ local st = require "util.stanza";
 local jid_bare = require "util.jid".bare;
 local xmlns_carbons = "urn:xmpp:carbons:2";
 local xmlns_carbons_old = "urn:xmpp:carbons:1";
+local xmlns_carbons_really_old = "urn:xmpp:carbons:0";
 local xmlns_forward = "urn:xmpp:forward:0";
 local full_sessions, bare_sessions = full_sessions, bare_sessions;
 
@@ -26,6 +27,19 @@ module:hook("iq/self/"..xmlns_carbons..":enable", toggle_carbons);
 -- COMPAT
 module:hook("iq/self/"..xmlns_carbons_old..":disable", toggle_carbons);
 module:hook("iq/self/"..xmlns_carbons_old..":enable", toggle_carbons);
+
+-- COMPAT :(
+if module:get_option_boolean("carbons_v0") then
+	module:hook("iq/self/"..xmlns_carbons_really_old..":carbons", function(event)
+		local origin, stanza = event.origin, event.stanza;
+		if stanza.attr.type == "set" then
+			local state = stanza.tags[1].attr.mode;
+			origin.want_carbons = state == "enable" and xmlns_carbons_really_old;
+			origin.send(st.reply(stanza));
+			return true;
+		end
+	end);
+end
 
 local function message_handler(event, c2s)
 	local origin, stanza = event.origin, event.stanza;
@@ -76,7 +90,7 @@ local function message_handler(event, c2s)
 	local copy = st.clone(stanza);
 	copy.attr.xmlns = "jabber:client";
 	local carbon = st.message{ from = bare_jid, type = orig_type, }
-		:tag(c2s and "sent" or "received", { xmlns = xmlns_carbons }):up()
+		:tag(c2s and "sent" or "received", { xmlns = xmlns_carbons })
 			:tag("forwarded", { xmlns = xmlns_forward })
 				:add_child(copy):reset();
 
@@ -86,6 +100,10 @@ local function message_handler(event, c2s)
 		:tag("forwarded", { xmlns = xmlns_forward })
 			:add_child(copy):reset();
 
+	-- COMPAT
+	local carbon_really_old = st.clone(stanza)
+		:tag(c2s and "sent" or "received", { xmlns = xmlns_carbons_really_old }):up()
+
 	user_sessions = user_sessions and user_sessions.sessions;
 	for _, session in pairs(user_sessions) do
 		-- Carbons are sent to resources that have enabled it
@@ -93,10 +111,14 @@ local function message_handler(event, c2s)
 		-- but not the resource that sent the message, or the one that it's directed to
 		and session ~= target_session
 		-- and isn't among the top resources that would receive the message per standard routing rules
-		and (c2s or session.priority ~= top_priority) then
+		and (c2s or session.priority ~= top_priority)
+		-- don't send v0 carbons (or copies) for c2s
+		and (not c2s or session.want_carbons ~= xmlns_carbons_really_old) then
 			carbon.attr.to = session.full_jid;
 			module:log("debug", "Sending carbon to %s", session.full_jid);
-			local carbon = session.want_carbons == xmlns_carbons_old and carbon_old or carbon; -- COMPAT
+			local carbon = session.want_carbons == xmlns_carbons_old and carbon_old -- COMPAT
+			or session.want_carbons == xmlns_carbons_really_old and carbon_really_old -- COMPAT
+			or carbon;
 			session.send(carbon);
 		end
 	end
@@ -107,6 +129,7 @@ local function c2s_message_handler(event)
 end
 
 -- Stanzas sent by local clients
+module:hook("pre-message/host", c2s_message_handler, 1);
 module:hook("pre-message/bare", c2s_message_handler, 1);
 module:hook("pre-message/full", c2s_message_handler, 1);
 -- Stanzas to local clients
@@ -115,3 +138,6 @@ module:hook("message/full", message_handler, 1);
 
 module:add_feature(xmlns_carbons);
 module:add_feature(xmlns_carbons_old);
+if module:get_option_boolean("carbons_v0") then
+	module:add_feature(xmlns_carbons_really_old);
+end

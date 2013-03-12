@@ -96,6 +96,7 @@ function onConnect(status) {
     if (status == Strophe.Status.CONNECTING) {
         log('Strophe is connecting.');
     } else if (status == Strophe.Status.CONNFAIL) {
+        alert('Connection failed (Wrong host?)');
         log('Strophe failed to connect.');
         showConnect();
     } else if (status == Strophe.Status.DISCONNECTING) {
@@ -104,6 +105,7 @@ function onConnect(status) {
         log('Strophe is disconnected.');
         showConnect();
     } else if (status == Strophe.Status.AUTHFAIL) {
+        alert('Wrong username and/or password');
         log('Authentication failed');
         if (connection) {
             connection.disconnect();
@@ -120,7 +122,12 @@ function onConnect(status) {
                     return false;
                 }
                 for (i = 0; i < items.length; i++) {
-                    $('#host').append('<option>' + $(items[i]).text() + '</option>');
+                    var host = $(items[i]).text();
+                    if (host == Strophe.getDomainFromJid(connection.jid)) {
+                        $('#host').append('<option selected>' + host + '</option>');
+                    } else {
+                        $('#host').append('<option>' + host + '</option>');
+                    }
                 }
                 showDisconnect();
                 adminsubHost = $(items[0]).text();

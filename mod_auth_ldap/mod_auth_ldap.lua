@@ -1,6 +1,5 @@
 
 local new_sasl = require "util.sasl".new;
-local nodeprep = require "util.encodings".stringprep.nodeprep;
 local log = require "util.logger".init("auth_ldap");
 
 local ldap_server = module:get_option("ldap_server") or "localhost";
@@ -42,12 +41,7 @@ function provider.create_user(username, password) return nil, "Account creation/
 function provider.get_sasl_handler()
 	local testpass_authentication_profile = {
 		plain_test = function(sasl, username, password, realm)
-			local prepped_username = nodeprep(username);
-			if not prepped_username then
-				log("debug", "NODEprep failed on username: %s", username);
-				return "", nil;
-			end
-			return provider.test_password(prepped_username, password), true;
+			return provider.test_password(username, password), true;
 		end
 	};
 	return new_sasl(module.host, testpass_authentication_profile);

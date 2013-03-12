@@ -23,6 +23,7 @@ local rm_load_roster = require "core.rostermanager".load_roster;
 local tostring = tostring;
 local time_now = os.time;
 local m_min = math.min;
+local t_insert = table.insert;
 local timestamp, timestamp_parse = require "util.datetime".datetime, require "util.datetime".parse;
 local uuid = require "util.uuid".generate;
 local default_max_items, max_max_items = 20, module:get_option_number("max_archive_query_results", 50);
@@ -165,9 +166,12 @@ module:hook("iq/self/"..xmlns_mam..":query", function(event)
 		local first, last, index;
 		local n = 0;
 		local start = qset and qset.index or 1;
+		local results = {};
+		-- An empty <before/> means: give the last n items. So we loop backwards.
+		local reverse = qset and qset.before or false;
 
 		module:log("debug", "Loaded %d items, about to filter", #data);
-		for i=start,#data do
+		for i=(reverse and #data or start),(reverse and start or #data),(reverse and -1 or 1) do
 			local item = data[i];
 			local when, with, resource = item.when, item.with, item.resource;
 			local id = item.id;
@@ -195,7 +199,11 @@ module:hook("iq/self/"..xmlns_mam..":query", function(event)
 				local orig_stanza = st.deserialize(item.stanza);
 				orig_stanza.attr.xmlns = "jabber:client";
 				fwd_st:add_child(orig_stanza);
-				origin.send(fwd_st);
+				if reverse then
+					t_insert(results, 1, fwd_st);
+				else
+					results[#results + 1] = fwd_st;
+				end
 				if not first then
 					index = i;
 					first = id;
@@ -219,13 +227,16 @@ module:hook("iq/self/"..xmlns_mam..":query", function(event)
 				break
 			end
 		end
+		for _,v in pairs(results) do
+			origin.send(v);
+		end
 		-- That's all folks!
 		module:log("debug", "Archive query %s completed", tostring(qid));
 
 		local reply = st.reply(stanza);
 		if last then
 			-- This is a bit redundant, isn't it?
-			reply:query(xmlns_mam):add_child(rsm.generate{first = first, last = last, count = n});
+			reply:query(xmlns_mam):add_child(rsm.generate{first = (reverse and last or first), last = (reverse and first or last), count = n});
 		end
 		origin.send(reply);
 		return true
