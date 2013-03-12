@@ -1,4 +1,5 @@
 -- Filter out servers which gets choppy and buggy when it comes to starttls.
+-- (C) 2011-2013, Marco Cirillo (LW.Org)
 
 local bad_servers = module:get_option_set("tls_s2s_blacklist", {})
 local bad_servers_ip = module:get_option_set("tls_s2s_blacklist_ip", {})
