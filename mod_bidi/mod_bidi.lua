@@ -65,7 +65,7 @@ local function new_bidi(origin)
 	end
 
 	bidi_session.log("info", "Bidirectional session established");
-	s2smanager.make_authenticated(bidi_session, remote_host);
+	module:fire_event("s2s-authenticated", { session = bidi_session, host = remote_host });
 	return bidi_session;
 end
 

@@ -1,6 +1,5 @@
 local hosts = _G.hosts;
 local st = require "util.stanza";
-local s2s_make_authenticated = require "core.s2smanager".make_authenticated;
 local nameprep = require "util.encodings".stringprep.nameprep;
 local cert_verify_identity = require "util.x509".verify_identity;
 
@@ -29,7 +28,7 @@ module:hook("stanza/jabber:server:dialback:result", function(event)
 			end
 
 			module:log("info", "Accepting Dialback without Dialback for %s", from);
-			s2s_make_authenticated(origin, from);
+			module:fire_event("s2s-authenticated", { session = origin, host = from });
 			origin.sends2s(
 				st.stanza("db:result", { from = attr.to, to = attr.from, id = attr.id, type = "valid" }));
 

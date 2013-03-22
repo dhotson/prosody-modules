@@ -7,8 +7,8 @@ local s2s_sessions = setmetatable({}, { __mode = "kv" });
 
 local idle_timeout = module:get_option("s2s_idle_timeout") or 300;
 local check_interval = math.ceil(idle_timeout * 0.75);
-local _make_authenticated = s2smanager.make_authenticated;
-function s2smanager.make_authenticated(session, host)
+
+local function install_checks(session)
 	if not session.last_received_time then
 		session.last_received_time = now();
 		if session.direction == "incoming" then
@@ -26,8 +26,11 @@ function s2smanager.make_authenticated(session, host)
 		end
 		s2s_sessions[session] = true;
 	end
-	return _make_authenticated(session, host);
 end
+
+module:hook("s2s-authenticated", function (event)
+	install_checks(event.session);
+end);
 
 function check_idle_sessions(time)
 	time = time or now();
