@@ -4,7 +4,7 @@
 local xmlns_address = 'http://jabber.org/protocol/address';
 
 local function handle_extended_addressing(data)
-	local origin, stanza = data.origin, data.stanza;
+	local stanza = data.stanza;
 	if stanza.attr.type == "error" then
 		return -- so we don't process bounces
 	end
@@ -18,7 +18,7 @@ local function handle_extended_addressing(data)
 				local type, jid, delivered = address.attr.type, address.attr.jid, address.attr.delivered;
 				if (type == "cc" or type == "bcc" or type == "to")
 					and jid and not delivered then
-					table.insert(destinations, jid)
+					destinations[#destinations+1] = jid;
 					module:log("debug", "%s to %s", type, jid)
 					if type == "to" or type == "cc" then
 						address.attr.delivered = "true";
@@ -30,9 +30,9 @@ local function handle_extended_addressing(data)
 			end
 			return address; -- unsupported stuff goes right back
 		end);
-		for _, destination in ipairs(destinations) do
-			stanza.attr.to = destination;
-			module:log("debug", "posting stanza to %s", destination)
+		for i=1,#destinations do
+			stanza.attr.to = destinations[i];
+			module:log("debug", "posting stanza to %s", destinations[i])
 			module:send(stanza);
 		end
 		stanza.attr.to = orig_to;
