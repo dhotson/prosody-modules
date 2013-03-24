@@ -25,14 +25,9 @@ local default_labels = {
 		PUBLIC = { label = "THISISPUBLIC" };
 	};
 };
-local catalog_name, catalog_desc, labels;
-local function get_conf() 
-	catalog_name = module:get_option_string("security_catalog_name", "Default");
-	catalog_desc = module:get_option_string("security_catalog_desc", "My labels");
-	labels = module:get_option("security_labels", default_labels);
-end
-module:hook_global("config-reloaded",get_conf);
-get_conf();
+local catalog_name = module:get_option_string("security_catalog_name", "Default");
+local catalog_desc = module:get_option_string("security_catalog_desc", "My labels");
+local labels = module:get_option("security_labels", default_labels);
 
 function handle_catalog_request(request)
 	local catalog_request = request.stanza.tags[1];
