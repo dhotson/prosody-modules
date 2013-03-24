@@ -9,7 +9,7 @@ local add_task = require "util.timer".add_task;
 local utf8_pattern = "[\194-\244][\128-\191]*$";
 local function drop_invalid_utf8(seq)
 	local start = seq:byte();
-	module:log("utf8: %d, %d", start, #seq);
+	module:log("debug", "utf8: %d, %d", start, #seq);
 	if (start <= 223 and #seq < 2)
 	or (start >= 224 and start <= 239 and #seq < 3)
 	or (start >= 240 and start <= 244 and #seq < 4)
