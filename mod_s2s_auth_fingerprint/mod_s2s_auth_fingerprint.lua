@@ -27,7 +27,7 @@ module:hook("s2s-check-certificate", function(event)
 	local session, host, cert = event.session, event.host, event.cert;
 
 	local host_fingerprints = fingerprints[host];
-	if host_fingerprints then
+	if cert and host_fingerprints then
 		local digest = cert:digest(digest_algo);
 		if host_fingerprints[digest] then
 			session.cert_chain_status = "valid";
