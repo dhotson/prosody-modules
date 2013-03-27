@@ -100,6 +100,21 @@ function get_blocked_jids(username, host)
 	return jid_list;
 end
 
+local function send_push_iqs(username, host, command_type, jids)
+	local bare_jid = username.."@"..host;
+
+	local stanza_content = st.stanza(command_type, { xmlns = xmlns_blocking });
+	for _, jid in ipairs(jids) do
+		stanza_content:tag("item", { jid = jid }):up();
+	end
+
+	for resource, session in pairs(prosody.bare_sessions[bare_jid].sessions) do
+		local iq_push_stanza = st.iq({ type = "set", to = bare_jid.."/"..resource });
+		iq_push_stanza:add_child(stanza_content);
+		session.send(iq_push_stanza);
+	end
+end
+
 function handle_blocking_command(event)
 	local session, stanza = event.origin, event.stanza;
 
@@ -118,11 +133,24 @@ function handle_blocking_command(event)
 					add_blocked_jid(username, host, jid);
 				end
 				session.send(st.reply(stanza));
+				send_push_iqs(username, host, "block", block_jid_list);
 			end
 			return true;
 		elseif stanza.tags[1].name == "unblock" then
-			remove_all_blocked_jids(username, host);
+			local unblock = stanza.tags[1];
+			local unblock_jid_list = {};
+			for item in unblock:childtags() do
+				unblock_jid_list[#unblock_jid_list+1] = item.attr.jid;
+			end
+			if #unblock_jid_list == 0 then
+				remove_all_blocked_jids(username, host);
+			else
+				for _, jid_to_unblock in ipairs(unblock_jid_list) do
+					remove_blocked_jid(username, host, jid_to_unblock);
+				end
+			end
 			session.send(st.reply(stanza));
+			send_push_iqs(username, host, "unblock", unblock_jid_list);
 			return true;
 		end
 	elseif stanza.attr.type == "get" and stanza.tags[1].name == "blocklist" then
