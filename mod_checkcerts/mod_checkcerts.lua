@@ -41,18 +41,19 @@ local function check_certs_validity()
 
 		-- This might be wrong if the certificate has NotBefore in the future.
 		-- However this is unlikely to happen with CA-issued certs in the wild.
+		local notafter = cert.notafter and cert:notafter();
 		if not valid_at(cert, now) then
 			module:log("error", "The certificate %s has expired", certfile);
 			module:send(st.message({from=module.host,to=admin,type="chat"},("Certificate for host %s has expired!"):format(module.host)));
 		elseif not valid_at(cert, now+86400*7) then
-			module:log("warn", "The certificate %s will expire this week", certfile);
+			module:log("warn", "The certificate %s will expire %s", certfile, notafter or "this week");
 			for _,admin in ipairs(module:get_option_array("admins", {})) do
-				module:send(st.message({from=module.host,to=admin,type="chat"},("Certificate for host %s is about to expire!"):format(module.host)));
+				module:send(st.message({from=module.host,to=admin,type="chat"},("Certificate for host %s will expire %s!"):format(module.host, notafter or "this week")));
 			end
 		elseif not valid_at(cert, now+86400*30) then
 			module:log("warn", "The certificate %s will expire later this month", certfile);
 		else
-			module:log("info", "The certificate %s is valid until %s", certfile, cert.notafter and cert:notafter() or "later");
+			module:log("info", "The certificate %s is valid until %s", certfile, notafter or "later");
 		end
 	end
 end
