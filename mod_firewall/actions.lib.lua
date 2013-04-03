@@ -135,11 +135,11 @@ function action_handlers.BOUNCE(with)
 end
 
 function action_handlers.REDIRECT(where)
-	return route_modify("clone(stanza)", where, true, true);
+	return route_modify("clone(stanza)", where, true);
 end
 
 function action_handlers.COPY(where)
-	return route_modify("clone(stanza)", where, true, false);
+	return route_modify("clone(stanza)", where, false);
 end
 
 function action_handlers.LOG(string)
