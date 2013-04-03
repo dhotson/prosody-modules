@@ -49,6 +49,12 @@ function handle_POST(event)
 			end
 			rev.message = "wiki ("..(what or "unknown page").."): "..rev.message;
 		end
+		
+		local name = rev.author;
+		local email = name:match("<([^>]+)>$");
+		if email then
+			name = name:gsub("%s*<[^>]+>$", "");
+		end
 
 		local ok, err = pubsub_service:publish(node, true, project,
 			st.stanza("item", { xmlns = "http://jabber.org/protocol/pubsub", id = project })
@@ -58,7 +64,8 @@ function handle_POST(event)
 				:tag("link", { rel = "alternate", href = rev.url }):up()
 				:tag("published"):text(datetime(rev.timestamp)):up()
 				:tag("author")
-					:tag("name"):text(rev.author):up()
+					:tag("name"):text(name):up()
+					:tag("email"):text(email):up()
 					:up()
 		);
 	end
