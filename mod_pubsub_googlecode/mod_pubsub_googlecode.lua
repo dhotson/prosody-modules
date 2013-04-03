@@ -51,7 +51,7 @@ function handle_POST(event)
 		end
 
 		local ok, err = pubsub_service:publish(node, true, project,
-			st.stanza("item", { xmlns = "http://jabber.org/protocol/pubsub", id = "project" })
+			st.stanza("item", { xmlns = "http://jabber.org/protocol/pubsub", id = project })
 			:tag("entry", { xmlns = "http://www.w3.org/2005/Atom" })
 				:tag("id"):text(tostring(rev.revision)):up()
 				:tag("title"):text(rev.message):up()
