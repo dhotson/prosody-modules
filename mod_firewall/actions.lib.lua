@@ -112,8 +112,8 @@ local function route_modify(make_new, to, drop)
 		reroute = ("newstanza.attr.to = %q; core_post_stanza(session, newstanza)"):format(to);
 		deps[#deps+1] = "core_post_stanza";
 	end
-	return ([[local newstanza = st.%s; %s; %s; ]])
-		:format(make_new, reroute, drop and "return true" or ""), deps;
+	return ([[local newstanza = st.%s; %s; %s ]])
+		:format(make_new, reroute, drop and "return true;" or ""), deps;
 end
 	
 function action_handlers.BOUNCE(with)
