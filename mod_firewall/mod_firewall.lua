@@ -252,7 +252,7 @@ end
 function module.load()
 	local firewall_scripts = module:get_option_set("firewall_scripts", {});
 	for script in firewall_scripts do
-		script = resolve_relative_path(script) or script;
+		script = resolve_relative_path(prosody.paths.config, script);
 		local chain_functions, err = compile_firewall_rules(script)
 		
 		if not chain_functions then
