@@ -75,6 +75,14 @@ function condition_handlers.PAYLOAD(payload_ns)
 	return ("stanza:get_child(nil, %q)"):format(payload_ns);
 end
 
+function condition_handlers.INSPECT(path)
+	if path:find("=") then
+		local path, match = path:match("(.-)=(.*)");
+		return ("stanza:find(%q) == %q"):format(path, match);
+	end
+	return ("stanza:find(%q)"):format(path);
+end
+
 function condition_handlers.FROM_GROUP(group_name)
 	return ("group_contains(%q, bare_from)"):format(group_name), { "group_contains", "bare_from" };
 end
