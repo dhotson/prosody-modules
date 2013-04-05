@@ -145,6 +145,10 @@ function action_handlers.COPY(where)
 	return route_modify("clone(stanza)", where, false);
 end
 
+function action_handlers.REPLY(with)
+	return route_modify(("reply(stanza):body(%q)"):format(with));
+end
+
 function action_handlers.LOG(string)
 	local level = string:match("^%[(%a+)%]") or "info";
 	string = string:gsub("^%[%a+%] ?", "");
