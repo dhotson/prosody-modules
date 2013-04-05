@@ -24,11 +24,16 @@ local function compile_jid_match_part(part, match)
 		return part.." == nil"
 	end
 	local pattern = match:match("<(.*)>");
-	-- TODO: Support Lua pattern matching (main issue syntax... << >>?)
 	if pattern then
-		if pattern ~= "*" then
-			return ("%s:match(%q)"):format(part, pattern:gsub(".", wildcard_equivs));
+		if pattern == "*" then
+			return part;
 		end
+		if pattern:match("^<.*>$") then
+			pattern = pattern:match("^<(.*)>$");
+		else
+			pattern = pattern:gsub("%p", "%%%0"):gsub("%%(%p)", wildcard_equivs);
+		end
+		return ("%s:match(%q)"):format(part, "^"..pattern.."$");
 	else
 		return ("%s == %q"):format(part, match);
 	end
