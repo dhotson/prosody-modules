@@ -41,11 +41,12 @@ end
 
 local function compile_jid_match(which, match_jid)
 	local match_node, match_host, match_resource = jid.split(match_jid);
-	local conditions = {
-		compile_jid_match_part(which.."_node", match_node);
-		compile_jid_match_part(which.."_host", match_host);
-		match_resource and compile_jid_match_part(which.."_resource", match_resource) or nil;
-	};
+	local conditions = {};
+	conditions[#conditions+1] = compile_jid_match_part(which.."_node", match_node);
+	conditions[#conditions+1] = compile_jid_match_part(which.."_host", match_host);
+	if match_resource then
+		conditions[#conditions+1] = compile_jid_match_part(which.."_resource", match_resource);
+	end
 	return table.concat(conditions, " and ");
 end
 
