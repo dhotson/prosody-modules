@@ -61,21 +61,24 @@ end
 function condition_handlers.TYPE(type)
 	return compile_comparison_list("(type or (name == 'message' and 'chat') or (name == 'presence' and 'available'))", type), { "type", "name" };
 end
+
+local function zone_check(zone, which)
+	local which_not = which == "from" and "to" or "from";
+	return ("(zone_%s[%s_host] or zone_%s[%s] or zone_%s[bare_%s]) "
+		.."and not(zone_%s[%s_host] or zone_%s[%s] or zone_%s[%s])"
+		)
+		:format(zone, which, zone, which, zone, which,
+		zone, which_not, zone, which_not, zone, which_not), {
+			"split_to", "split_from", "bare_to", "bare_from", "zone:"..zone
+		};
 end
 
 function condition_handlers.ENTERING(zone)
-	return ("(zones[%q] and (zones[%q][to_host] or "
-		.."zones[%q][to] or "
-		.."zones[%q][bare_to]))"
-		)
-		:format(zone, zone, zone, zone), { "split_to", "bare_to" };
+	return zone_check(zone, "to");
 end
 
 function condition_handlers.LEAVING(zone)
-	return ("zones[%q] and (zones[%q][from_host] or "
-		.."(zones[%q][from] or "
-		.."zones[%q][bare_from]))")
-		:format(zone, zone, zone, zone), { "split_from", "bare_from" };
+	return zone_check(zone, "from");
 end
 
 function condition_handlers.PAYLOAD(payload_ns)

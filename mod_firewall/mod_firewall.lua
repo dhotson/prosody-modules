@@ -72,9 +72,14 @@ local available_deps = {
 	};
 	is_admin = { global_code = [[local is_admin = require "core.usermanager".is_admin]]};
 	core_post_stanza = { global_code = [[local core_post_stanza = prosody.core_post_stanza]] };
+	zone = { global_code = function (zone)
+		assert(zone:match("^%a[%w_]*$"), "Invalid zone name: "..zone);
+		return ("local zone_%s = zones[%q] or {};"):format(zone, zone);
+	end };
 };
 
 local function include_dep(dep, code)
+	local dep, dep_param = dep:match("^([^:]+):?(.*)$");
 	local dep_info = available_deps[dep];
 	if not dep_info then
 		module:log("error", "Dependency not found: %s", dep);
@@ -91,10 +96,18 @@ local function include_dep(dep, code)
 		include_dep(dep_dep, code);
 	end
 	if dep_info.global_code then
-		table.insert(code.global_header, dep_info.global_code);
+		if dep_param ~= "" then
+			table.insert(code.global_header, dep_info.global_code(dep_param));
+		else
+			table.insert(code.global_header, dep_info.global_code);
+		end
 	end
 	if dep_info.local_code then
-		table.insert(code, "\n\t-- "..dep.."\n\t"..dep_info.local_code.."\n\n\t");
+		if dep_param ~= "" then
+			table.insert(code, "\n\t-- "..dep.."\n\t"..dep_info.local_code(dep_param).."\n\n\t");
+		else
+			table.insert(code, "\n\t-- "..dep.."\n\t"..dep_info.local_code.."\n\n\t");
+		end
 	end
 	code.included_deps[dep] = true;
 end
