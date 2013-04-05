@@ -1,5 +1,13 @@
 local action_handlers = {};
 
+
+-- Run code through this to allow strings to contain code. e.g.: LOG=Received: $(stanza:top_tag())
+local function meta(s, extra)
+	return (s:gsub("$(%b())", [["..%1.."]])
+		:gsub("$(%b<>)", [["..stanza:find("%1").."]])
+		:gsub("$$(%a+)", extra or {}));
+end
+
 -- Takes an XML string and returns a code string that builds that stanza
 -- using st.stanza()
 local function compile_xml(data)
@@ -152,10 +160,7 @@ end
 function action_handlers.LOG(string)
 	local level = string:match("^%[(%a+)%]") or "info";
 	string = string:gsub("^%[%a+%] ?", "");
-	return (("log(%q, %q)"):format(level, string)
-		:gsub("$top", [["..stanza:top_tag().."]])
-		:gsub("$stanza", [["..stanza.."]])
-		:gsub("$(%b())", [["..%1.."]]));
+	return meta(("log(%q, %q)"):format(level, string));
 end
 
 function action_handlers.RULEDEP(dep)
