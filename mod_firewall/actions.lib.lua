@@ -47,6 +47,9 @@ local function compile_xml(data)
 	return table.concat(code, "");
 end
 
+function action_handlers.PASS()
+	return "do return end"
+end
 
 function action_handlers.DROP()
 	return "log('debug', 'Firewall dropping stanza: %s', tostring(stanza)); return true;";
