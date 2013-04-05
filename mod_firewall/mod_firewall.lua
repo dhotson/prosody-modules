@@ -241,9 +241,7 @@ local function compile_firewall_rules(filename)
 			table.insert(code, rule_code);
 		end
 
-		assert(chains[chain_name].type == "event", "Only event chains supported at the moment")
-
-		local code_string = [[return function (zones, log)
+		local code_string = [[return function (zones, fire_event, log)
 			]]..table.concat(code.global_header, "\n")..[[
 			local db = require 'util.debug'
 			return function (event)

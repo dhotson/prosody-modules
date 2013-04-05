@@ -162,4 +162,16 @@ function action_handlers.RULEDEP(dep)
 	return "", { dep };
 end
 
+function action_handlers.EVENT(name)
+	return ("fire_event(%q, event)"):format(name);
+end
+
+function action_handlers.JUMP_EVENT(name)
+	return ("do return fire_event(%q, event); end"):format(name);
+end
+
+function action_handlers.JUMP_CHAIN(name)
+	return ("do return fire_event(%q, event); end"):format("firewall/chains/"..name);
+end
+
 return action_handlers;
