@@ -109,4 +109,65 @@ function condition_handlers.TO_ADMIN_OF(host)
 	return ("is_admin(bare_to, %s)"):format(host ~= "*" and host or nil), { "is_admin", "bare_to" };
 end
 
+local day_numbers = { sun = 0, mon = 2, tue = 3, wed = 4, thu = 5, fri = 6, sat = 7 };
+
+local function current_time_check(op, hour, minute)
+	hour, minute = tonumber(hour), tonumber(minute);
+	local s = "";
+	local adj_op = op == "<" and "<" or ">="; -- Start time inclusive, end time exclusive
+	if minute == 0 then
+		return "(current_hour"..adj_op..hour..")";
+	else
+		return "((current_hour"..op..hour..") or (current_hour == "..hour.." and current_minute"..adj_op..minute.."))";
+	end
+end
+
+local function resolve_day_number(day_name)
+	return assert(day_numbers[day_name:sub(1,3):lower()], "Unknown day name: "..day_name);
+end
+
+function condition_handlers.DAY(days)
+	local conditions = {};
+	for day_range in days:gmatch("[^,]+") do
+		local day_start, day_end = day_range:match("(%a+)%s*%-%s*(%a+)");
+		if day_start and day_end then
+			local day_start_num, day_end_num = resolve_day_number(day_start), resolve_day_number(day_end);
+			local op = "and";
+			if day_end_num < day_start_num then
+				op = "or";
+			end
+			table.insert(conditions, ("current_day >= %d %s current_day <= %d"):format(day_start_num, op, day_end_num));
+		elseif day_range:match("%a") then
+			local day = resolve_day_number(day_range:match("%a+"));
+			table.insert(conditions, "current_day == "..day);
+		else
+			error("Unable to parse day/day range: "..day_range);
+		end
+	end
+	assert(#conditions>0, "Expected a list of days or day ranges");
+	return "("..table.concat(conditions, ") or (")..")", { "time:day" };
+end
+
+function condition_handlers.TIME(ranges)
+	local conditions = {};
+	for range in ranges:gmatch("([^,]+)") do
+		local clause = {};
+		range = range:lower()
+			:gsub("(%d+):?(%d*) *am", function (h, m) return tostring(tonumber(h)%12)..":"..(tonumber(m) or "00"); end)
+			:gsub("(%d+):?(%d*) *pm", function (h, m) return tostring(tonumber(h)%12+12)..":"..(tonumber(m) or "00"); end);
+		local start_hour, start_minute = range:match("(%d+):(%d+) *%-");
+		local end_hour, end_minute = range:match("%- *(%d+):(%d+)");
+		local op = tonumber(start_hour) > tonumber(end_hour) and " or " or " and ";
+		if start_hour and end_hour then
+			table.insert(clause, current_time_check(">", start_hour, start_minute));
+			table.insert(clause, current_time_check("<", end_hour, end_minute));
+		end
+		if #clause == 0 then
+			error("Unable to parse time range: "..range);
+		end
+		table.insert(conditions, "("..table.concat(clause, " "..op.." ")..")");
+	end
+	return table.concat(conditions, " or "), { "time:hour,min" };
+end
+
 return condition_handlers;
