@@ -256,9 +256,12 @@ local function compile_firewall_rules(filename)
 			for _, dep in ipairs(rule.deps) do
 				include_dep(dep, code);
 			end
-			local rule_code = "if ("..table.concat(rule.conditions, ") and (")..") then\n\t"
-			..table.concat(rule.actions, "\n\t")
-			.."\n end\n";
+			local rule_code = table.concat(rule.actions, "\n\t");
+			if #rule.conditions > 0 then
+				rule_code = "if ("..table.concat(rule.conditions, ") and (")..") then\n\t"
+				..rule_code
+				.."\n end\n";
+			end
 			table.insert(code, rule_code);
 		end
 
