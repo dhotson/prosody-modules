@@ -233,7 +233,7 @@ function handle_request(event, path)
 		return build_frame({ FIN = true, opcode = 0x01, data = tostring(data)});
 	end);
 
-	response.status = "101 Switching Protocols";
+	response.status_code = 101;
 	response.headers.upgrade = "websocket";
 	response.headers.connection = "Upgrade";
 	response.headers.sec_webSocket_accept = base64(sha1(request.headers.sec_websocket_key .. "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"));
