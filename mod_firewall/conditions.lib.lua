@@ -170,4 +170,8 @@ function condition_handlers.TIME(ranges)
 	return table.concat(conditions, " or "), { "time:hour,min" };
 end
 
+function condition_handlers.LIMIT(name)
+	return ("not throttle_%s:poll(1)"):format(name), { "throttle:"..name };
+end
+
 return condition_handlers;
