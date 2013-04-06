@@ -6,6 +6,8 @@
 
 module:set_global();
 
+module:depends("http");
+
 local prosody = prosody;
 local tabSort = table.sort;
 local tonumber = _G.tonumber;
@@ -20,7 +22,6 @@ local urldecode = require "net.http".urldecode;
 local datamanager = require "util.datamanager";
 local data_load, data_getpath = datamanager.load, datamanager.getpath;
 local datastore = "muc_log";
-local urlBase = "muc_log";
 local config = nil;
 local tostring = _G.tostring;
 local tonumber = _G.tonumber;
@@ -87,7 +88,7 @@ end
 
 function createDoc(body, title)
 	if not body then
-		return { status = "404 Not Found", body = "<h1>Page Not Found</h1>Sorry, we couldn't find what you were looking for :(" };
+		return 404;
 	end
 	body = body:gsub("%%", "%%%%");
 	return html.doc:gsub("###BODY_STUFF###", body)
@@ -643,19 +644,29 @@ local function parseDay(bareRoomJid, roomSubject, bare_day)
 	end
 end
 
-function handle_request(method, body, request)
-	local host, node, day, more = request.url.path:match("^/muc_log/+([^/]*)/*([^/]*)/*([^/]*)/*(.*)$");
-	if more ~= "" then return { status = "404 Not found", body = "Unknown URL" }; end
+function handle_request(event, path)
+	local request, response = event.request, event.response;
+	local host, node, day, more = path:match("^([^/]*)/?([^/]*)/?([^/]*)/?(.*)$");
+	if more ~= "" then return 404; end
 	if host == "" then host = nil; end
 	if node == "" then node = nil; end
 	if day  == "" then day  = nil; end
 
 	node = urldecode(node);
 
-	if not html.doc then return { status = "500 Internal Server Error", "MUC hosts or theme not loaded" }; end
+	if not html.doc then
+		response.status_code = 500;
+		return "MUC hosts or theme not loaded";
+	end
 
-	if host and not(hosts[host] and hosts[host].modules.muc and hosts[host].modules.muc_log) then return { status = "404 Not found", body = "No such MUC component" }; end
-	if host and node and not(hosts[host].modules.muc.rooms[node.."@"..host]) then return { status = "404 Not found", body = "No such MUC room" }; end
+	if host and not(hosts[host] and hosts[host].modules.muc and hosts[host].modules.muc_log) then
+		response.status_code = 404;
+		return "No such MUC component";
+	end
+	if host and node and not(hosts[host].modules.muc.rooms[node.."@"..host]) then
+		response.status_code = 404;
+		return "No such MUC room";
+	end
 
 	if not host then -- main component list
 		return createDoc(generateComponentListSiteContent());
@@ -667,10 +678,10 @@ function handle_request(method, body, request)
 		if not day:match("^20(%d%d)-(%d%d)-(%d%d)$") then
 			local y,m,d = day:match("^(%d%d)(%d%d)(%d%d)$");
 			if not y then
-				return { status = "404 Not found", body = "Unknown URL" };
+				return 404;
 			end
-			return { status = "301 Moved Permanently",
-				headers = { ["Location"] = request.url.path:match("^/muc_log/+[^/]*/*[^/]*").."/20"..y.."-"..m.."-"..d.."/" } };
+			response.headers.location = request.path .. "../20"..y.."-"..m.."-"..d.."/";
+			return 301;
 		end
 		local room = hosts[host].modules.muc.rooms[node.."@"..host];
 		return createDoc(parseDay(node.."@"..host, room._data.subject or "", day));
@@ -704,7 +715,7 @@ local function loadTheme(path)
 	return true;
 end
 
-function module.load()
+function module.add_host(module)
 	config = config_get("*", "core", "muc_log_http") or {};
 	if config.showStatus == nil then
 		config.showStatus = true;
@@ -727,5 +738,14 @@ function module.load()
 		return false;
 	end
 
-	httpserver.new_from_config({ config.http_port or true }, handle_request, { base = urlBase, ssl = false, port = 5290 });
+	module:provides("http", {
+		name = "muc_log";
+		route = {
+			["GET"] = function(event)
+				event.response.headers.location = event.request.path .. "/";
+				return 301;
+			end;
+			["GET /*"] = handle_request;
+		}
+	});
 end
