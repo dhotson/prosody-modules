@@ -76,6 +76,14 @@ local available_deps = {
 		assert(zone:match("^%a[%w_]*$"), "Invalid zone name: "..zone);
 		return ("local zone_%s = zones[%q] or {};"):format(zone, zone);
 	end };
+	date_time = { global_code = [[local os_date = os.date]]; local_code = [[local current_date_time = os_date("*t");]] };
+	time = { local_code = function (what)
+		local defs = {};
+		for field in what:gmatch("%a+") do
+			table.insert(defs, ("local current_%s = current_date_time.%s;"):format(field, field));
+		end
+		return table.concat(defs, " ");
+	end, depends = { "date_time" }; };
 };
 
 local function include_dep(dep, code)
