@@ -1,48 +1,33 @@
--- Copyright (C) 2009 Thilo Cestonaro
--- 
--- This project is MIT/X11 licensed. Please see the
--- COPYING file in the source package for more information.
---
 local prosody = prosody;
-local tostring = _G.tostring;
+local tostring = tostring;
 local splitJid = require "util.jid".split;
-local config_get = require "core.configmanager".get;
+local cm = require "core.configmanager";
 local datamanager = require "util.datamanager";
 local data_load, data_store, data_getpath = datamanager.load, datamanager.store, datamanager.getpath;
 local datastore = "muc_log";
+local error_reply = require "util.stanza".error_reply;
+local storagemanager = storagemanager;
+
 local mod_host = module:get_host();
 local config = nil;
 
---[[ LuaFileSystem 
-* URL: http://www.keplerproject.org/luafilesystem/index.html
-* Install: luarocks install luafilesystem
-* ]]
-local lfs = require "lfs";
+-- Helper Functions
 
-local function checkDatastorePathExists(node, host, today, create)
-	create = create or false;
-	local path = data_getpath(node, host, datastore, "dat", true);
-	path = path:gsub("/[^/]*$", "");
+local function inject_storage_config()
+	local _storage = cm.getconfig()[mod_host].storage;
 
-	-- check existance
-	local attributes, err = lfs.attributes(path);
-	if attributes == nil or attributes.mode ~= "directory" then
-		module:log("warn", "muc_log folder isn't a folder: %s", path);
-		return false;
+	module:log("debug", "injecting storage config...");
+	if type(_storage) == "string" then cm.getconfig()[mod_host].default_storage = _storage; end
+	if type(_storage) == "table" then -- append
+		_storage.muc_log = "internal";
+	else
+		cm.getconfig()[mod_host].storage = { muc_log = "internal" };
 	end
-	
-	attributes, err = lfs.attributes(path .. "/" .. today);
-	if attributes == nil then
-		if create then
-			return lfs.mkdir(path .. "/" .. today);
-		else
-			return false;
-		end
-	elseif attributes.mode == "directory" then
-		return true;
-	end
-	return false;
+
+	storagemanager.get_driver(mod_host, "muc_log"); -- init
 end
+
+-- Module Definitions
 
 function logIfNeeded(e)
 	local stanza, origin = e.stanza, e.origin;
@@ -94,7 +79,7 @@ function logIfNeeded(e)
 					end
 				end
 
-				if (mucFrom ~= nil or mucTo ~= nil) and checkDatastorePathExists(node, host, today, true) then
+				if (mucFrom ~= nil or mucTo ~= nil) then
 					local data = data_load(node, host, datastore .. "/" .. today);
 					local realFrom = stanza.attr.from;
 					local realTo = stanza.attr.to;
@@ -130,5 +115,13 @@ end
 module:hook("message/bare", logIfNeeded, 500);
 module:hook("iq/bare", logIfNeeded, 500);
 module:hook("presence/full", logIfNeeded, 500);
+
+local function reload()
+	inject_storage_config();
+end
+
+function module.load()
+	inject_storage_config();
+end
 
 module:log("debug", "module mod_muc_log loaded!");
