@@ -27,33 +27,14 @@ local lfs = require "lfs";
 local html = {};
 local theme;
 
--- encoding function
+-- Helper Functions
+
 local p_encode = datamanager.path_encode;
-
-local function checkDatastorePathExists(node, host, today, create)
-	create = create or false;
-	local path = data_getpath(node, host, datastore, "dat", true);
-	path = path:gsub("/[^/]*$", "");
-
-	-- check existance
-	local attributes, err = lfs.attributes(path);
-	if attributes == nil or attributes.mode ~= "directory" then
-		module:log("warn", "muc_log folder isn't a folder: %s", path);
-		return false;
-	end
-
-	attributes, err = lfs.attributes(path .. "/" .. today);
-	if attributes == nil then
-		if create then
-			return lfs.mkdir(path .. "/" .. today);
-		else
-			return false;
-		end
-	elseif attributes.mode == "directory" then
-		return true;
-	end
-	return false;
+local function store_exists(node, host, today)
+	if lfs.attributes(data_getpath(node, host, datastore .. "/" .. today), "mode") then return true; else return false; end
 end
+
+-- Module Definitions
 
 local function htmlEscape(t)
 	if t then
@@ -465,7 +446,7 @@ local function findNextDay(bareRoomJid, bare_day)
 	local max_trys = 7;
 
 	module:log("debug", day);
-	while(not checkDatastorePathExists(node, host, day, false)) do
+	while(not store_exists(node, host, day)) do
 		max_trys = max_trys - 1;
 		if max_trys == 0 then
 			break;
@@ -522,7 +503,7 @@ local function findPreviousDay(bareRoomJid, bare_day)
 	local day = decrementDay(bare_day);
 	local max_trys = 7;
 	module:log("debug", day);
-	while(not checkDatastorePathExists(node, host, day, false)) do
+	while(not store_exists(node, host, day)) do
 		max_trys = max_trys - 1;
 		if max_trys == 0 then
 			break;
