@@ -1,14 +1,7 @@
--- Copyright (C) 2009 Thilo Cestonaro
---
--- This project is MIT/X11 licensed. Please see the
--- COPYING file in the source package for more information.
---
-
-module:set_global();
-
 module:depends("http");
 
 local prosody = prosody;
+local my_host = module:get_host();
 local tabSort = table.sort;
 local tonumber = _G.tonumber;
 local tostring = _G.tostring;
@@ -16,12 +9,12 @@ local strchar = string.char;
 local strformat = string.format;
 local splitJid = require "util.jid".split;
 local config_get = require "core.configmanager".get;
-local httpserver = require "net.httpserver";
 local urlencode = require "net.http".urlencode;
 local urldecode = require "net.http".urldecode;
-local datamanager = require "util.datamanager";
+local http_event = require "net.http.server".fire_server_event;
 local data_load, data_getpath = datamanager.load, datamanager.getpath;
 local datastore = "muc_log";
+local urlBase = "muc_log";
 local config = nil;
 local tostring = _G.tostring;
 local tonumber = _G.tonumber;
@@ -31,17 +24,7 @@ local io_open = io.open;
 local themesParent = (module.path and module.path:gsub("[/\\][^/\\]*$", "")  or (prosody.paths.plugins or "./plugins") .. "/muc_log_http") .. "/themes";
 
 local lom = require "lxp.lom";
-
---[[ LuaFileSystem
-* URL: http://www.keplerproject.org/luafilesystem/index.html
-* Install: luarocks install luafilesystem
-* ]]
 local lfs = require "lfs";
-
-
---[[
-* Default templates for the html output.
-]]--
 local html = {};
 local theme;
 
@@ -87,9 +70,7 @@ local function htmlEscape(t)
 end
 
 function createDoc(body, title)
-	if not body then
-		return 404;
-	end
+	if not body then return "" end
 	body = body:gsub("%%", "%%%%");
 	return html.doc:gsub("###BODY_STUFF###", body)
 		:gsub("<title>muc_log</title>", "<title>"..(title and htmlEscape(title) or "Chatroom logs").."</title>");
@@ -100,16 +81,6 @@ function urlunescape (escapedUrl)
 	escapedUrl = escapedUrl:gsub("%%(%x%x)", function(h) return strchar(tonumber(h,16)) end)
 	escapedUrl = escapedUrl:gsub("\r\n", "\n")
 	return escapedUrl
-end
-
-local function generateComponentListSiteContent()
-	local components = "";
-	for component,host in pairs(hosts) do
-		if host.modules.muc and host.modules.muc_log then
-			components = components .. html.components.bit:gsub("###COMPONENT###", component);
-		end
-	end
-	return (html.components.body:gsub("###COMPONENTS_STUFF###", components));
 end
 
 local function generateRoomListSiteContent(component)
@@ -295,7 +266,7 @@ local function generateDayListSiteContentByRoom(bareRoomJid)
 
 		room = prosody.hosts[host].muc.rooms[bareRoomJid];
 		if room._data.hidden then
-			room = nil
+			room = nil;
 		end
 	end
 	if attributes ~= nil and room ~= nil then
@@ -644,11 +615,17 @@ local function parseDay(bareRoomJid, roomSubject, bare_day)
 	end
 end
 
-function handle_request(event, path)
-	local request, response = event.request, event.response;
-	local host, node, day, more = path:match("^([^/]*)/?([^/]*)/?([^/]*)/?(.*)$");
-	if more ~= "" then return 404; end
-	if host == "" then host = nil; end
+local function handle_error(code, err) return http_event("http-error", { code = code, message = err }); end
+function handle_request(event)
+	local response = event.response;
+	local request = event.request;
+	local room;
+
+	local node, day, more = request.url.path:match("^/"..urlBase.."/+([^/]*)/*([^/]*)/*(.*)$");
+	if more ~= "" then
+		response.status_code = 404;
+		return response:send(handle_error(response.status_code, "Unknown URL."));
+	end
 	if node == "" then node = nil; end
 	if day  == "" then day  = nil; end
 
@@ -656,35 +633,43 @@ function handle_request(event, path)
 
 	if not html.doc then
 		response.status_code = 500;
-		return "MUC hosts or theme not loaded";
+		return response:send(handle_error(response.status_code, "Muc Theme is not loaded."));
 	end
 
-	if host and not(hosts[host] and hosts[host].modules.muc and hosts[host].modules.muc_log) then
+	
+	if node then room = hosts[my_host].modules.muc.rooms[node.."@"..my_host]; end
+	if node and not room then
 		response.status_code = 404;
-		return "No such MUC component";
+		return response:send(handle_error(response.status_code, "Room doesn't exist."));
 	end
-	if host and node and not(hosts[host].modules.muc.rooms[node.."@"..host]) then
+	if room and room._data.hidden then
 		response.status_code = 404;
-		return "No such MUC room";
+		return response:send(handle_error(response.status_code, "There're no logs for this room."));
 	end
 
-	if not host then -- main component list
-		return createDoc(generateComponentListSiteContent());
-	elseif not node then -- room list for component
-		return createDoc(generateRoomListSiteContent(host));
+
+	if not node then -- room list for component
+		return response:send(createDoc(generateRoomListSiteContent(my_host))); 
 	elseif not day then -- room's listing
-		return createDoc(generateDayListSiteContentByRoom(node.."@"..host));
+		return response:send(createDoc(generateDayListSiteContentByRoom(node.."@"..my_host)));
 	else
 		if not day:match("^20(%d%d)-(%d%d)-(%d%d)$") then
 			local y,m,d = day:match("^(%d%d)(%d%d)(%d%d)$");
 			if not y then
-				return 404;
+				response.status_code = 404;
+				return response:send(handle_error(response.status_code, "No entries for that year."));
 			end
-			response.headers.location = request.path .. "../20"..y.."-"..m.."-"..d.."/";
-			return 301;
+			response.status_code = 301;
+			response.headers = { ["Location"] = request.url.path:match("^/"..urlBase.."/+[^/]*").."/20"..y.."-"..m.."-"..d.."/" };
+			return response:send();
 		end
-		local room = hosts[host].modules.muc.rooms[node.."@"..host];
-		return createDoc(parseDay(node.."@"..host, room._data.subject or "", day));
+
+		local body = createDoc(parseDay(node.."@"..my_host, room._data.subject or "", day));
+		if body == "" then
+			response.status_code = 404;
+			return response:send(handle_error(response.status_code, "Day entry doesn't exist."));
+		end
+		return response:send(body);
 	end
 end
 
@@ -715,14 +700,11 @@ local function loadTheme(path)
 	return true;
 end
 
-function module.add_host(module)
-	config = config_get("*", "core", "muc_log_http") or {};
-	if config.showStatus == nil then
-		config.showStatus = true;
-	end
-	if config.showJoin == nil then
-		config.showJoin = true;
-	end
+function module.load()
+	config = module:get_option_table("muc_log_http_config", {});
+	if config.showStatus == nil then config.showStatus = true; end
+	if config.showJoin == nil then config.showJoin = true; end
+	if config.urlBase ~= nil and type(config.urlBase) then urlBase = config.urlBase; end
 
 	theme = config.theme or "prosody";
 	local themePath = themesParent .. "/" .. tostring(theme);
@@ -739,13 +721,9 @@ function module.add_host(module)
 	end
 
 	module:provides("http", {
-		name = "muc_log";
-		route = {
-			["GET"] = function(event)
-				event.response.headers.location = event.request.path .. "/";
-				return 301;
-			end;
-			["GET /*"] = handle_request;
-		}
+		default_path = urlBase,
+	        route = {
+                	["GET /*"] = handle_request;
+        	}
 	});
 end
