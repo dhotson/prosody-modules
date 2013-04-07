@@ -9,7 +9,6 @@ local strchar = string.char;
 local strformat = string.format;
 local splitJid = require "util.jid".split;
 local config_get = require "core.configmanager".get;
-local urlencode = require "net.http".urlencode;
 local urldecode = require "net.http".urldecode;
 local http_event = require "net.http.server".fire_event;
 local data_load, data_getpath = datamanager.load, datamanager.getpath;
@@ -27,6 +26,9 @@ local lom = require "lxp.lom";
 local lfs = require "lfs";
 local html = {};
 local theme;
+
+-- encoding function
+local p_encode = datamanager.path_encode;
 
 local function checkDatastorePathExists(node, host, today, create)
 	create = create or false;
@@ -213,7 +215,7 @@ local function perDayCallback(path, day, month, year, room, webPath)
 		year = year - 2000;
 	end
 	local bareDay = str_format("20%.02d-%.02d-%.02d", year, month, day);
-	room = urlencode(room);
+	room = p_encode(room);
 	local attributes, err = lfs.attributes(path.."/"..str_format("%.02d%.02d%.02d", year, month, day).."/"..room..".dat")
 	if attributes ~= nil and attributes.mode == "file" then
 		local s = html.days.bit;
