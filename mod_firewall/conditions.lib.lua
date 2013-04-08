@@ -59,7 +59,7 @@ function condition_handlers.FROM(from)
 end
 
 function condition_handlers.TYPE(type)
-	return compile_comparison_list("(type or (name == 'message' and 'chat') or (name == 'presence' and 'available'))", type), { "type", "name" };
+	return compile_comparison_list("(type or (name == 'message' and 'normal') or (name == 'presence' and 'available'))", type), { "type", "name" };
 end
 
 local function zone_check(zone, which)
