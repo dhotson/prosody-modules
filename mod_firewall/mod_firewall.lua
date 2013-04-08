@@ -176,9 +176,9 @@ local function compile_firewall_rules(filename)
 			state = nil;
 		elseif not(state) and line:match("^::") then
 			chain = line:gsub("^::%s*", "");
-			local chain_info = chains[chain_name];
+			local chain_info = chains[chain];
 			if not chain_info then
-				return nil, errmsg("Unknown chain: "..chain_name);
+				return nil, errmsg("Unknown chain: "..chain);
 			elseif chain_info.type ~= "event" then
 				return nil, errmsg("Only event chains supported at the moment");
 			end
@@ -334,7 +334,7 @@ function module.load()
 						for _, event_name in ipairs(chain_definition) do
 							module:hook(event_name, handler, chain_definition.priority);
 						end
-					elseif not chain_name:match("^user/") then
+					elseif not chain:match("^user/") then
 						module:log("warn", "Unknown chain %q", chain);
 					end
 					module:hook("firewall/chains/"..chain, handler);
