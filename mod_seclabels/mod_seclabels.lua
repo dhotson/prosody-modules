@@ -1,4 +1,5 @@
 local st = require "util.stanza";
+local xml = require "util.xml";
 
 local xmlns_label = "urn:xmpp:sec-label:0";
 local xmlns_label_catalog = "urn:xmpp:sec-label:catalog:2";
@@ -61,8 +62,15 @@ function handle_catalog_request(request)
 						bgcolor = item.bgcolor,
 					}):text(item.display or name):up();
 				end
-				if type(item.label) == "string" then
-					catalog:tag("label"):text(item.label):up();
+				if item.label == true then
+					catalog:tag("label"):text(name):up();
+				elseif type(item.label) == "string" then
+					-- TODO Do we need anything other than XML parsing?
+					if item.label:sub(1,1) == "<" then
+						catalog:tag("label"):add_child(xml.parse(item.label)):up();
+					else
+						catalog:tag("label"):text(item.label):up();
+					end
 				elseif type(item.label) == "table" then
 					catalog:tag("label"):add_child(item.label):up();
 				end
