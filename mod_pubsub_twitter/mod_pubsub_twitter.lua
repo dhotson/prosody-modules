@@ -45,15 +45,16 @@ local function publish_result(search_name, result)
 	
 	local timestamp = ("%s-%s-%sT%sZ"):format(timestamp_year, month_number[timestamp_month], timestamp_date, timestamp_time);
 	
-	local item = st.stanza("entry", { xmlns = xmlns_atom })
-		:tag("id"):text(id):up()
-		:tag("author")
-			:tag("name"):text(result.from_user_name.." (@"..result.from_user..")"):up()
-			:tag("uri"):text("http://twitter.com/"..result.from_user):up()
-			:up()
-		:tag("published"):text(timestamp):up()
-		:tag("title"):text(result.text):up()
-		:tag("link", { rel = "alternate" , href = "https://twitter.com/"..result.from_user.."/status/"..id}):up();
+	local item = st.stanza("item", { xmlns = "http://jabber.org/protocol/pubsub", id = id })
+		:tag("entry", { xmlns = xmlns_atom })
+			:tag("id"):text(id):up()
+			:tag("author")
+				:tag("name"):text(result.from_user_name.." (@"..result.from_user..")"):up()
+				:tag("uri"):text("http://twitter.com/"..result.from_user):up()
+				:up()
+			:tag("published"):text(timestamp):up()
+			:tag("title"):text(result.text):up()
+			:tag("link", { rel = "alternate" , href = "https://twitter.com/"..result.from_user.."/status/"..id}):up();
 	
 	module:log("debug", "Publishing Twitter result: %s", tostring(item));
 	
