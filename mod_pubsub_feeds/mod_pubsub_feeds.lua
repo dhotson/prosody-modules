@@ -129,7 +129,7 @@ function fetch(item, callback) -- HTTP Pull
 	if item.data and item.last_update then
 		headers["If-Modified-Since"] = date("!%a, %d %b %Y %H:%M:%S %Z", item.last_update);
 	end
-	http.request(item.url, { headers = headers }, function(data, code, req) 
+	http.request(item.url, { headers = headers }, function(data, code) 
 		if code == 200 then
 			item.data = data;
 			if callback then callback(item) end
@@ -176,7 +176,7 @@ function subscribe(feed, want)
 
 	--FIXME The subscription states and related stuff
 	feed.subscription = want;
-	http.request(feed.hub, { body = body }, function(data, code, req) 
+	http.request(feed.hub, { body = body }, function(data, code)
 		module:log("debug", "subscription to %s submitted, status %s", feed.node, tostring(code));
 		if code >= 400 then
 			module:log("error", "There was something wrong with our subscription request, body: %s", tostring(data));

@@ -200,7 +200,7 @@ function http_action_callback(response, code, request, xcallback)
 end
 
 function http_add_action(tid, url, method, post, fcallback)
-	local request = http.request(url, { headers = http_headers or {}, body = "", method = method or "GET" }, function(response, code, request) http_action_callback(response, code, request, fcallback) end);
+	local request = http.request(url, { headers = http_headers or {}, body = "", method = method or "GET" }, function(response_body, code, response, request) http_action_callback(response_body, code, request, fcallback) end);
 	http_queue[request] = tid;
 	timer.add_task(http_timeout, function() http.destroy_request(request); end);
 	return true;
