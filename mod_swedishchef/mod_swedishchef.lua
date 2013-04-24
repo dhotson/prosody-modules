@@ -4,9 +4,8 @@
 -- This project is MIT/X11 licensed. Please see the
 -- COPYING file in the source package for more information.
 --
-local st = require "util.stanza";
 
-local trigger_string = config.get(module.host, "core", "swedishchef_trigger");
+local trigger_string = module:get_option_string("swedishchef_trigger");
 trigger_string = (trigger_string and trigger_string .. " ") or "";
 
 local chef = {  
