@@ -7,14 +7,13 @@
 
 local host = module:get_host();
 
-local support_contact = module:get_option("support_contact") or "support@"..host;
-local support_contact_nick = module:get_option("support_contact_nick") or "Support";
-local support_contact_group = module:get_option("support_contact_group") or "Users";
+local support_contact = module:get_option_string("support_contact", "support@"..host);
+local support_contact_nick = module:get_option_string("support_contact_nick", "Support");
+local support_contact_group = module:get_option_string("support_contact_group", "Users");
 
 if not(support_contact and support_contact_nick) then return; end
 
 local rostermanager = require "core.rostermanager";
-local datamanager = require "util.datamanager";
 local jid_split = require "util.jid".split;
 local st = require "util.stanza";
 
