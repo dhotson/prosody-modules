@@ -101,6 +101,15 @@ local function wrap_session(session, resume)
 	else
 		session.send = new_send;
 	end
+
+	local session_close = session.close;
+	function session.close(...)
+		if session.resumption_token then
+			session_registry[session.resumption_token] = nil;
+			session.resumption_token = nil;
+		end
+		return session_close(...);
+	end
 	
 	if not resume then
 		session.handled_stanza_count = 0;
