@@ -6,8 +6,7 @@
 local st = require "util.stanza";
 local jid_bare = require "util.jid".bare;
 local jid_split = require "util.jid".split;
-local xmlns_saslcert = "urn:xmpp:saslcert:0";
-local xmlns_pubkey = "urn:xmpp:tmp:pubkey";
+local xmlns_saslcert = "urn:xmpp:saslcert:1";
 local dm_load = require "util.datamanager".load;
 local dm_store = require "util.datamanager".store;
 local dm_table = "client_certs";
@@ -62,7 +61,7 @@ local function enable_cert(username, cert, info)
 		end
 
 		if not found then
-			return nil, "This certificate is has no valid id-on-xmppAddr field.";
+			return nil, "This certificate has no valid id-on-xmppAddr field.";
 		end
 	end
 
@@ -71,7 +70,7 @@ local function enable_cert(username, cert, info)
 	info.pem = cert:pem();
 	local digest = cert:digest(digest_algo);
 	info.digest = digest;
-	certs[info.id] = info;
+	certs[info.name] = info;
 
 	dm_store(username, module.host, dm_table, certs);
 	return true
@@ -118,9 +117,8 @@ module:hook("iq/self/"..xmlns_saslcert..":items", function(event)
 		local certs = dm_load(origin.username, module.host, dm_table) or {};
 
 		for digest,info in pairs(certs) do
-			reply:tag("item", { id = info.id })
+			reply:tag("item")
 				:tag("name"):text(info.name):up()
-				:tag("keyinfo", { xmlns = xmlns_pubkey }):tag("name"):text(info["key_name"]):up()
 				:tag("x509cert"):text(info.x509cert)
 			:up();
 		end
@@ -136,23 +134,15 @@ module:hook("iq/self/"..xmlns_saslcert..":append", function(event)
 
 		local append = stanza:get_child("append", xmlns_saslcert);
 		local name = append:get_child_text("name", xmlns_saslcert);
-		local key_info = append:get_child("keyinfo", xmlns_pubkey);
+		local x509cert = append:get_child_text("x509cert", xmlns_saslcert);
 
-		if not key_info or not name then
+		if not x509cert or not name then
 			origin.send(st.error_reply(stanza, "cancel", "bad-request", "Missing fields.")); -- cancel? not modify?
 			return true
 		end
 		
-		local id = key_info:get_child_text("name", xmlns_pubkey);
-		local x509cert = key_info:get_child_text("x509cert", xmlns_pubkey);
-
-		if not id or not x509cert then
-			origin.send(st.error_reply(stanza, "cancel", "bad-request", "No certificate found."));
-			return true
-		end
-
-		local can_manage = key_info:get_child("no-cert-management", xmlns_saslcert) ~= nil;
-		local x509cert = key_info:get_child_text("x509cert"):gsub("^%s*(.-)%s*$", "%1");
+		local can_manage = append:get_child("no-cert-management", xmlns_saslcert) ~= nil;
+		x509cert = x509cert:gsub("^%s*(.-)%s*$", "%1");
 
 		local cert = x509.cert_from_pem(
 		"-----BEGIN CERTIFICATE-----\n"
@@ -166,7 +156,6 @@ module:hook("iq/self/"..xmlns_saslcert..":append", function(event)
 		end
 
 		local ok, err = enable_cert(origin.username, cert, {
-			id = id,
 			name = name,
 			x509cert = x509cert,
 			no_cert_management = can_manage,
@@ -192,8 +181,7 @@ local function handle_disable(event)
 		local disable = stanza.tags[1];
 		module:log("debug", "%s disabled a certificate", origin.full_jid);
 
-		local item = disable:get_child("item");
-		local name = item and item.attr.id;
+		local name = disable:get_child_text("name");
 
 		if not name then
 			origin.send(st.error_reply(stanza, "cancel", "bad-request", "No key specified."));
@@ -275,7 +263,7 @@ local function adhoc_handler(self, data, state)
 			local certs = dm_load(jid_split(data.from), module.host, dm_table) or {};
 
 			for digest, info in pairs(certs) do
-				list_layout[#list_layout + 1] = { name = info.id, type = "text-multi", label = info.name, value = info.x509cert };
+				list_layout[#list_layout + 1] = { name = info.name, type = "text-multi", label = info.name, value = info.x509cert };
 			end
 
 			return { status = "completed", result = list_layout };
@@ -297,7 +285,7 @@ local function adhoc_handler(self, data, state)
 
 			local values = {};
 			for digest, info in pairs(certs) do
-				values[#values + 1] = { label = info.name, value = info.id };
+				values[#values + 1] = { label = info.name, value = info.name };
 			end
 
 			return { status = "executing", form = { layout = layout, values = { cert = values } }, actions = { "prev", "next", "complete" } },
@@ -324,7 +312,6 @@ local function adhoc_handler(self, data, state)
 		end
 
 		local ok, err = enable_cert(jid_split(data.from), cert, {
-			id = cert:digest(digest_algo),
 			name = name,
 			x509cert = x509cert,
 			no_cert_management = not fields.manage
