@@ -240,9 +240,9 @@ local function compile_firewall_rules(filename)
 				condition = (condition:sub(1,s-1)..condition:sub(e+1, -1)):match("^%s*(.-)%s*$");
 				negated = true;
 			end
-			condition = condition:gsub(" ", "");
+			condition = condition:gsub(" ", "_");
 			if not condition_handlers[condition] then
-				return nil, ("Unknown condition on line %d: %s"):format(line_no, condition);
+				return nil, ("Unknown condition on line %d: %s"):format(line_no, (condition:gsub("_", " ")));
 			end
 			-- Get the code for this condition
 			local ok, condition_code, condition_deps = pcall(condition_handlers[condition], line:match(":%s?(.+)$"));
