@@ -113,7 +113,6 @@ local day_numbers = { sun = 0, mon = 2, tue = 3, wed = 4, thu = 5, fri = 6, sat 
 
 local function current_time_check(op, hour, minute)
 	hour, minute = tonumber(hour), tonumber(minute);
-	local s = "";
 	local adj_op = op == "<" and "<" or ">="; -- Start time inclusive, end time exclusive
 	if minute == 0 then
 		return "(current_hour"..adj_op..hour..")";
