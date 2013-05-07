@@ -264,6 +264,7 @@ local function compile_firewall_rules(filename)
 	-- Loop through the chains in the parsed ruleset (e.g. incoming, outgoing)
 	for chain_name, rules in pairs(ruleset) do
 		local code = { included_deps = {}, global_header = {} };
+		local condition_cache, n_conditions = {}, 0;
 		-- This inner loop assumes chain is an event-based, not a filter-based
 		-- chain (filter-based will be added later)
 		for _, rule in ipairs(rules) do
@@ -272,7 +273,22 @@ local function compile_firewall_rules(filename)
 			end
 			local rule_code = table.concat(rule.actions, "\n\t");
 			if #rule.conditions > 0 then
-				rule_code = "if ("..table.concat(rule.conditions, ") and (")..") then\n\t"
+				for i, condition in ipairs(rule.conditions) do
+					local negated = condition:match("^not%b()$");
+					if negated then
+						condition = condition:match("^not%((.+)%)$");
+					end
+					if condition_cache[condition] then
+						rule.conditions[i] = (negated and "not(" or "")..condition_cache[condition]..(negated and "_" or "");
+					else
+						n_conditions = n_conditions + 1;
+						local name = "condition"..n_conditions;
+						condition_cache[condition] = name;
+						table.insert(code, "local "..name.." = "..condition..";\n\t");
+						rule.conditions[i] = (negated and "not(" or "")..name..(negated and ")" or "");
+					end
+				end
+				rule_code = "if "..table.concat(rule.conditions, " and ").." then\n\t"
 				..rule_code
 				.."\n end\n";
 			end
