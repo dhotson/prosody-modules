@@ -286,7 +286,7 @@ local function compile_firewall_rules(filename)
 			local rule_code = table.concat(rule.actions, "\n\t");
 			if #rule.conditions > 0 then
 				for i, condition in ipairs(rule.conditions) do
-					local negated = condition:match("^not%b()$");
+					local negated = condition:match("^not%(.+%)$");
 					if negated then
 						condition = condition:match("^not%((.+)%)$");
 					end
