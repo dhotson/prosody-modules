@@ -7,6 +7,8 @@ prosody.unlock_globals();
 local mongo = require "mongo";
 prosody.lock_globals();
 
+local json = require "util.json";
+
 local conn
 
 local keyval_store = {};
@@ -38,7 +40,7 @@ function keyval_store:set(username, data)
 
 	if next(data) ~= nil then -- set data
 		v.data = data;
-		return conn:insert ( namespace , v );
+		return conn:insert ( namespace , json.encode(v) );
 	else -- delete data
 		return conn:remove ( namespace , v );
 	end;
