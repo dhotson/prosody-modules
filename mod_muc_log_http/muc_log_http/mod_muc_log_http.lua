@@ -1,6 +1,7 @@
 module:depends("http");
 
 local prosody = prosody;
+local hosts = prosody.hosts;
 local my_host = module:get_host();
 local tabSort = table.sort;
 local strchar = string.char;
@@ -65,8 +66,9 @@ end
 
 local function generateRoomListSiteContent(component)
 	local rooms = "";
-	if prosody.hosts[component] and prosody.hosts[component].muc ~= nil then
-		for jid, room in pairs(prosody.hosts[component].muc.rooms) do
+	local component_host = hosts[component];
+	if component_host and component_host.muc ~= nil then
+		for jid, room in pairs(component_host.muc.rooms) do
 			local node = splitJid(jid);
 			if not room._data.hidden and node then
 				rooms = rooms .. html.rooms.bit:gsub("###ROOM###", node):gsub("###COMPONENT###", component);
@@ -194,7 +196,7 @@ local function perDayCallback(path, day, month, year, room, webPath)
 	end
 	local bareDay = str_format("20%.02d-%.02d-%.02d", year, month, day);
 	room = p_encode(room);
-	local attributes, err = lfs.attributes(path.."/"..str_format("%.02d%.02d%.02d", year, month, day).."/"..room..".dat")
+	local attributes, err = lfs.attributes(path.."/"..str_format("%.02d%.02d%.02d", year, month, day).."/"..room..".dat");
 	if attributes ~= nil and attributes.mode == "file" then
 		local s = html.days.bit;
 		s = s:gsub("###BARE_DAY###", webPath .. bareDay);
@@ -208,7 +210,7 @@ local function generateDayListSiteContentByRoom(bareRoomJid)
 	local days = "";
 	local arrDays = {};
 	local tmp;
-	local node, host, resource = splitJid(bareRoomJid);
+	local node, host = splitJid(bareRoomJid);
 	local path = data_getpath(node, host, datastore);
 	local room = nil;
 	local nextRoom = "";
@@ -218,8 +220,9 @@ local function generateDayListSiteContentByRoom(bareRoomJid)
 	local since = "";
 	local to = "";
 	local topic = "";
+	local component = hosts[host];
 
-	if not(prosody.hosts[host] and prosody.hosts[host].muc and prosody.hosts[host].muc.rooms[bareRoomJid]) then
+	if not(component and component.muc and component.muc.rooms[bareRoomJid]) then
 		return;
 	end
 
@@ -227,7 +230,7 @@ local function generateDayListSiteContentByRoom(bareRoomJid)
 	attributes = lfs.attributes(path);
 	do
 		local found = 0;
-		for jid, room in pairs(prosody.hosts[host].muc.rooms) do
+		for jid, room in pairs(component.muc.rooms) do
 			local node = splitJid(jid)
 			if not room._data.hidden and node then
 				if found == 0 then
@@ -244,7 +247,7 @@ local function generateDayListSiteContentByRoom(bareRoomJid)
 			end
 		end
 
-		room = prosody.hosts[host].muc.rooms[bareRoomJid];
+		room = component.muc.rooms[bareRoomJid];
 		if room._data.hidden then
 			room = nil;
 		end
@@ -438,7 +441,7 @@ local function incrementDay(bare_day)
 end
 
 local function findNextDay(bareRoomJid, bare_day)
-	local node, host, resource = splitJid(bareRoomJid);
+	local node, host = splitJid(bareRoomJid);
 	local day = incrementDay(bare_day);
 	local max_trys = 7;
 
@@ -496,7 +499,7 @@ local function decrementDay(bare_day)
 end
 
 local function findPreviousDay(bareRoomJid, bare_day)
-	local node, host, resource = splitJid(bareRoomJid);
+	local node, host = splitJid(bareRoomJid);
 	local day = decrementDay(bare_day);
 	local max_trys = 7;
 	module:log("debug", day);
@@ -520,7 +523,7 @@ local function parseDay(bareRoomJid, roomSubject, bare_day)
 	local month;
 	local day;
 	local tmp;
-	local node, host, resource = splitJid(bareRoomJid);
+	local node, host = splitJid(bareRoomJid);
 	local year, month, day = bare_day:match("^20(%d%d)-(%d%d)-(%d%d)$");
 	local previousDay = findPreviousDay(bareRoomJid, bare_day);
 	local nextDay = findNextDay(bareRoomJid, bare_day);
@@ -538,25 +541,25 @@ local function parseDay(bareRoomJid, roomSubject, bare_day)
 	temptime.year = tonumber(year)
 	calendar = createMonth(temptime.month, temptime.year, {callback=perDayCallback, path=path, room=node, webPath="../"}) or ""
 
-	if bare_day ~= nil then
+	if bare_day then
 		local data = data_load(node, host, datastore .. "/" .. bare_day:match("^20(.*)"):gsub("-", ""));
-		if data ~= nil then
+		if data then
 			for i=1, #data, 1 do
 				local stanza = lom.parse(data[i]);
-				if stanza ~= nil and stanza.attr ~= nil and stanza.attr.time ~= nil then
+				if stanza and stanza.attr and stanza.attr.time then
 					local timeStuff = html.day.time:gsub("###TIME###", stanza.attr.time):gsub("###UTC###", stanza.attr.utc or stanza.attr.time);
 					if stanza[1] ~= nil then
 						local nick;
 						local tmp;
 
 						-- grep nick from "from" resource
-						if stanza[1].attr.from ~= nil then -- presence and messages
+						if stanza[1].attr.from then -- presence and messages
 							nick = htmlEscape(stanza[1].attr.from:match("/(.+)$"));
-						elseif stanza[1].attr.to ~= nil then -- iq
+						elseif stanza[1].attr.to then -- iq
 							nick = htmlEscape(stanza[1].attr.to:match("/(.+)$"));
 						end
 
-						if stanza[1].tag == "presence" and nick ~= nil then
+						if stanza[1].tag == "presence" and nick then
 							tmp = parsePresenceStanza(stanza[1], timeStuff, nick);
 						elseif stanza[1].tag == "message" then
 							tmp = parseMessageStanza(stanza[1], timeStuff, nick);
@@ -565,7 +568,7 @@ local function parseDay(bareRoomJid, roomSubject, bare_day)
 						else
 							module:log("info", "unknown stanza subtag in log found. room: %s; day: %s", bareRoomJid, year .. "/" .. month .. "/" .. day);
 						end
-						if tmp ~= nil then
+						if tmp then
 							ret = ret .. tmp
 							tmp = nil;
 						end
@@ -611,7 +614,7 @@ function handle_request(event)
 
 	node = urldecode(node);
 
-	if not html.doc then
+	if not html.doc then 
 		response.status_code = 500;
 		return response:send(handle_error(response.status_code, "Muc Theme is not loaded."));
 	end
@@ -684,7 +687,7 @@ function module.load()
 	config = module:get_option_table("muc_log_http_config", {});
 	if config.showStatus == nil then config.showStatus = true; end
 	if config.showJoin == nil then config.showJoin = true; end
-	if config.urlBase ~= nil and type(config.urlBase) then urlBase = config.urlBase; end
+	if config.urlBase and type(config.urlBase) == "string" then urlBase = config.urlBase; end
 
 	theme = config.theme or "prosody";
 	local themePath = themesParent .. "/" .. tostring(theme);
