@@ -16,7 +16,7 @@ end
 function handle_reload()
 	local new_config = config.getconfig();
 	local active_hosts = set.new(array.collect(it.keys(prosody.hosts)):filter(host_not_global));
-	local enabled_hosts = set.new(array.collect(it.keys(new_config)):filter(host_is_enabled));
+	local enabled_hosts = set.new(array.collect(it.keys(new_config)):filter(host_is_enabled):filter(host_not_global));
 	local need_to_activate = enabled_hosts - active_hosts;
 	local need_to_deactivate = active_hosts - enabled_hosts;
 	
