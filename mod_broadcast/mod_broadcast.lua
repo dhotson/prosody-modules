@@ -1,3 +1,4 @@
+local is_admin = require "core.usermanager".is_admin;
 local allowed_senders = module:get_option_set("broadcast_senders", {});
 
 local jid_bare = require "util.jid".bare;
@@ -18,12 +19,13 @@ end
 
 function send_message(event)
 	local stanza = event.stanza;
-	if allowed_senders:contains(jid_bare(stanza.attr.from)) then
+	local from = stanza.attr.from;
+	if is_admin(from) or allowed_senders:contains(jid_bare(from)) then
 		local c = send_to_online(stanza);
-		module:log("debug", "Broadcast stanza from %s to %d online users", stanza.attr.from, c);
+		module:log("debug", "Broadcast stanza from %s to %d online users", from, c);
 		return true;
 	else
-		module:log("warn", "Broadcasting is not allowed for %s", stanza.attr.from);
+		module:log("warn", "Broadcasting is not allowed for %s", from);
 	end
 end
 
