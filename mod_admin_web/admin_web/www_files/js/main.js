@@ -115,6 +115,7 @@ function onConnect(status) {
         connection.sendIQ($iq({to: connection.domain, type: 'get', id: connection.getUniqueId()}).c('adminsub', {xmlns: Strophe.NS.ADMINSUB})
             .c('adminfor'), function(e) {
                 var items;
+                var domainpart = Strophe.getDomainFromJid(connection.jid);
                 items = e.getElementsByTagName('item');
                 if (items.length == 0) {
                     alert("You are not an administrator");
@@ -123,11 +124,7 @@ function onConnect(status) {
                 }
                 for (i = 0; i < items.length; i++) {
                     var host = $(items[i]).text();
-                    if (host == Strophe.getDomainFromJid(connection.jid)) {
-                        $('#host').append('<option selected>' + host + '</option>');
-                    } else {
-                        $('#host').append('<option>' + host + '</option>');
-                    }
+                    $('<option/>').text(host).prop('selected', host == domainpart).appendTo('#host');
                 }
                 showDisconnect();
                 adminsubHost = $(items[0]).text();

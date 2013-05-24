@@ -1,5 +1,5 @@
 #!/bin/sh
-JQUERY_VERSION="1.7.2"
+JQUERY_VERSION="1.9.1"
 STROPHE_VERSION="1.0.2"
 BOOTSTRAP_VERSION="1.4.0"
 ADHOC_COMMITISH="87bfedccdb91e2ff7cfb165e989e5259c155b513"
@@ -13,7 +13,7 @@ rm -f adhoc.js
 wget -O adhoc.js "http://git.babelmonkeys.de/?p=adhocweb.git;a=blob_plain;f=js/adhoc.js;hb=$ADHOC_COMMITISH"
 
 rm -f strophe.min.js
-wget https://github.com/downloads/metajack/strophejs/strophejs-$STROPHE_VERSION.tar.gz && tar xzf strophejs-$STROPHE_VERSION.tar.gz strophejs-$STROPHE_VERSION/strophe.min.js --strip-components=1 && rm strophejs-$STROPHE_VERSION.tar.gz
+wget https://raw.github.com/strophe/strophe.im/gh-pages/strophejs/downloads/strophejs-$STROPHE_VERSION.tar.gz && tar xzf strophejs-$STROPHE_VERSION.tar.gz strophejs-$STROPHE_VERSION/strophe.min.js --strip-components=1 && rm strophejs-$STROPHE_VERSION.tar.gz
 
 cd ../css
 rm -f bootstrap-$BOOTSTRAP_VERSION.min.css
