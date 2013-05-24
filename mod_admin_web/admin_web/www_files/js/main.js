@@ -127,10 +127,10 @@ function onConnect(status) {
                     $('<option/>').text(host).prop('selected', host == domainpart).appendTo('#host');
                 }
                 showDisconnect();
-                adminsubHost = $(items[0]).text();
-		adhocControl.checkFeatures(adminsubHost,
-		    function () { adhocControl.getCommandNodes(function (result) { $('#adhocDisplay').empty(); $('#adhocCommands').html(result); }) },
-		    function () { $('#adhocCommands').empty(); $('#adhocDisplay').html('<p>This host does not support commands</p>'); });
+                adminsubHost = $('#host').val();
+                adhocControl.checkFeatures(adminsubHost,
+                    function () { adhocControl.getCommandNodes(function (result) { $('#adhocDisplay').empty(); $('#adhocCommands').html(result); }) },
+                    function () { $('#adhocCommands').empty(); $('#adhocDisplay').html('<p>This host does not support commands</p>'); });
                 connection.addHandler(_cbAdminSub, Strophe.NS.ADMINSUB + '#event', 'message');
                 connection.send($iq({to: adminsubHost, type: 'set', id: connection.getUniqueId()}).c('adminsub', {xmlns: Strophe.NS.ADMINSUB})
                     .c('subscribe', {node: Strophe.NS.C2SSTREAM}));
@@ -182,19 +182,19 @@ $(document).ready(function () {
         var pass = $('#pass');
         localJID = jid.get(0).value;
 
-	$('#log').empty();
-	connection.connect(localJID, pass.get(0).value, onConnect);
+        $('#log').empty();
+        connection.connect(localJID, pass.get(0).value, onConnect);
         event.preventDefault();
     });
 
     $('#logout').click(function (event) {
-	connection.disconnect();
-	event.preventDefault();
+        connection.disconnect();
+        event.preventDefault();
     });
 
     $('#adhocMenu, #serverMenu, #clientMenu').click(function (event) {
         event.preventDefault();
-	var tab = $(this).attr('href');
+        var tab = $(this).attr('href');
         $('#main > div').hide();
         $(tab).fadeIn('fast');
     });
@@ -205,9 +205,9 @@ $(document).ready(function () {
         connection.send($iq({to: adminsubHost, type: 'set', id: connection.getUniqueId()}).c('adminsub', {xmlns: Strophe.NS.ADMINSUB})
             .c('unsubscribe', {node: Strophe.NS.S2SSTREAM}));
         adminsubHost = $(this).val();
-	adhocControl.checkFeatures(adminsubHost,
-	    function () { adhocControl.getCommandNodes(function (result) { $('#adhocDisplay').empty(); $('#adhocCommands').html(result); }) },
-	    function () { $('#adhocCommands').empty(); $('#adhocDisplay').html('<p>This host does not support commands</p>'); });
+        adhocControl.checkFeatures(adminsubHost,
+            function () { adhocControl.getCommandNodes(function (result) { $('#adhocDisplay').empty(); $('#adhocCommands').html(result); }) },
+            function () { $('#adhocCommands').empty(); $('#adhocDisplay').html('<p>This host does not support commands</p>'); });
         $('#s2sin').empty();
         $('#s2sout').empty();
         $('#c2s').empty();
