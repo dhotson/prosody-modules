@@ -684,7 +684,7 @@ local function loadTheme(path)
 end
 
 function module.load()
-	config = module:get_option_table("muc_log_http_config", {});
+	config = module:get_option("muc_log_http_config", {});
 	if config.showStatus == nil then config.showStatus = true; end
 	if config.showJoin == nil then config.showJoin = true; end
 	if config.urlBase and type(config.urlBase) == "string" then urlBase = config.urlBase; end
