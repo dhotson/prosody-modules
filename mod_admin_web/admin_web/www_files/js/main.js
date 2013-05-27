@@ -176,7 +176,7 @@ $(document).ready(function () {
         $("#log").toggle();
     });
 
-    $('#cred').bind('submit', function (event) {
+    $('#cred').on('submit', function (event) {
         var button = $('#connect').get(0);
         var jid = $('#jid');
         var pass = $('#pass');
@@ -199,7 +199,7 @@ $(document).ready(function () {
         $(tab).fadeIn('fast');
     });
 
-    $('#host').bind('change', function (event) {
+    $('#host').on('change', function (event) {
         connection.send($iq({to: adminsubHost, type: 'set', id: connection.getUniqueId()}).c('adminsub', {xmlns: Strophe.NS.ADMINSUB})
             .c('unsubscribe', {node: Strophe.NS.C2SSTREAM}));
         connection.send($iq({to: adminsubHost, type: 'set', id: connection.getUniqueId()}).c('adminsub', {xmlns: Strophe.NS.ADMINSUB})
