@@ -14,7 +14,7 @@ ul {
   margin-right: 0.3em
 }
 
-.btn:last {
+.btn:last-child {
   margin-right: 0
 }
 
