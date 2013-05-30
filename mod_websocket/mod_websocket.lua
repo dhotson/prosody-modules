@@ -82,12 +82,13 @@ local function parse_frame(frame)
 	if result.MASK then
 		local counter = 0;
 		local data = {};
-		result.key = {s_byte(frame, pos+1), s_byte(frame, pos+2),
+		local key = {s_byte(frame, pos+1), s_byte(frame, pos+2),
 				s_byte(frame, pos+3), s_byte(frame, pos+4)}
+		result.key = key;
 
 		pos = pos + 5;
 		for i = pos, pos + result.length - 1 do
-			data[#data+1] = s_char(bxor(result.key[counter+1], s_byte(frame, i)));
+			data[#data+1] = s_char(bxor(key[counter+1], s_byte(frame, i)));
 			counter = (counter + 1) % 4;
 		end
 		result.data = t_concat(data, "");
@@ -155,6 +156,8 @@ function handle_request(event, path)
 
 	local dataBuffer;
 	local function handle_frame(frame)
+		local opcode = frame.opcode;
+		local length = frame.length;
 		module:log("debug", "Websocket received: %s (%i bytes)", frame.data, #frame.data);
 
 		-- Error cases
@@ -163,48 +166,48 @@ function handle_request(event, path)
 			return false;
 		end
 
-		if frame.opcode >= 0x8 and frame.length > 125 then -- Control frame with too much payload
+		if opcode >= 0x8 and length > 125 then -- Control frame with too much payload
 			websocket_close(1002, "Payload too large");
 			return false;
 		end
 
-		if frame.opcode >= 0x8 and not frame.FIN then -- Fragmented control frame
+		if opcode >= 0x8 and not frame.FIN then -- Fragmented control frame
 			websocket_close(1002, "Fragmented control frame");
 			return false;
 		end
 
-		if (frame.opcode > 0x2 and frame.opcode < 0x8) or (frame.opcode > 0xA) then
+		if (opcode > 0x2 and opcode < 0x8) or (opcode > 0xA) then
 			websocket_close(1002, "Reserved opcode");
 			return false;
 		end
 
-		if frame.opcode == 0x0 and not dataBuffer then
+		if opcode == 0x0 and not dataBuffer then
 			websocket_close(1002, "Unexpected continuation frame");
 			return false;
 		end
 
-		if (frame.opcode == 0x1 or frame.opcode == 0x2) and dataBuffer then
+		if (opcode == 0x1 or opcode == 0x2) and dataBuffer then
 			websocket_close(1002, "Continuation frame expected");
 			return false;
 		end
 
 		-- Valid cases
-		if frame.opcode == 0x0 then -- Continuation frame
+		if opcode == 0x0 then -- Continuation frame
 			dataBuffer[#dataBuffer+1] = frame.data;
-		elseif frame.opcode == 0x1 then -- Text frame
+		elseif opcode == 0x1 then -- Text frame
 			dataBuffer = {frame.data};
-		elseif frame.opcode == 0x2 then -- Binary frame
+		elseif opcode == 0x2 then -- Binary frame
 			websocket_close(1003, "Only text frames are supported");
 			return;
-		elseif frame.opcode == 0x8 then -- Close request
+		elseif opcode == 0x8 then -- Close request
 			websocket_close(1000, "Goodbye");
 			return;
-		elseif frame.opcode == 0x9 then -- Ping frame
+		elseif opcode == 0x9 then -- Ping frame
 			frame.opcode = 0xA;
 			conn:write(build_frame(frame));
 			return "";
 		else
-			log("warn", "Received frame with unsupported opcode %i", frame.opcode);
+			log("warn", "Received frame with unsupported opcode %i", opcode);
 			return "";
 		end
 
