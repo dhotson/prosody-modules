@@ -107,10 +107,13 @@ local function build_frame(desc)
 		result = result .. string.char(126);
 		result = result .. string.char(rshift(length, 8)) .. string.char(length%0x100);
 	else -- 8-byte length
+		local length_bytes = {};
 		result = result .. string.char(127);
-		for i = 7, 0, -1 do
-			result = result .. string.char(rshift(length, 8*i) % 0x100);
+		for i = 8, 1, -1 do
+			length_bytes[i] = string.char(length % 0x100);
+			length = rshift(length, 8);
 		end
+		result = result .. table.concat(length_bytes, "");
 	end
 
 	result = result .. data;
