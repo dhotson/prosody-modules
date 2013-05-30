@@ -21,12 +21,16 @@ local band = bit.band;
 local bxor = bit.bxor;
 local rshift = bit.rshift;
 
+local t_concat = table.concat;
+local s_byte = string.byte;
+local s_char= string.char;
+
 local cross_domain = module:get_option("cross_domain_websocket");
 if cross_domain then
 	if cross_domain == true then
 		cross_domain = "*";
 	elseif type(cross_domain) == "table" then
-		cross_domain = table.concat(cross_domain, ", ");
+		cross_domain = t_concat(cross_domain, ", ");
 	end
 	if type(cross_domain) ~= "string" then
 		cross_domain = nil;
@@ -47,7 +51,7 @@ local function parse_frame(frame)
 
 	if #frame < 2 then return; end
 
-	tmp_byte = string.byte(frame, pos);
+	tmp_byte = s_byte(frame, pos);
 	result.FIN = band(tmp_byte, 0x80) > 0;
 	result.RSV1 = band(tmp_byte, 0x40) > 0;
 	result.RSV2 = band(tmp_byte, 0x20) > 0;
@@ -55,7 +59,7 @@ local function parse_frame(frame)
 	result.opcode = band(tmp_byte, 0x0F);
 
 	pos = pos + 1;
-	tmp_byte = string.byte(frame, pos);
+	tmp_byte = s_byte(frame, pos);
 	result.MASK = band(tmp_byte, 0x80) > 0;
 	result.length = band(tmp_byte, 0x7F);
 
@@ -71,19 +75,19 @@ local function parse_frame(frame)
 
 	for i = 1, length_bytes do
 		pos = pos + 1;
-		result.length = result.length * 256 + string.byte(frame, pos);
+		result.length = result.length * 256 + s_byte(frame, pos);
 	end
 
 	if #frame < (2 + length_bytes + (result.MASK and 4 or 0) + result.length) then return; end
 
 	if result.MASK then
-		result.key = {string.byte(frame, pos+1), string.byte(frame, pos+2),
-				string.byte(frame, pos+3), string.byte(frame, pos+4)}
+		result.key = {s_byte(frame, pos+1), s_byte(frame, pos+2),
+				s_byte(frame, pos+3), s_byte(frame, pos+4)}
 
 		pos = pos + 5;
 		result.data = "";
 		for i = pos, pos + result.length - 1 do
-			result.data = result.data .. string.char(bxor(result.key[counter+1], string.byte(frame, i)));
+			result.data = result.data .. s_char(bxor(result.key[counter+1], s_byte(frame, i)));
 			counter = (counter + 1) % 4;
 		end
 	else
@@ -98,22 +102,22 @@ local function build_frame(desc)
 	local result = "";
 	local data = desc.data or "";
 
-	result = result .. string.char(0x80 * (desc.FIN and 1 or 0) + desc.opcode);
+	result = result .. s_char(0x80 * (desc.FIN and 1 or 0) + desc.opcode);
 
 	length = #data;
 	if length <= 125 then -- 7-bit length
-		result = result .. string.char(length);
+		result = result .. s_char(length);
 	elseif length <= 0xFFFF then -- 2-byte length
-		result = result .. string.char(126);
-		result = result .. string.char(rshift(length, 8)) .. string.char(length%0x100);
+		result = result .. s_char(126);
+		result = result .. s_char(rshift(length, 8)) .. s_char(length%0x100);
 	else -- 8-byte length
 		local length_bytes = {};
-		result = result .. string.char(127);
+		result = result .. s_char(127);
 		for i = 8, 1, -1 do
-			length_bytes[i] = string.char(length % 0x100);
+			length_bytes[i] = s_char(length % 0x100);
 			length = rshift(length, 8);
 		end
-		result = result .. table.concat(length_bytes, "");
+		result = result .. t_concat(length_bytes, "");
 	end
 
 	result = result .. data;
@@ -143,7 +147,7 @@ function handle_request(event, path)
 	end
 
 	local function websocket_close(code, message)
-		local data = string.char(rshift(code, 8)) .. string.char(code%0x100) .. message;
+		local data = s_char(rshift(code, 8)) .. s_char(code%0x100) .. message;
 		conn:write(build_frame({opcode = 0x8, FIN = true, data = data}));
 		conn:close();
 	end
