@@ -46,7 +46,6 @@ local function parse_frame(frame)
 	local result = {};
 	local pos = 1;
 	local length_bytes = 0;
-	local counter = 0;
 	local tmp_byte;
 
 	if #frame < 2 then return; end
@@ -81,15 +80,17 @@ local function parse_frame(frame)
 	if #frame < (2 + length_bytes + (result.MASK and 4 or 0) + result.length) then return; end
 
 	if result.MASK then
+		local counter = 0;
+		local data = {};
 		result.key = {s_byte(frame, pos+1), s_byte(frame, pos+2),
 				s_byte(frame, pos+3), s_byte(frame, pos+4)}
 
 		pos = pos + 5;
-		result.data = "";
 		for i = pos, pos + result.length - 1 do
-			result.data = result.data .. s_char(bxor(result.key[counter+1], s_byte(frame, i)));
+			data[#data+1] = s_char(bxor(result.key[counter+1], s_byte(frame, i)));
 			counter = (counter + 1) % 4;
 		end
+		result.data = t_concat(data, "");
 	else
 		result.data = frame:sub(pos + 1, pos + result.length);
 	end
@@ -99,30 +100,30 @@ end
 
 local function build_frame(desc)
 	local length;
-	local result = "";
+	local result = {};
 	local data = desc.data or "";
 
-	result = result .. s_char(0x80 * (desc.FIN and 1 or 0) + desc.opcode);
+	result[#result+1] = s_char(0x80 * (desc.FIN and 1 or 0) + desc.opcode);
 
 	length = #data;
 	if length <= 125 then -- 7-bit length
-		result = result .. s_char(length);
+		result[#result+1] = s_char(length);
 	elseif length <= 0xFFFF then -- 2-byte length
-		result = result .. s_char(126);
-		result = result .. s_char(rshift(length, 8)) .. s_char(length%0x100);
+		result[#result+1] = s_char(126);
+		result[#result+1] = s_char(rshift(length, 8)) .. s_char(length%0x100);
 	else -- 8-byte length
+		result[#result+1] = s_char(127);
 		local length_bytes = {};
-		result = result .. s_char(127);
 		for i = 8, 1, -1 do
 			length_bytes[i] = s_char(length % 0x100);
 			length = rshift(length, 8);
 		end
-		result = result .. t_concat(length_bytes, "");
+		result[#result+1] = t_concat(length_bytes, "");
 	end
 
-	result = result .. data;
+	result[#result+1] = data;
 
-	return result;
+	return t_concat(result, "");
 end
 
 --- Filter stuff
@@ -189,9 +190,9 @@ function handle_request(event, path)
 
 		-- Valid cases
 		if frame.opcode == 0x0 then -- Continuation frame
-			dataBuffer = dataBuffer .. frame.data;
+			dataBuffer[#dataBuffer+1] = frame.data;
 		elseif frame.opcode == 0x1 then -- Text frame
-			dataBuffer = frame.data;
+			dataBuffer = {frame.data};
 		elseif frame.opcode == 0x2 then -- Binary frame
 			websocket_close(1003, "Only text frames are supported");
 			return;
@@ -208,9 +209,8 @@ function handle_request(event, path)
 		end
 
 		if frame.FIN then
-			data = dataBuffer;
+			local data = t_concat(dataBuffer, "");
 			dataBuffer = nil;
-
 			return data;
 		end
 		return "";
@@ -221,7 +221,7 @@ function handle_request(event, path)
 
 	local frameBuffer = "";
 	add_filter(sessions[conn], "bytes/in", function(data)
-		local cache = "";
+		local cache = {};
 		frameBuffer = frameBuffer .. data;
 		local frame, length = parse_frame(frameBuffer);
 
@@ -229,11 +229,10 @@ function handle_request(event, path)
 			frameBuffer = frameBuffer:sub(length + 1);
 			local result = handle_frame(frame);
 			if not result then return; end
-			cache = cache .. result;
+			cache[#cache+1] = result;
 			frame, length = parse_frame(frameBuffer);
 		end
-		return cache;
-
+		return t_concat(cache, "");
 	end);
 
 	add_filter(sessions[conn], "bytes/out", function(data)
