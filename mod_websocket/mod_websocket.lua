@@ -166,14 +166,32 @@ function handle_request(event, path)
 			return false;
 		end
 
-		if opcode >= 0x8 and length > 125 then -- Control frame with too much payload
-			websocket_close(1002, "Payload too large");
-			return false;
+		if opcode == 0x8 then
+			if length == 1 then
+				websocket_close(1002, "Close frame with payload, but too short for status code");
+				return false;
+			elseif length >= 2 then
+				local status_code = s_byte(frame.data, 1) * 256 + s_byte(frame.data, 2)
+				if status_code < 1000 then
+					websocket_close(1002, "Closed with invalid status code");
+					return false;
+				elseif ((status_code > 1003 and status_code < 1007) or status_code > 1011) and status_code < 3000 then
+					websocket_close(1002, "Cosed with reserved status code");
+					return false;
+				end
+			end
 		end
 
-		if opcode >= 0x8 and not frame.FIN then -- Fragmented control frame
-			websocket_close(1002, "Fragmented control frame");
-			return false;
+		if opcode >= 0x8 then
+			if length > 125 then -- Control frame with too much payload
+				websocket_close(1002, "Payload too large");
+				return false;
+			end
+
+			if not frame.FIN then -- Fragmented control frame
+				websocket_close(1002, "Fragmented control frame");
+				return false;
+			end
 		end
 
 		if (opcode > 0x2 and opcode < 0x8) or (opcode > 0xA) then
