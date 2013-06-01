@@ -1,4 +1,5 @@
 
+local jid = require "util.jid";
 local st = require "util.stanza";
 local new_throttle = require "util.throttle".create;
 
