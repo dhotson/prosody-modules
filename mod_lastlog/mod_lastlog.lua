@@ -11,3 +11,13 @@ module:hook("authentication-success", function(event)
 		});
 	end
 end);
+
+function module.command(arg)
+	local user, host = require "util.jid".prepped_split(table.remove(arg, 1));
+	local lastlog = datamanager.load(user, host, "lastlog") or {};
+	print("Last login: "..(lastlog and os.date("%Y-%m-%d %H:%m:%s", datamanager.load(user, host, "lastlog").time) or "<unknown>"));
+	if lastlog.ip then
+		print("IP address: "..lastlog.ip);
+	end
+	return 0;
+end
