@@ -2,6 +2,7 @@
 local jid = require "util.jid";
 local st = require "util.stanza";
 local new_throttle = require "util.throttle".create;
+local t_insert, t_concat = table.insert, table.concat;
 
 local xmlns_muc = "http://jabber.org/protocol/muc";
 
@@ -9,6 +10,14 @@ local period = math.max(module:get_option_number("muc_event_rate", 0.5), 0);
 local burst = math.max(module:get_option_number("muc_burst_factor", 6), 1);
 
 local max_nick_length = module:get_option_number("muc_max_nick_length", 23); -- Default chosen through scientific methods
+local dropped_count = 0;
+local dropped_jids;
+
+local function log_dropped()
+	module:log("warn", "Dropped %d stanzas from %d JIDs: %s", dropped_count, #dropped_jids, t_concat(dropped_jids, ", "));
+	dropped_count = 0;
+	dropped_jids = nil;
+end
 
 local function handle_stanza(event)
 	local origin, stanza = event.origin, event.stanza;
@@ -35,7 +44,15 @@ local function handle_stanza(event)
 		room.throttle = throttle;
 	end
 	if not throttle:poll(1) then
-		module:log("warn", "Dropping stanza for %s@%s from %s, over rate limit", dest_room, dest_host, from_jid);
+		module:log("debug", "Dropping stanza for %s@%s from %s, over rate limit", dest_room, dest_host, from_jid);
+		if not dropped_jids then
+			dropped_jids = { [from_jid] = true, from_jid };
+			module:add_timer(5, log_dropped);
+		elseif not dropped_jids[from_jid] then
+			dropped_jids[from_jid] = true;
+			t_insert(dropped_jids, from_jid);
+		end
+		dropped_count = dropped_count + 1;
 		local reply = st.error_reply(stanza, "wait", "policy-violation", "The room is currently overactive, please try again later");
 		local body = stanza:get_child_text("body");
 		if body then
