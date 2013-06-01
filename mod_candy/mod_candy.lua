@@ -6,6 +6,7 @@
 
 local json_encode = require"util.json".encode;
 
+module:depends"bosh";
 local serve = module:depends"http_files".serve;
 
 module:provides("http", {
