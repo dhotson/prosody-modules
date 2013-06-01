@@ -117,9 +117,9 @@ function log_if_needed(e)
 	end
 end
 
-module:hook("message/bare", logIfNeeded, 1);
-module:hook("iq/bare", logIfNeeded, 1);
-module:hook("presence/full", logIfNeeded, 1);
+module:hook("message/bare", log_if_needed, 1);
+module:hook("iq/bare", log_if_needed, 1);
+module:hook("presence/full", log_if_needed, 1);
 
 local function reload()
 	inject_storage_config();
