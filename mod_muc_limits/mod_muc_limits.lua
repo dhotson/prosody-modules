@@ -8,6 +8,8 @@ local xmlns_muc = "http://jabber.org/protocol/muc";
 local period = math.max(module:get_option_number("muc_event_rate", 0.5), 0);
 local burst = math.max(module:get_option_number("muc_burst_factor", 6), 1);
 
+local max_nick_length = module:get_option_number("muc_max_nick_length", 23); -- Default chosen through scientific methods
+
 local function handle_stanza(event)
 	local origin, stanza = event.origin, event.stanza;
 	if stanza.name == "presence" and stanza.attr.type == "unavailable" then -- Don't limit room leaving
@@ -21,6 +23,11 @@ local function handle_stanza(event)
 	if occupant and occupant.affiliation then
 		module:log("debug", "Skipping stanza from affiliated user...");
 		return;
+	elseif max_nick_length and stanza.name == "presence" and not room._occupants[stanza.attr.to] and #dest_nick > max_nick_length then
+		module:log("debug", "Forbidding long (%d bytes) nick in %s", #dest_nick, dest_room)
+		origin.send(st.error_reply(stanza, "modify", "policy-violation", "Your nick name is too long, please use a shorter one")
+			:up():tag("x", { xmlns = xmlns_muc }));
+		return true;
 	end
 	local throttle = room.throttle;
 	if not room.throttle then
