@@ -38,11 +38,6 @@ end
 function provider.get_sasl_handler()
 	local getpass_authentication_profile = {
 		plain_test = function(sasl, username, password, realm)
-			local prepped_username = nodeprep(username);
-			if not prepped_username then
-				log("debug", "NODEprep failed on username: %s", username);
-				return "", nil;
-			end
 			local postdata = require "util.json".encode({ username = username, password = password });
 			local result = require "socket.http".request("http://example.com/path", postdata);
 			return result == "true", true;
