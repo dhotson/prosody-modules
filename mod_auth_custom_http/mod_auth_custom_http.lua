@@ -5,9 +5,13 @@
 -- COPYING file in the source package for more information.
 --
 
-local log = require "util.logger".init("auth_custom_http");
 local new_sasl = require "util.sasl".new;
-local nodeprep = require "util.encodings".stringprep.nodeprep;
+local json_encode = require "util.json";
+local http = require "socket.http";
+
+local options = module:get_option("auth_custom_http");
+local post_url = options and options.post_url;
+assert(post_url, "No HTTP POST URL provided");
 
 local provider = {};
 
@@ -38,8 +42,8 @@ end
 function provider.get_sasl_handler()
 	local getpass_authentication_profile = {
 		plain_test = function(sasl, username, password, realm)
-			local postdata = require "util.json".encode({ username = username, password = password });
-			local result = require "socket.http".request("http://example.com/path", postdata);
+			local postdata = json_encode({ username = username, password = password });
+			local result = http.request(post_url, postdata);
 			return result == "true", true;
 		end,
 	};
