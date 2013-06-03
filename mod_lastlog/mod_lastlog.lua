@@ -1,11 +1,24 @@
 local datamanager = require "util.datamanager";	
 local time = os.time;
 local log_ip = module:get_option_boolean("lastlog_ip_address", false);
+local host = module.host;
 
 module:hook("authentication-success", function(event)
 	local session = event.session;
 	if session.username then
-		datamanager.store(session.username, session.host, "lastlog", {
+		datamanager.store(session.username, host, "lastlog", {
+			event = "login";
+			timestamp = time(),
+			ip = log_ip and session.ip or nil,
+		});
+	end
+end);
+
+module:hook("resource-unbind", function(event)
+	local session = event.session;
+	if session.username then
+		datamanager.store(session.username, host, "lastlog", {
+			event = "logout";
 			timestamp = time(),
 			ip = log_ip and session.ip or nil,
 		});
