@@ -1,8 +1,9 @@
 
-local jid = require "util.jid";
+local jid_split, jid_bare = require "util.jid".split, require "util.jid".bare;
 local st = require "util.stanza";
 local new_throttle = require "util.throttle".create;
 local t_insert, t_concat = table.insert, table.concat;
+local hosts = prosody.hosts;
 
 local xmlns_muc = "http://jabber.org/protocol/muc";
 
@@ -24,12 +25,12 @@ local function handle_stanza(event)
 	if stanza.name == "presence" and stanza.attr.type == "unavailable" then -- Don't limit room leaving
 		return;
 	end
-	local dest_room, dest_host, dest_nick = jid.split(stanza.attr.to);
+	local dest_room, dest_host, dest_nick = jid_split(stanza.attr.to);
 	local room = hosts[module.host].modules.muc.rooms[dest_room.."@"..dest_host];
 	if not room then return; end
 	local from_jid = stanza.attr.from;
 	local occupant = room._occupants[room._jid_nick[from_jid]];
-	if occupant and occupant.affiliation then
+	if (occupant and occupant.affiliation) or (not(occupant) and room._affiliations[jid_bare(from_jid)]) then
 		module:log("debug", "Skipping stanza from affiliated user...");
 		return;
 	elseif max_nick_length and stanza.name == "presence" and not room._occupants[stanza.attr.to] and #dest_nick > max_nick_length then
