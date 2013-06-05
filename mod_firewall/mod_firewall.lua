@@ -341,6 +341,7 @@ local function compile_handler(code_string, filename)
 end
 
 function module.load()
+	if not prosody.arg then return end -- Don't run in prosodyctl
 	active_definitions = {};
 	local firewall_scripts = module:get_option_set("firewall_scripts", {});
 	for script in firewall_scripts do
@@ -371,4 +372,22 @@ function module.load()
 	-- Replace contents of definitions table (shared) with active definitions
 	for k in it.keys(definitions) do definitions[k] = nil; end
 	for k,v in pairs(active_definitions) do definitions[k] = v; end
+end
+
+function module.command(arg)
+	if not arg[1] or arg[1] == "--help" then
+		require"util.prosodyctl".show_usage([[mod_firewall <firewall.pfw>]], [[Compile files with firewall rules to Lua code]]);
+		return 1;
+	end
+
+	for _, filename in ipairs(arg) do
+		print("\n-- File "..filename);
+		local chain_functions = assert(compile_firewall_rules(arg[1]));
+		for chain, handler_code in pairs(chain_functions) do
+			print("\n---- Chain "..chain);
+			print(handler_code);
+			print("\n---- End of chain "..chain);
+		end
+		print("\n-- End of file "..filename);
+	end
 end
