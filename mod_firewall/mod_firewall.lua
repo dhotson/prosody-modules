@@ -328,7 +328,6 @@ local function compile_firewall_rules(filename)
 end
 
 local function compile_handler(code_string, filename)
-	print(code_string)
 	-- Prepare event handler function
 	local chunk, err = loadstring(code_string, "="..filename);
 	if not chunk then
