@@ -1,4 +1,9 @@
 
+if not hosts[module.host].modules.muc then
+	module:log("error", "This module only works on MUC components!");
+	return;
+end
+
 local jid_split, jid_bare = require "util.jid".split, require "util.jid".bare;
 local st = require "util.stanza";
 local new_throttle = require "util.throttle".create;
