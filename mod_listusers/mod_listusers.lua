@@ -43,6 +43,21 @@ function module.command(args)
     local st, conn = pcall(assert,socket.connect(console_interfaces[1], console_ports[1]));
     if (not st) then print("Error"..(conn and ": "..conn or "")); return 1; end
 
+    local banner = config.get("*", "console_banner");
+    if (
+      (not banner) or
+      (
+        (type(banner) == "string") and
+        (banner:match("^|    (.+)$"))
+      )
+    ) then
+      repeat
+        local rec_banner = conn:receive()
+      until
+        rec_banner == "" or
+        rec_banner == nil; -- skip banner
+    end
+
     conn:send("c2s:show()\n");
     conn:settimeout(1); -- Only hit in case of failure
 
