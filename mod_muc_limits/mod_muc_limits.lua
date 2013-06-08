@@ -38,7 +38,7 @@ local function handle_stanza(event)
 	if (occupant and occupant.affiliation) or (not(occupant) and room._affiliations[jid_bare(from_jid)]) then
 		module:log("debug", "Skipping stanza from affiliated user...");
 		return;
-	elseif max_nick_length and stanza.name == "presence" and not room._occupants[stanza.attr.to] and #dest_nick > max_nick_length then
+	elseif dest_nick and max_nick_length and stanza.name == "presence" and not room._occupants[stanza.attr.to] and #dest_nick > max_nick_length then
 		module:log("debug", "Forbidding long (%d bytes) nick in %s", #dest_nick, dest_room)
 		origin.send(st.error_reply(stanza, "modify", "policy-violation", "Your nick name is too long, please use a shorter one")
 			:up():tag("x", { xmlns = xmlns_muc }));
