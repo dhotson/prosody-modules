@@ -8,14 +8,15 @@ local byte = string.byte;
 local c = string.char;
 
 local proxy_ip = module:get_option("onions_socks5_host") or "127.0.0.1";
-local proxy_port = module:get_option("onions_socks5_port") or "9050";
+local proxy_port = module:get_option("onions_socks5_port") or 9050;
 local forbid_else = module:get_option("onions_only") or false;
+local torify_all = module:get_option("onions_tor_all") or false;
 
 local sessions = module:shared("sessions");
 
 -- The socks5listener handles connection while still connecting to the proxy,
 -- then it hands them over to the normal listener (in mod_s2s)
-local socks5listener = { default_port = tonumber(proxy_port), default_mode = "*a", default_interface = "*" };
+local socks5listener = { default_port = proxy_port, default_mode = "*a", default_interface = "*" };
 
 local function socks5_connect_sent(conn, data)
 	
@@ -215,7 +216,7 @@ local function route_to_onion(event)
 		if forbid_else then
 	                module:log("debug", event.to_host .. " is not an onion. Blocking it.");
 			return false;
-		else
+		elseif not torify_all then
 			return;
 		end
 	end
