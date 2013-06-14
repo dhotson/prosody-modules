@@ -5,10 +5,12 @@
 local jid_compare = require "util.jid".compare;
 local jid_split = require "util.jid".prepped_split;
 local new_sasl = require "util.sasl".new;
+local now = os.time;
 local log = module._log;
+
 local subject_alternative_name = "2.5.29.17";
 local id_on_xmppAddr = "1.3.6.1.5.5.7.8.5";
-local now = os.time;
+local oid_emailAddress = "1.2.840.113549.1.9.1";
 
 local cert_match = module:get_option("certificate_match", "xmppaddr");
 
