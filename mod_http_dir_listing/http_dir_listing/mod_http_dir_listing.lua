@@ -14,6 +14,10 @@ local base64_encode = require"util.encodings".base64.encode;
 local tag = require"util.stanza".stanza;
 local template = require"util.template";
 
+module:depends"http_files";
+
+local mime = module:shared("/*/http_files/mime");
+
 local function get_resource(resource)
 	local fh = assert(module:load_resource(resource));
 	local data = fh:read"*a";
@@ -33,13 +37,17 @@ local function generate_directory_index(path, full_path)
 		filelist:tag("li", { class = "parent directory" })
 			:tag("a", { href = "..", rel = "up" }):text("Parent Directory"):up():up():text"\n"
 	end
+	local mime_map = mime.types;
 	for file in lfs.dir(full_path) do
 		if file:sub(1,1) ~= "." then
 			local attr = stat(full_path..file) or {};
 			local path = { file };
+			local file_ext = file:match"%.(.-)$";
+			local type = attr.mode == "file" and mime_map and mime_map[file_ext] or nil;
+			local class = table.concat({ attr.mode or "unknown", file_ext, type and type:match"^[^/]+" }, " ");
 			path.is_directory = attr.mode == "directory";
-			filelist:tag("li", { class = attr.mode })
-				:tag("a", { href = build_path(path) }):text(file):up()
+			filelist:tag("li", { class = class })
+				:tag("a", { href = build_path(path), type = type }):text(file):up()
 			:up():text"\n";
 		end
 	end
