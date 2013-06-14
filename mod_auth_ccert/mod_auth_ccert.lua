@@ -10,6 +10,38 @@ local subject_alternative_name = "2.5.29.17";
 local id_on_xmppAddr = "1.3.6.1.5.5.7.8.5";
 local now = os.time;
 
+local cert_match = module:get_option("certificate_match", "xmppaddr");
+
+local username_extractor = {}
+
+function username_extractor.xmppaddr(cert)
+	local extensions = cert:extensions();
+	local SANs = extensions[subject_alternative_name];
+	local xmppAddrs = SANs and SANs[id_on_xmppAddr];
+
+	if not xmppAddrs then
+		(session.log or log)("warn", "Client certificate contains no xmppAddrs");
+		return nil, false;
+	end
+
+	for i=1,#xmppAddrs do
+		if authz == "" or jid_compare(authz, xmppAddrs[i]) then
+			(session.log or log)("debug", "xmppAddrs[%d] %q matches authz %q", i, xmppAddrs[i], authz)
+			local username, host = jid_split(xmppAddrs[i]);
+			if host == module.host then
+				return username, true
+			end
+		end
+	end
+end
+
+local find_username = username_extractor[cert_match];
+if not find_username then
+	module:log("error", "certificate_match = %q is not supported");
+	return
+end
+
+
 function get_sasl_handler(session)
 	return new_sasl(module.host, {
 		external = session.secure and function(authz)
@@ -39,24 +71,7 @@ function get_sasl_handler(session)
 				return nil, false;
 			end
 
-			local extensions = cert:extensions();
-			local SANs = extensions[subject_alternative_name];
-			local xmppAddrs = SANs and SANs[id_on_xmppAddr];
-
-			if not xmppAddrs then
-				(session.log or log)("warn", "Client certificate contains no xmppAddrs");
-				return nil, false;
-			end
-
-			for i=1,#xmppAddrs do
-				if authz == "" or jid_compare(authz, xmppAddrs[i]) then
-					(session.log or log)("debug", "xmppAddrs[%d] %q matches authz %q", i, xmppAddrs[i], authz)
-					local username, host = jid_split(xmppAddrs[i]);
-					if host == module.host then
-						return username, true
-					end
-				end
-			end
+			return find_username(cert);
 		end
 	});
 end
