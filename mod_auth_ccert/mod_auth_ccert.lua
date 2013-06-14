@@ -12,9 +12,9 @@ local now = os.time;
 
 local cert_match = module:get_option("certificate_match", "xmppaddr");
 
-local username_extractor = {}
+local username_extractor = {};
 
-function username_extractor.xmppaddr(cert, authz)
+function username_extractor.xmppaddr(cert, authz, session)
 	local extensions = cert:extensions();
 	local SANs = extensions[subject_alternative_name];
 	local xmppAddrs = SANs and SANs[id_on_xmppAddr];
@@ -84,7 +84,7 @@ function get_sasl_handler(session)
 				return nil, false;
 			end
 
-			return find_username(cert, authz);
+			return find_username(cert, authz, session);
 		end
 	});
 end
