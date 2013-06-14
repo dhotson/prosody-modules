@@ -35,6 +35,19 @@ function username_extractor.xmppaddr(cert)
 	end
 end
 
+function username_extractor.email(cert)
+	local subject = cert:subject();
+	for i=1,#subject do
+		local ava = subject[i];
+		if ava.oid == oid_emailAddress then
+			local username, host = jid_split(ava.value);
+			if host == module.host then
+				return username, true
+			end
+		end
+	end
+end
+
 local find_username = username_extractor[cert_match];
 if not find_username then
 	module:log("error", "certificate_match = %q is not supported");
