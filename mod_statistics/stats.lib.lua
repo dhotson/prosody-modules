@@ -108,35 +108,6 @@ if has_pposix and pposix.meminfo then
 	}
 end
 
-local pagesize = 4096;
-stats.memory_total = {
-	get = function ()
-		local statm, err = io.open"/proc/self/statm";
-		if statm then
-			local total = statm:read"*n";
-			statm:close();
-			return total * pagesize;
-		else
-			module:log("debug", err);
-		end
-	end;
-	tostring = human;
-};
-stats.memory_rss = {
-	get = function ()
-		local statm, err = io.open"/proc/self/statm";
-		if statm then
-			statm:read"*n"; -- Total size, ignore
-			local rss = statm:read"*n";
-			statm:close();
-			return rss * pagesize;
-		else
-			module:log("debug", err);
-		end
-	end;
-	tostring = human;
-};
-
 local add_statistics_filter; -- forward decl
 if prosody and prosody.arg then -- ensures we aren't in prosodyctl
 	setmetatable(active_sessions, {
