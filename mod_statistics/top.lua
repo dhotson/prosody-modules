@@ -109,7 +109,7 @@ end
 
 local function session_compare(session1, session2)
 	local stats1, stats2 = session1.stats, session2.stats;
-	return (stats1.total_stanzas_in + stats1.total_stanzas_out) >= 
+	return (stats1.total_stanzas_in + stats1.total_stanzas_out) >
 		(stats2.total_stanzas_in + stats2.total_stanzas_out);
 end
 
