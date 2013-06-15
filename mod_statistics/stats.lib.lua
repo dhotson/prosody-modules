@@ -5,6 +5,8 @@ local last_cpu_wall, last_cpu_clock;
 local get_time = require "socket".gettime;
 
 local active_sessions, active_jids = {}, {};
+local s2s_sessions = module:shared"/*/s2s/sessions";
+local c2s_sessions = module:shared"/*/c2s/sessions";
 
 local stats = {
 	total_users = {
@@ -14,16 +16,13 @@ local stats = {
 		get = function () return it.count(it.keys(full_sessions)); end
 	};
 	total_s2sin = {
-		get = function () return it.count(it.keys(prosody.incoming_s2s)); end
+		get = function () local i = 0; for conn,sess in next,s2s_sessions do if sess.direction == "incoming" then i = i + 1 end end return i end
 	};
 	total_s2sout = {
-		get = function ()
-			local count = 0;
-			for host, host_session in pairs(hosts) do
-				count = count + it.count(it.keys(host_session.s2sout));
-			end
-			return count;
-		end
+		get = function () local i = 0; for conn,sess in next,s2s_sessions do if sess.direction == "outgoing" then i = i + 1 end end return i end
+	};
+	total_s2s = {
+		get = function () return it.count(it.keys(s2s_sessions)); end
 	};
 	total_component = {
 		get = function ()
