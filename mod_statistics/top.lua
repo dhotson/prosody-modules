@@ -137,7 +137,14 @@ function top:draw_conn_list()
 					end
 					table.insert(row, v);
 				end
+				if session.updated then
+					self.listwin:attron(curses.A_BOLD);
+				end
 				self.listwin:mvaddstr(index, 0, "  "..table.concat(row));
+				if session.updated then
+					session.updated = false;
+					self.listwin:attroff(curses.A_BOLD);
+				end
 			end
 		else
 			-- FIXME: How to clear a line? It's 5am and I don't feel like reading docs.
@@ -162,6 +169,7 @@ function top:update_session(id, jid, stats)
 	stats.total_stanzas_in = stats.message_in + stats.presence_in + stats.iq_in;
 	stats.total_stanzas_out = stats.message_out + stats.presence_out + stats.iq_out;
 	stats.last_update = time();
+	stats.updated = true;
 end
 
 function new(base)
