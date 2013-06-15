@@ -71,7 +71,7 @@ local stats = {
 };
 
 local add_statistics_filter; -- forward decl
-if prosody and prosody.full_sessions then -- start_time ensures we aren't in prosodyctl
+if prosody and prosody.arg then -- ensures we aren't in prosodyctl
 	setmetatable(active_sessions, {
 		__index = function ( t, k )
 			local v = {
