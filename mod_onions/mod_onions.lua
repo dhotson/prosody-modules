@@ -1,9 +1,21 @@
 local wrapclient = require "net.server".wrapclient;
 local s2s_new_outgoing = require "core.s2smanager".new_outgoing;
 local initialize_filters = require "util.filters".initialize;
-local bit = require "bit32";
 local st = require "util.stanza";
+
 local portmanager = require "core.portmanager";
+
+local softreq = require "util.dependencies".softreq;
+
+local bit;
+pcall(function() bit = require"bit"; end);
+bit = bit or softreq"bit32"
+if not bit then module:log("error", "No bit module found. Either LuaJIT 2, lua-bitop or Lua 5.2 is required"); end
+
+local band = bit.band;
+local rshift = bit.rshift;
+local lshift = bit.lshift;
+
 local byte = string.byte;
 local c = string.char;
 
@@ -51,7 +63,7 @@ local function socks5_connect_sent(conn, data)
 		local ip2 = byte(data, 6);
 		local ip3 = byte(data, 7);
 		local ip4 = byte(data, 8);
-		local port = bit.band(byte(data, 9), bit.lshift(byte(data, 10), 8));
+		local port = band(byte(data, 9), lshift(byte(data, 10), 8));
 		module:log("debug", "Should connect to: "..ip1.."."..ip2.."."..ip3.."."..ip4..":"..port);
 
 		if not (ip1 == 0 and ip2 == 0 and ip3 == 0 and ip4 == 0 and port == 0) then
@@ -125,7 +137,7 @@ local function socks5_handshake_sent(conn, data)
 
 	-- version 5, connect, (reserved), type: domainname, (length, hostname), port
 	conn:send(c(5) .. c(1) .. c(0) .. c(3) .. c(#session.socks5_to) .. session.socks5_to);
-	conn:send(c(bit.rshift(session.socks5_port, 8)) .. c(bit.band(session.socks5_port, 0xff)));
+	conn:send(c(rshift(session.socks5_port, 8)) .. c(band(session.socks5_port, 0xff)));
 
 	session.socks5_handler = socks5_connect_sent;
 end
