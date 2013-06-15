@@ -1,5 +1,27 @@
 local it = require "util.iterators";
 local log = require "util.logger".init("stats");
+local has_pposix, pposix = pcall(require, "util.pposix");
+local human;
+do
+	local tostring = tostring;
+	local s_format = string.format;
+	local m_floor = math.floor;
+	local m_max = math.max;
+	local prefixes = "kMGTPEZY";
+	local multiplier = 1024;
+
+	function human(num)
+		num = tonumber(num) or 0;
+		local m = 0;
+		while num >= multiplier and m < #prefixes do
+			num = num / multiplier;
+			m = m + 1;
+		end
+
+		return s_format("%0."..m_max(0,3-#tostring(m_floor(num))).."f%sB",
+		num, m > 0 and (prefixes:sub(m,m) .. "i") or "");
+	end
+end
 
 local last_cpu_wall, last_cpu_clock;
 local get_time = require "socket".gettime;
@@ -44,13 +66,9 @@ local stats = {
 			return tostring(os.time()-up_since).."s";
 		end;
 	};
-	memory_used = {
-		get = function () return collectgarbage("count")/1024; end;
-		tostring = "%0.2fMB";
-	};
-	memory_process = {
-		get = function () return pposix.meminfo().allocated/1048576; end;
-		tostring = "%0.2fMB";
+	memory_lua = {
+		get = function () return math.ceil(collectgarbage("count")*1024); end;
+		tostring = human;
 	};
 	time = {
 		tostring = function () return os.date("%T"); end;
@@ -67,6 +85,54 @@ local stats = {
 		end;
 		tostring = "%s%%";
 	};
+};
+
+if has_pposix and pposix.meminfo then
+	stats.memory_allocated = {
+		get = function () return math.ceil(pposix.meminfo().allocated); end;
+		tostring = human;
+	}
+	stats.memory_used = {
+		get = function () return math.ceil(pposix.meminfo().used); end;
+		tostring = human;
+	}
+	stats.memory_unused = {
+		get = function () return math.ceil(pposix.meminfo().unused); end;
+		tostring = human;
+	}
+	stats.memory_returnable = {
+		get = function () return math.ceil(pposix.meminfo().returnable); end;
+		tostring = human;
+	}
+end
+
+local pagesize = 4096;
+stats.memory_total = {
+	get = function ()
+		local statm, err = io.open"/proc/self/statm";
+		if statm then
+			local total = statm:read"*n";
+			statm:close();
+			return total * pagesize;
+		else
+			module:log("debug", err);
+		end
+	end;
+	tostring = human;
+};
+stats.memory_rss = {
+	get = function ()
+		local statm, err = io.open"/proc/self/statm";
+		if statm then
+			statm:read"*n"; -- Total size, ignore
+			local rss = statm:read"*n";
+			statm:close();
+			return rss * pagesize;
+		else
+			module:log("debug", err);
+		end
+	end;
+	tostring = human;
 };
 
 local add_statistics_filter; -- forward decl
