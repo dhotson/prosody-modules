@@ -15,7 +15,7 @@ top.__index = top;
 local status_lines = {
 	"Prosody $version - $time up $up_since, $total_users users, $cpu busy";
 	"Connections: $total_c2s c2s, $total_s2sout s2sout, $total_s2sin s2sin, $total_component component";
-	"Memory: $memory_lua lua, $memory_used used, $memory_allocated allocated, $memory_rss resident, $memory_total total";
+	"Memory: $memory_lua lua, $memory_allocated process ($memory_used in use)";
 	"Stanzas in: $message_in_per_second message/s, $presence_in_per_second presence/s, $iq_in_per_second iq/s";
 	"Stanzas out: $message_out_per_second message/s, $presence_out_per_second presence/s, $iq_out_per_second iq/s";
 };
