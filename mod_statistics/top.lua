@@ -6,7 +6,7 @@ local curses = require "curses";
 local stats = require "stats".stats;
 local time = require "socket".gettime;
 
-local sessions_idle_after = 10;
+local sessions_idle_after = 60;
 local stanza_names = {"message", "presence", "iq"};
 
 local top = {};
