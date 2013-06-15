@@ -95,7 +95,9 @@ function listener.ondisconnect(conn)
 end
 
 function module.load()
-	if not(prosody and prosody.full_sessions) then return; end --FIXME: hack, need a proper flag
+	if not(prosody and prosody.arg) then
+		return;
+	end
 	filters.add_filter_hook(stats.filter_hook);
 
 	module:add_timer(1, function ()
@@ -115,10 +117,7 @@ function module.load()
 		end
 		return 1;
 	end);
-	module:provides("net", {
-		default_port = 5782;
-		listener = listener;
-	});
+	
 end
 function module.unload()
 	filters.remove_filter_hook(stats.filter_hook);
@@ -131,4 +130,12 @@ function module.command( args )
 		local prosodytop = require "prosodytop";
 		prosodytop.run();
 	end
+end
+
+if prosody and prosody.arg then
+	module:provides("net", {
+		default_port = 5782;
+		listener = listener;
+		private = true;
+	});
 end
