@@ -104,7 +104,7 @@ function main()
 		if lastpos == #data then
 			partial = nil;
 		else
-			partial = data:sub(lastpos+1);
+			partial = data:sub(lastpos);
 		end
 	end
 	
