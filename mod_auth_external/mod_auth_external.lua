@@ -4,6 +4,7 @@
 -- Prosody IM
 -- Copyright (C) 2010 Waqas Hussain
 -- Copyright (C) 2010 Jeff Mitchell
+-- Copyright (C) 2013 Mikael Nordfeldth
 --
 -- This project is MIT/X11 licensed. Please see the
 -- COPYING file in the source package for more information.
@@ -27,18 +28,18 @@ local new_sasl = require "util.sasl".new;
 
 local function send_query(text)
 	local tmpname = os.tmpname();
-	local tmpfile = io.open(tmpname, "wb");
-	tmpfile:write(text);
-	tmpfile:close();
-	local p = io.popen(command.." < "..tmpname, "r");
+	local p = io.popen(command.." > "..tmpname, "w");	-- dump result to file
+	p:write(text);	-- push colon-separated args through pipe to above command
+	p:close();
+	local tmpfile = io.open(tmpname, "r");	-- open file to read auth result
 	local result;
 	if script_type == "ejabberd" then
-		result = p:read(4);
+		result = tmpfile:read(4);
 	elseif script_type == "generic" then
-		result = p:read();
+		result = tmpfile:read();
 	end
-	os.remove(tmpname);
-	p:close();
+	tmpfile:close();
+	os.remove(tmpname);	-- clean up after us
 	return result;
 end
 
