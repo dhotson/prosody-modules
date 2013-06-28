@@ -17,10 +17,11 @@ local function note_cert_digest(event)
 	local chain_status = session.cert_chain_status;
 	local identity_status = session.cert_identity_status;
 
-	module:log("info", "Spotted %s %s certificate used by %s with %s: %s",
+	module:log("info", "%s has a %s %s certificate with %s: %s",
+		remote_host,
 		chain_status == "valid" and "trusted" or "untrusted",
 		identity_status or "invalid",
-		remote_host, digest_algo:upper(),
+		digest_algo:upper(),
 		digest:upper():gsub("..",":%0"):sub(2));
 
 	if do_store then
