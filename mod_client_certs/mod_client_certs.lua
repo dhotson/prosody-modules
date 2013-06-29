@@ -43,7 +43,7 @@ local function enable_cert(username, cert, info)
 	end
 	--]]
 
-	if not cert:valid_at(os.time()) then
+	if not cert:validat(os.time()) then
 		module:log("debug", "This certificate is not valid at this moment.");
 	end
 
@@ -144,7 +144,7 @@ module:hook("iq/self/"..xmlns_saslcert..":append", function(event)
 		local can_manage = append:get_child("no-cert-management", xmlns_saslcert) ~= nil;
 		x509cert = x509cert:gsub("^%s*(.-)%s*$", "%1");
 
-		local cert = x509.cert_from_pem(
+		local cert = x509.load(
 		"-----BEGIN CERTIFICATE-----\n"
 		.. x509cert ..
 		"\n-----END CERTIFICATE-----\n");
@@ -302,7 +302,7 @@ local function adhoc_handler(self, data, state)
 		local name = fields.name;
 		local x509cert = fields.cert:gsub("^%s*(.-)%s*$", "%1");
 
-		local cert = x509.cert_from_pem(
+		local cert = x509.load(
 		"-----BEGIN CERTIFICATE-----\n"
 		.. x509cert ..
 		"\n-----END CERTIFICATE-----\n");
@@ -355,7 +355,7 @@ module:hook("stream-features", function(event)
 			return
 		end
 		module:log("info", "Client Certificate: %s", cert:digest(digest_algo));
-		if not cert:valid_at(now()) then
+		if not cert:validat(now()) then
 			module:log("debug", "Client has an expired certificate", cert:digest(digest_algo));
 			return
 		end
