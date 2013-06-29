@@ -311,11 +311,9 @@ local function message_handler(event, c2s)
 			resource = target_resource,
 			stanza = st.preserialize(stanza)
 		});
-		--[[ This was dropped from the spec
-		if ok then 
-			stanza:tag("archived", { xmlns = xmlns_mam, by = host, id = id }):up();
+		if ok and not c2s then
+			stanza:tag("archived", { xmlns = xmlns_mam, by = jid_bare(orig_to), id = id }):up();
 		end
-		--]]
 	else
 		module:log("debug", "Not archiving stanza: %s", stanza:top_tag());
 	end
