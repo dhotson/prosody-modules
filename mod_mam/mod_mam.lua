@@ -193,9 +193,9 @@ module:hook("iq/self/"..xmlns_mam..":query", function(event)
 					and (not qend or when <= qend)
 					and (not qset or qset_matches) then
 				local fwd_st = st.message{ to = origin.full_jid }
-					:tag("result", { xmlns = xmlns_mam, queryid = qid, id = id }):up()
-					:tag("forwarded", { xmlns = xmlns_forward })
-						:tag("delay", { xmlns = xmlns_delay, stamp = timestamp(when) }):up();
+					:tag("result", { xmlns = xmlns_mam, queryid = qid, id = id })
+						:tag("forwarded", { xmlns = xmlns_forward })
+							:tag("delay", { xmlns = xmlns_delay, stamp = timestamp(when) }):up();
 				local orig_stanza = st.deserialize(item.stanza);
 				orig_stanza.attr.xmlns = "jabber:client";
 				fwd_st:add_child(orig_stanza);
