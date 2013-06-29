@@ -81,7 +81,7 @@ function get_sasl_handler(session)
 			if not chain_valid then
 				(session.log or log)("warn", "Invalid client certificate chain");
 				for i, error in ipairs(chain_errors) do
-					(session.log or log)("warn", "%d: %s", i, table.concat(chain_errors[i], ", "));
+					(session.log or log)("warn", "%d: %s", i, table.concat(error, ", "));
 				end
 				return nil, false;
 			end
