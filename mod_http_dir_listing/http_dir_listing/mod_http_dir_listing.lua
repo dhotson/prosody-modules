@@ -14,8 +14,6 @@ local base64_encode = require"util.encodings".base64.encode;
 local tag = require"util.stanza".stanza;
 local template = require"util.template";
 
-module:depends"http_files";
-
 local mime = module:shared("/*/http_files/mime");
 
 local function get_resource(resource)
