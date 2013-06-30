@@ -1,65 +1,79 @@
 local ssl = require"ssl";
-local load_cert = ssl.x509 and ssl.x509.load
-	or ssl.cert_from_pem; -- COMPAT mw/luasec-hg
+local datetime_parse = require"util.datetime".parse;
+local load_cert = ssl.x509 and ssl.x509.load;
 local st = require"util.stanza"
+
+-- These are in days.
+local nag_time = module:get_option_number("checkcerts_notify", 7) * 86400;
 
 if not load_cert then
 	module:log("error", "This version of LuaSec (%s) does not support certificate checking", ssl._VERSION);
 	return
 end
 
-local last_check = 0;
+local pat = "^([JFMAONSD][ceupao][glptbvyncr])  ?(%d%d?) (%d%d):(%d%d):(%d%d) (%d%d%d%d) GMT$";
+local months = {Jan=1,Feb=2,Mar=3,Apr=4,May=5,Jun=6,Jul=7,Aug=8,Sep=9,Oct=10,Nov=11,Dec=12};
+local function parse_x509_datetime(s)
+	local month, day, hour, min, sec, year = s:match(pat); month = months[month];
+	return datetime_parse(("%04d-%02d-%02dT%02d:%02d:%02dZ"):format(year, month, day, hour, min, sec));
+end
+
+local timeunits = {"minute",60,"hour",3600,"day",86400,"week",604800,"month",2629746,"year",31556952,};
+local function humantime(timediff)
+	local ret = {};
+	for i=#timeunits,2,-2 do
+		if timeunits[i] < timediff then
+			local n = math.floor(timediff / timeunits[i]);
+			if n > 0 and #ret < 2 then
+				ret[#ret+1] = ("%d %s%s"):format(n, timeunits[i-1], n ~= 1 and "s" or "");
+				timediff = timediff - n*timeunits[i];
+			end
+		end
+	end
+	return table.concat(ret, " and ")
+end
 
 local function check_certs_validity()
 	local now = os.time();
 
-	if last_check > now - 21600 then
-		return
-	else
-		last_check = now;
-	end
 	-- First, let's find out what certificate this host uses.
-	local ssl_config = config.rawget(module.host, "core", "ssl");
+	local ssl_config = config.rawget(module.host, "ssl");
 	if not ssl_config then
 		local base_host = module.host:match("%.(.*)");
-		ssl_config = config.get(base_host, "core", "ssl");
+		ssl_config = config.get(base_host, "ssl");
 	end
 
-	if ssl_config.certificate then
+	if ssl_config and ssl_config.certificate then
 		local certfile = ssl_config.certificate;
-		local cert;
-
 		local fh = io.open(certfile); -- Load the file.
 		cert = fh and fh:read"*a";
-		fh:close();
-		cert = cert and load_cert(cert); -- And parse
-		if not cert then return end
-		-- No error reporting, certmanager should complain already
+		fh = fh and fh:close();
+		local cert = cert and load_cert(cert); -- And parse
 
-		local valid_at = cert.valid_at or cert.validat;
-		if not valid_at then return end -- Broken or uncommon LuaSec version?
-
-		-- This might be wrong if the certificate has NotBefore in the future.
-		-- However this is unlikely to happen with CA-issued certs in the wild.
-		local notafter = cert.notafter and cert:notafter();
-		if not valid_at(cert, now) then
-			module:log("error", "The certificate %s has expired", certfile);
-			module:send(st.message({from=module.host,to=admin,type="chat"},("Certificate for host %s has expired!"):format(module.host)));
-		elseif not valid_at(cert, now+86400*7) then
-			module:log("warn", "The certificate %s will expire %s", certfile, notafter or "this week");
-			for _,admin in ipairs(module:get_option_array("admins", {})) do
-				module:send(st.message({from=module.host,to=admin,type="chat"},("Certificate for host %s will expire %s!"):format(module.host, notafter or "this week")));
-			end
-		elseif not valid_at(cert, now+86400*30) then
-			module:log("warn", "The certificate %s will expire later this month", certfile);
-		else
-			module:log("info", "The certificate %s is valid until %s", certfile, notafter or "later");
+		if not cert then
+			module:log("warn", "No certificate configured for this host, please fix this and reload this module to check expiry");
+			return
 		end
+		local expires_at = parse_x509_datetime(cert:notafter());
+		local expires_in = os.difftime(expires_at, now);
+		local fmt =  "Certificate %s expires in %s"
+		local nag_admin = expires_in < nag_time;
+		local log_warn = expires_in < nag_time * 2;
+		local timediff = expires_in;
+		if expires_in < 0 then
+			fmt =  "Certificate %s expired %s ago";
+			timediff = -timediff;
+		end
+		timediff = humantime(timediff);
+		module:log(log_warn and "warn" or "info", fmt, certfile, timediff);
+		if nag_admin then
+			local body = fmt:format("for host ".. module.host, timediff);
+			for _,admin in ipairs(module:get_option_array("admins", {})) do
+				module:send(st.message({ from = module.host, to = admin, type = "chat" }, body));
+			end
+		end
+		return math.max(86400, expires_in / 3);
 	end
 end
 
-module:hook_global("config-reloaded", check_certs_validity);
-module:add_timer(1, function()
-	check_certs_validity();
-	return math.random(14400, 86400);
-end);
+module:add_timer(1, check_certs_validity);
