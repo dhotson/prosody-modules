@@ -40,8 +40,8 @@ local function generate_directory_index(path, full_path)
 		if file:sub(1,1) ~= "." then
 			local attr = stat(full_path..file) or {};
 			local path = { file };
-			local file_ext = file:match"%.(.-)$";
-			local type = attr.mode == "file" and mime_map and mime_map[file_ext] or nil;
+			local file_ext = file:match"%.([^.]+)$";
+			local type = attr.mode == "file" and file_ext and mime_map and mime_map[file_ext] or nil;
 			local class = table.concat({ attr.mode or "unknown", file_ext, type and type:match"^[^/]+" }, " ");
 			path.is_directory = attr.mode == "directory";
 			filelist:tag("li", { class = class })
