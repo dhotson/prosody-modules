@@ -39,6 +39,13 @@ local element_generators = setmetatable({
 			st:tag("first"):text(tostring(data)):up();
 		end
 	end;
+	before = function(st, data)
+		if data == true then
+			st:tag("before"):up();
+		else
+			st:tag("before"):text(tostring(data)):up();
+		end
+	end
 }, {
 	__index = function(_, name)
 		return function(st, data)
