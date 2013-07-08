@@ -18,7 +18,8 @@ do
 	element_parsers = {
 		after = xs_string;
 		before = function(st)
-			return st:get_text() or true;
+			local text = st:get_text();
+			return text == "" or text;
 		end;
 		max = xs_int;
 		index = xs_int;
