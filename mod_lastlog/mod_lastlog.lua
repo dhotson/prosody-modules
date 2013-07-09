@@ -48,6 +48,10 @@ if module:get_option_boolean("lastlog_stamp_offline") then
 end
 
 function module.command(arg)
+	if not arg[1] or arg[1] == "--help" then
+		require"util.prosodyctl".show_usage([[mod_lastlog <user@host>]], [[Show when user last logged in or out]]);
+		return 1;
+	end
 	local user, host = jid.prepped_split(table.remove(arg, 1));
 	require"core.storagemanager".initialize_host(host);
 	local lastlog = assert(datamanager.load(user, host, "lastlog"));
