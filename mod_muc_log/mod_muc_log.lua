@@ -8,6 +8,7 @@ local data_load, data_store, data_getpath = datamanager.load, datamanager.store,
 local datastore = "muc_log";
 local error_reply = require "util.stanza".error_reply;
 local storagemanager = storagemanager;
+local muc_form_config_option = "muc#roomconfig_enablelogging"
 
 local mod_host = module:get_host();
 local log_presences = module:get_option_boolean("muc_log_presences", false);
@@ -116,6 +117,31 @@ function log_if_needed(e)
 		end
 	end
 end
+
+module:hook("muc-config-form", function(event)
+	local room, form = event.room, event.form;
+	table.insert(form,
+	{
+		name = muc_form_config_option,
+		type = "boolean",
+		label = "Enable Logging?",
+		value = room._data.logging or false,
+	}
+	);
+end);
+
+module:hook("muc-config-submitted", function(event)
+	local room, fields, changed = event.room, event.fields, event.changed;
+	local new = fields[muc_form_config_option];
+	if new ~= room._data.logging then
+		room._data.logging = new;
+		if type(changed) == "table" then
+			changed[muc_form_config_option] = true;
+		else
+			event.changed = true;
+		end
+	end
+end);
 
 module:hook("message/bare", log_if_needed, 1);
 if log_presences then
