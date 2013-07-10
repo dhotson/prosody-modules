@@ -688,7 +688,7 @@ end
 
 function module.load()
 	config = module:get_option("muc_log_http_config", {});
-	if module:get_option_boolean("muc_log_presences", false) then config.show_presences = true end
+	if module:get_option_boolean("muc_log_presences", true) then config.show_presences = true end
 	if config.show_status == nil then config.show_status = true; end
 	if config.show_join == nil then config.show_join = true; end
 	if config.url_base and type(config.url_base) == "string" then url_base = config.url_base; end
