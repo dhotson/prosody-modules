@@ -11,7 +11,7 @@ local storagemanager = storagemanager;
 local muc_form_config_option = "muc#roomconfig_enablelogging"
 
 local mod_host = module:get_host();
-local log_presences = module:get_option_boolean("muc_log_presences", false);
+local log_presences = module:get_option_boolean("muc_log_presences", true);
 
 -- Helper Functions
 
