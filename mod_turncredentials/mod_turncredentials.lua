@@ -3,7 +3,7 @@
 -- This file is MIT/X11 licensed. 
 
 local st = require "util.stanza";
-local hmac_sha1 = require "util.hmac".sha1;
+local hmac_sha1 = require "util.hashes".hmac_sha1;
 local base64 = require "util.encodings".base64;
 local os_time = os.time;
 local secret = module:get_option("turncredentials_secret") or false;
