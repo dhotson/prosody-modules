@@ -3,7 +3,7 @@ module:depends("http");
 local st = require "util.stanza";
 local json = require "util.json";
 local formdecode = require "net.http".formdecode;
-local hmac = require "util.hmac";
+local hmac_md5 = require "util.hashes".hmac_md5;
 local st = require "util.stanza";
 local json = require "util.json";
 local datetime = require "util.datetime".datetime;
@@ -24,7 +24,7 @@ function handle_POST(event)
 	
 	if auth_key then
 		local digest_header = request.headers["google-code-project-hosting-hook-hmac"];
-		local digest = hmac.md5(auth_key, body, true);
+		local digest = hmac_md5(auth_key, body, true);
 		if digest ~= digest_header then
 			module:log("warn", "Commit POST failed authentication check, sender gave %s, we got %s, body was:\n%s", tostring(digest_header), tostring(digest), tostring(body));
 			return "No thanks.";
