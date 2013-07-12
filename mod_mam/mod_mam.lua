@@ -9,13 +9,13 @@ local xmlns_forward = "urn:xmpp:forward:0";
 
 local st = require "util.stanza";
 local rsm = module:require "rsm";
+local prefs = module:require"mamprefs";
+local set_prefs, get_prefs = prefs.set, prefs.get;
 local jid_bare = require "util.jid".bare;
 local jid_split = require "util.jid".split;
 local jid_prep = require "util.jid".prep;
 local host = module.host;
 
-local dm_load = require "util.datamanager".load;
-local dm_store = require "util.datamanager".store;
 local dm_list_load = require "util.datamanager".list_load;
 local dm_list_append = require "util.datamanager".list_append;
 local rm_load_roster = require "core.rostermanager".load_roster;
@@ -38,26 +38,7 @@ local default_attrs = {
 	roster = "roster",
 }
 
-do
-	local prefs_format = {
-		[false] = "roster",
-		-- default ::= true | false | "roster"
-		-- true = always, false = never, nil = global default
-		["romeo@montague.net"] = true, -- always
-		["montague@montague.net"] = false, -- newer
-	};
-end
-
 local archive_store = "archive2";
-local prefs_store = archive_store .. "_prefs";
-local function get_prefs(user)
-	return dm_load(user, host, prefs_store) or
-		{ [false] = global_default_policy };
-end
-local function set_prefs(user, prefs)
-	return dm_store(user, host, prefs_store, prefs);
-end
-
 
 -- Handle prefs.
 module:hook("iq/self/"..xmlns_mam..":prefs", function(event)
