@@ -94,134 +94,132 @@ module:hook("iq/self/"..xmlns_mam..":prefs", function(event)
 end);
 
 -- Handle archive queries
-module:hook("iq/self/"..xmlns_mam..":query", function(event)
+module:hook("iq-get/self/"..xmlns_mam..":query", function(event)
 	local origin, stanza = event.origin, event.stanza;
 	local query = stanza.tags[1];
-	if stanza.attr.type == "get" then
-		local qid = query.attr.queryid;
+	local qid = query.attr.queryid;
 
-		-- Search query parameters
-		local qwith = query:get_child_text("with");
-		local qstart = query:get_child_text("start");
-		local qend = query:get_child_text("end");
-		local qset = rsm.get(query);
-		module:log("debug", "Archive query, id %s with %s from %s until %s)",
-			tostring(qid), qwith or "anyone", qstart or "the dawn of time", qend or "now");
+	-- Search query parameters
+	local qwith = query:get_child_text("with");
+	local qstart = query:get_child_text("start");
+	local qend = query:get_child_text("end");
+	local qset = rsm.get(query);
+	module:log("debug", "Archive query, id %s with %s from %s until %s)",
+		tostring(qid), qwith or "anyone", qstart or "the dawn of time", qend or "now");
 
-		if qstart or qend then -- Validate timestamps
-			local vstart, vend = (qstart and timestamp_parse(qstart)), (qend and timestamp_parse(qend))
-			if (qstart and not vstart) or (qend and not vend) then
-				origin.send(st.error_reply(stanza, "modify", "bad-request", "Invalid timestamp"))
-				return true
-			end
-			qstart, qend = vstart, vend;
-		end
-
-		local qres;
-		if qwith then -- Validate the 'with' jid
-			local pwith = qwith and jid_prep(qwith);
-			if pwith and not qwith then -- it failed prepping
-				origin.send(st.error_reply(stanza, "modify", "bad-request", "Invalid JID"))
-				return true
-			end
-			local _, _, resource = jid_split(qwith);
-			qwith = jid_bare(pwith);
-			qres = resource;
-		end
-
-		-- Load all the data!
-		local data, err = dm_list_load(origin.username, origin.host, archive_store);
-		if not data then
-			if (not err) then
-				module:log("debug", "The archive was empty.");
-				origin.send(st.reply(stanza));
-			else
-				origin.send(st.error_reply(stanza, "cancel", "internal-server-error", "Error loading archive: "..tostring(err)));
-			end
+	if qstart or qend then -- Validate timestamps
+		local vstart, vend = (qstart and timestamp_parse(qstart)), (qend and timestamp_parse(qend))
+		if (qstart and not vstart) or (qend and not vend) then
+			origin.send(st.error_reply(stanza, "modify", "bad-request", "Invalid timestamp"))
 			return true
 		end
+		qstart, qend = vstart, vend;
+	end
 
-		-- RSM stuff
-		local qmax = m_min(qset and qset.max or default_max_items, max_max_items);
-		local qset_matches = not (qset and qset.after);
-		local first, last, index;
-		local n = 0;
-		local start = qset and qset.index or 1;
-		local results = {};
-		-- An empty <before/> means: give the last n items. So we loop backwards.
-		local reverse = qset and qset.before or false;
-
-		module:log("debug", "Loaded %d items, about to filter", #data);
-		for i=(reverse and #data or start),(reverse and start or #data),(reverse and -1 or 1) do
-			local item = data[i];
-			local when, with, resource = item.when, item.with, item.resource;
-			local id = item.id;
-			--module:log("debug", "id is %s", id);
-
-			-- RSM pre-send-checking
-			if qset then
-				if qset.before == id then
-					module:log("debug", "End of matching range found");
-					qset_matches = false;
-					break;
-				end
-			end
-
-			--module:log("debug", "message with %s at %s", with, when or "???");
-			-- Apply query filter
-			if (not qwith or ((qwith == with) and (not qres or qres == resource)))
-					and (not qstart or when >= qstart)
-					and (not qend or when <= qend)
-					and (not qset or qset_matches) then
-				local fwd_st = st.message{ to = origin.full_jid }
-					:tag("result", { xmlns = xmlns_mam, queryid = qid, id = id })
-						:tag("forwarded", { xmlns = xmlns_forward })
-							:tag("delay", { xmlns = xmlns_delay, stamp = timestamp(when) }):up();
-				local orig_stanza = st.deserialize(item.stanza);
-				orig_stanza.attr.xmlns = "jabber:client";
-				fwd_st:add_child(orig_stanza);
-				if reverse then
-					t_insert(results, 1, fwd_st);
-				else
-					results[#results + 1] = fwd_st;
-				end
-				if not first then
-					index = i;
-					first = id;
-				end
-				last = id;
-				n = n + 1;
-			elseif (qend and when > qend) then
-				module:log("debug", "We have passed into messages more recent than requested");
-				break -- We have passed into messages more recent than requested
-			end
-
-			-- RSM post-send-checking
-			if qset then
-				if qset.after == id then
-					module:log("debug", "Start of matching range found");
-					qset_matches = true;
-				end
-			end
-			if n >= qmax then
-				module:log("debug", "Max number of items matched");
-				break
-			end
+	local qres;
+	if qwith then -- Validate the 'with' jid
+		local pwith = qwith and jid_prep(qwith);
+		if pwith and not qwith then -- it failed prepping
+			origin.send(st.error_reply(stanza, "modify", "bad-request", "Invalid JID"))
+			return true
 		end
-		for _,v in pairs(results) do
-			origin.send(v);
-		end
-		-- That's all folks!
-		module:log("debug", "Archive query %s completed", tostring(qid));
+		local _, _, resource = jid_split(qwith);
+		qwith = jid_bare(pwith);
+		qres = resource;
+	end
 
-		local reply = st.reply(stanza);
-		if last then
-			-- This is a bit redundant, isn't it?
-			reply:query(xmlns_mam):add_child(rsm.generate{first = (reverse and last or first), last = (reverse and first or last), count = #data});
+	-- Load all the data!
+	local data, err = dm_list_load(origin.username, origin.host, archive_store);
+	if not data then
+		if (not err) then
+			module:log("debug", "The archive was empty.");
+			origin.send(st.reply(stanza));
+		else
+			origin.send(st.error_reply(stanza, "cancel", "internal-server-error", "Error loading archive: "..tostring(err)));
 		end
-		origin.send(reply);
 		return true
 	end
+
+	-- RSM stuff
+	local qmax = m_min(qset and qset.max or default_max_items, max_max_items);
+	local qset_matches = not (qset and qset.after);
+	local first, last, index;
+	local n = 0;
+	local start = qset and qset.index or 1;
+	local results = {};
+	-- An empty <before/> means: give the last n items. So we loop backwards.
+	local reverse = qset and qset.before or false;
+
+	module:log("debug", "Loaded %d items, about to filter", #data);
+	for i=(reverse and #data or start),(reverse and start or #data),(reverse and -1 or 1) do
+		local item = data[i];
+		local when, with, resource = item.when, item.with, item.resource;
+		local id = item.id;
+		--module:log("debug", "id is %s", id);
+
+		-- RSM pre-send-checking
+		if qset then
+			if qset.before == id then
+				module:log("debug", "End of matching range found");
+				qset_matches = false;
+				break;
+			end
+		end
+
+		--module:log("debug", "message with %s at %s", with, when or "???");
+		-- Apply query filter
+		if (not qwith or ((qwith == with) and (not qres or qres == resource)))
+				and (not qstart or when >= qstart)
+				and (not qend or when <= qend)
+				and (not qset or qset_matches) then
+			local fwd_st = st.message{ to = origin.full_jid }
+				:tag("result", { xmlns = xmlns_mam, queryid = qid, id = id })
+					:tag("forwarded", { xmlns = xmlns_forward })
+						:tag("delay", { xmlns = xmlns_delay, stamp = timestamp(when) }):up();
+			local orig_stanza = st.deserialize(item.stanza);
+			orig_stanza.attr.xmlns = "jabber:client";
+			fwd_st:add_child(orig_stanza);
+			if reverse then
+				t_insert(results, 1, fwd_st);
+			else
+				results[#results + 1] = fwd_st;
+			end
+			if not first then
+				index = i;
+				first = id;
+			end
+			last = id;
+			n = n + 1;
+		elseif (qend and when > qend) then
+			module:log("debug", "We have passed into messages more recent than requested");
+			break -- We have passed into messages more recent than requested
+		end
+
+		-- RSM post-send-checking
+		if qset then
+			if qset.after == id then
+				module:log("debug", "Start of matching range found");
+				qset_matches = true;
+			end
+		end
+		if n >= qmax then
+			module:log("debug", "Max number of items matched");
+			break
+		end
+	end
+	for _,v in pairs(results) do
+		origin.send(v);
+	end
+	-- That's all folks!
+	module:log("debug", "Archive query %s completed", tostring(qid));
+
+	local reply = st.reply(stanza);
+	if last then
+		-- This is a bit redundant, isn't it?
+		reply:query(xmlns_mam):add_child(rsm.generate{first = (reverse and last or first), last = (reverse and first or last), count = #data});
+	end
+	origin.send(reply);
+	return true
 end);
 
 local function has_in_roster(user, who)
