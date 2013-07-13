@@ -1,9 +1,9 @@
 module:depends"adhoc";
 local dataforms_new = require "util.dataforms".new;
-local dm_load = require "util.datamanager".load;
-local dm_store = require "util.datamanager".store;
 local jid_split = require "util.jid".split;
 local t_insert = table.insert;
+local prefs = module:require"mod_mam/mamprefs";
+local set_prefs, get_prefs = prefs.set, prefs.get;
 
 local mam_prefs_form = dataforms_new{
 	title = "Archive preferences";
@@ -37,17 +37,6 @@ local default_attrs = {
 	never = false, [false] = "never",
 	roster = "roster",
 }
-
-local global_default_policy = module:get_option("default_archive_policy", false);
-local archive_store = "archive2";
-local prefs_store = archive_store .. "_prefs";
-local function get_prefs(user)
-	return dm_load(user, host, prefs_store) or
-		{ [false] = global_default_policy };
-end
-local function set_prefs(user, prefs)
-	return dm_store(user, host, prefs_store, prefs);
-end
 
 local function mam_prefs_handler(self, data, state)
 	local username, hostname = jid_split(data.from);
