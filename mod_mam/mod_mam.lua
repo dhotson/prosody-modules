@@ -16,20 +16,20 @@ local jid_split = require "util.jid".split;
 local jid_prep = require "util.jid".prep;
 local host = module.host;
 
-local dm_list_load = require "util.datamanager".list_load;
-local dm_list_append = require "util.datamanager".list_append;
 local rm_load_roster = require "core.rostermanager".load_roster;
+
+local getmetatable = getmetatable;
+local function is_stanza(x)
+	return getmetatable(x) == st.stanza_mt;
+end
 
 local tostring = tostring;
 local time_now = os.time;
 local m_min = math.min;
-local t_insert = table.insert;
 local timestamp, timestamp_parse = require "util.datetime".datetime, require "util.datetime".parse;
-local uuid = require "util.uuid".generate;
 local default_max_items, max_max_items = 20, module:get_option_number("max_archive_query_results", 50);
 local global_default_policy = module:get_option("default_archive_policy", false);
 -- TODO Should be possible to enforce it too
-
 
 -- For translating preference names from string to boolean and back
 local default_attrs = {
@@ -38,7 +38,9 @@ local default_attrs = {
 	roster = "roster",
 }
 
+
 local archive_store = "archive2";
+local archive = module:open_store(archive_store, "archive");
 
 -- Handle prefs.
 module:hook("iq/self/"..xmlns_mam..":prefs", function(event)
@@ -103,7 +105,6 @@ module:hook("iq-get/self/"..xmlns_mam..":query", function(event)
 	local qwith = query:get_child_text("with");
 	local qstart = query:get_child_text("start");
 	local qend = query:get_child_text("end");
-	local qset = rsm.get(query);
 	module:log("debug", "Archive query, id %s with %s from %s until %s)",
 		tostring(qid), qwith or "anyone", qstart or "the dawn of time", qend or "now");
 
@@ -116,99 +117,56 @@ module:hook("iq-get/self/"..xmlns_mam..":query", function(event)
 		qstart, qend = vstart, vend;
 	end
 
-	local qres;
 	if qwith then -- Validate the 'with' jid
 		local pwith = qwith and jid_prep(qwith);
 		if pwith and not qwith then -- it failed prepping
 			origin.send(st.error_reply(stanza, "modify", "bad-request", "Invalid JID"))
 			return true
 		end
-		local _, _, resource = jid_split(qwith);
 		qwith = jid_bare(pwith);
-		qres = resource;
-	end
-
-	-- Load all the data!
-	local data, err = dm_list_load(origin.username, origin.host, archive_store);
-	if not data then
-		if (not err) then
-			module:log("debug", "The archive was empty.");
-			origin.send(st.reply(stanza));
-		else
-			origin.send(st.error_reply(stanza, "cancel", "internal-server-error", "Error loading archive: "..tostring(err)));
-		end
-		return true
 	end
 
 	-- RSM stuff
+	local qset = rsm.get(query);
 	local qmax = m_min(qset and qset.max or default_max_items, max_max_items);
-	local qset_matches = not (qset and qset.after);
-	local first, last, index;
-	local n = 0;
-	local start = qset and qset.index or 1;
-	local results = {};
-	-- An empty <before/> means: give the last n items. So we loop backwards.
 	local reverse = qset and qset.before or false;
+	local before, after = qset and qset.before, qset and qset.after;
+	if type(before) ~= "string" then before = nil; end
 
-	module:log("debug", "Loaded %d items, about to filter", #data);
-	for i=(reverse and #data or start),(reverse and start or #data),(reverse and -1 or 1) do
-		local item = data[i];
-		local when, with, resource = item.when, item.with, item.resource;
-		local id = item.id;
-		--module:log("debug", "id is %s", id);
 
-		-- RSM pre-send-checking
-		if qset then
-			if qset.before == id then
-				module:log("debug", "End of matching range found");
-				qset_matches = false;
-				break;
-			end
-		end
+	-- Load all the data!
+	local data, err = archive:find(origin.username, {
+		start = qstart; ["end"] = qend; -- Time range
+		with = qwith;
+		limit = qmax;
+		before = before; after = after;
+		reverse = reverse;
+		total = true;
+	});
 
-		--module:log("debug", "message with %s at %s", with, when or "???");
-		-- Apply query filter
-		if (not qwith or ((qwith == with) and (not qres or qres == resource)))
-				and (not qstart or when >= qstart)
-				and (not qend or when <= qend)
-				and (not qset or qset_matches) then
-			local fwd_st = st.message{ to = origin.full_jid }
-				:tag("result", { xmlns = xmlns_mam, queryid = qid, id = id })
-					:tag("forwarded", { xmlns = xmlns_forward })
-						:tag("delay", { xmlns = xmlns_delay, stamp = timestamp(when) }):up();
-			local orig_stanza = st.deserialize(item.stanza);
-			orig_stanza.attr.xmlns = "jabber:client";
-			fwd_st:add_child(orig_stanza);
-			if reverse then
-				t_insert(results, 1, fwd_st);
-			else
-				results[#results + 1] = fwd_st;
-			end
-			if not first then
-				index = i;
-				first = id;
-			end
-			last = id;
-			n = n + 1;
-		elseif (qend and when > qend) then
-			module:log("debug", "We have passed into messages more recent than requested");
-			break -- We have passed into messages more recent than requested
-		end
-
-		-- RSM post-send-checking
-		if qset then
-			if qset.after == id then
-				module:log("debug", "Start of matching range found");
-				qset_matches = true;
-			end
-		end
-		if n >= qmax then
-			module:log("debug", "Max number of items matched");
-			break
-		end
+	if not data then
+		return origin.send(st.error_reply(stanza, "cancel", "internal-server-error"));
 	end
-	for _,v in pairs(results) do
-		origin.send(v);
+	local count = err;
+
+	-- Wrap it in stuff and deliver
+	local first, last;
+	for id, item, when in data do
+		local fwd_st = st.message{ to = origin.full_jid }
+			:tag("result", { xmlns = xmlns_mam, queryid = qid, id = id })
+				:tag("forwarded", { xmlns = xmlns_forward })
+					:tag("delay", { xmlns = xmlns_delay, stamp = timestamp(when) }):up();
+
+		if not is_stanza(item) then
+			item = st.deserialize(item);
+		end
+		item.attr.xmlns = "jabber:client";
+		fwd_st:add_child(item);
+
+		if not first then first = id; end
+		last = id;
+
+		origin.send(fwd_st);
 	end
 	-- That's all folks!
 	module:log("debug", "Archive query %s completed", tostring(qid));
@@ -216,7 +174,7 @@ module:hook("iq-get/self/"..xmlns_mam..":query", function(event)
 	if reverse then first, last = last, first; end
 	return origin.send(st.reply(stanza)
 		:query(xmlns_mam):add_child(rsm.generate {
-			first = first, last = last, count = #data }));
+			first = first, last = last, count = count }));
 end);
 
 local function has_in_roster(user, who)
@@ -264,29 +222,17 @@ local function message_handler(event, c2s)
 	or orig_type == "groupchat"
 	or not stanza:get_child("body") then
 		return;
-		-- TODO Maybe headlines should be configurable?
-		-- TODO Write a mod_mam_muc for groupchat messages.
 	end
 
-	local store_user, store_host = jid_split(c2s and orig_from or orig_to);
+	local store_user = jid_split(c2s and orig_from or orig_to);
 	local target_jid = c2s and orig_to or orig_from;
 	local target_bare = jid_bare(target_jid);
-	local _, _, target_resource = jid_split(target_jid);
 
 	if shall_store(store_user, target_bare) then
 		module:log("debug", "Archiving stanza: %s", stanza:top_tag());
 
-		local id = uuid();
-		local when = time_now();
 		-- And stash it
-		local ok, err = dm_list_append(store_user, store_host, archive_store, {
-			-- WARNING This format may change.
-			id = id,
-			when = when,
-			with = target_bare,
-			resource = target_resource,
-			stanza = st.preserialize(stanza)
-		});
+		local ok, id = archive:append(store_user, time_now(), target_bare, stanza);
 		if ok and not c2s then
 			stanza:tag("archived", { xmlns = xmlns_mam, by = jid_bare(orig_to), id = id }):up();
 		end
