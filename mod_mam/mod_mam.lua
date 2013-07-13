@@ -213,9 +213,10 @@ module:hook("iq-get/self/"..xmlns_mam..":query", function(event)
 	-- That's all folks!
 	module:log("debug", "Archive query %s completed", tostring(qid));
 
+	if reverse then first, last = last, first; end
 	return origin.send(st.reply(stanza)
 		:query(xmlns_mam):add_child(rsm.generate {
-			first = (reverse and last or first), last = (reverse and first or last), count = #data}));
+			first = first, last = last, count = #data }));
 end);
 
 local function has_in_roster(user, who)
