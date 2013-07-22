@@ -82,7 +82,6 @@ function add_host(session, type, host)
 		for k, v in pairs(info or {}) do
 			encrypted:tag("info", { name = k }):text(tostring(v)):up();
 		end
-		local sock = session.conn:socket()
 
 		if session.cert_identity_status == "valid" then
 			encrypted:tag("valid");
