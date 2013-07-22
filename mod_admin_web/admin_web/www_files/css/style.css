@@ -6,7 +6,7 @@ a {
   color: #0000FF
 }
 
-ul {
+#adhocCommands > ul {
   margin: 0
 }
 

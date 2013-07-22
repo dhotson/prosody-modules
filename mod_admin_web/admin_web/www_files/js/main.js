@@ -26,23 +26,36 @@ function rawOutput(data) {
 }
 
 function _cbNewS2S(e) {
-    var items, entry, tmp, retract, id, jid;
+    var items, item, entry, tmp, retract, id, jid, infos, info, metadata;
     items = e.getElementsByTagName('item');
     for (i = 0; i < items.length; i++) {
-        id = items[i].attributes.getNamedItem('id').value;
-        jid = items[i].getElementsByTagName('session')[0].attributes.getNamedItem('jid').value;
+        item = items[i];
+        id = item.attributes.getNamedItem('id').value;
+        jid = item.getElementsByTagName('session')[0].attributes.getNamedItem('jid').value;
+        infos = item.getElementsByTagName('info');
 
         entry = $('<li id="' + id + '">' + jid + '</li>');
-        if (tmp = items[i].getElementsByTagName('encrypted')[0]) {
+        if (tmp = item.getElementsByTagName('encrypted')[0]) {
             if (tmp.getElementsByTagName('valid')[0]) {
                 entry.append('<img src="images/secure.png" title="encrypted (certificate valid)" alt=" (secure) (encrypted)" />');
             } else {
                 entry.append('<img src="images/encrypted.png" title="encrypted (certificate invalid)" alt=" (encrypted)" />');
             }
         }
-        if (items[i].getElementsByTagName('compressed')[0]) {
+        if (item.getElementsByTagName('compressed')[0]) {
             entry.append('<img src="images/compressed.png" title="compressed" alt=" (compressed)" />');
         }
+        metadata = $('<ul/>').css('display', 'none');
+        entry.on('click', function() {
+            $(this).find("ul").slideToggle();
+        });
+        metadata.appendTo(entry);
+        for (j = 0; j < infos.length; j++) {
+            info = infos[j];
+            metadata.append('<li><b>' + info.attributes.getNamedItem('name').value + ':</b> ' + info.innerHTML + '</li>');
+        }
+        if (infos.length == 0)
+            metadata.append('<li>No information available</li>');
 
         if (items[i].getElementsByTagName('out')[0]) {
             entry.appendTo('#s2sout');
@@ -59,18 +72,31 @@ function _cbNewS2S(e) {
 }
 
 function _cbNewC2S(e) {
-    var items, entry, retract, id, jid;
+    var items, item, entry, retract, id, jid, infos, info, metadata;
     items = e.getElementsByTagName('item');
     for (i = 0; i < items.length; i++) {
-        id = items[i].attributes.getNamedItem('id').value;
-        jid = items[i].getElementsByTagName('session')[0].attributes.getNamedItem('jid').value;
+        item = items[i];
+        id = item.attributes.getNamedItem('id').value;
+        jid = item.getElementsByTagName('session')[0].attributes.getNamedItem('jid').value;
+        infos = item.getElementsByTagName('info');
         entry = $('<li id="' + id + '">' + jid + '</li>');
-        if (items[i].getElementsByTagName('encrypted')[0]) {
+        if (item.getElementsByTagName('encrypted')[0]) {
             entry.append('<img src="images/encrypted.png" title="encrypted" alt=" (encrypted)" />');
         }
-        if (items[i].getElementsByTagName('compressed')[0]) {
+        if (item.getElementsByTagName('compressed')[0]) {
             entry.append('<img src="images/compressed.png" title="compressed" alt=" (compressed)" />');
         }
+        metadata = $('<ul/>').css('display', 'none');
+        entry.on('click', function() {
+            $(this).find("ul").slideToggle();
+        });
+        metadata.appendTo(entry);
+        for (j = 0; j < infos.length; j++) {
+            info = infos[j];
+            metadata.append('<li><b>' + info.attributes.getNamedItem('name').value + ':</b> ' + info.innerHTML + '</li>');
+        }
+        if (infos.length == 0)
+            metadata.append('<li>No information available</li>');
         entry.appendTo('#c2s');
     }
     retract = e.getElementsByTagName('retract')[0];

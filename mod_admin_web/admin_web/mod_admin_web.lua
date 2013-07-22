@@ -42,7 +42,12 @@ function add_client(session, host)
 	end
 	local item = st.stanza("item", { id = id }):tag("session", {xmlns = xmlns_c2s_session, jid = name}):up();
 	if session.secure then
-		item:tag("encrypted"):up();
+		local encrypted = item:tag("encrypted");
+		local sock = session.conn and session.conn.socket and session.conn:socket()
+		local info = sock and sock.info and sock:info();
+		for k, v in pairs(info or {}) do
+			encrypted:tag("info", { name = k }):text(tostring(v)):up();
+		end
 	end
 	if session.compressed then
 		item:tag("compressed"):up();
@@ -70,10 +75,19 @@ function add_host(session, type, host)
 	local item = st.stanza("item", { id = id }):tag("session", {xmlns = xmlns_s2s_session, jid = name})
 		:tag(type):up();
 	if session.secure then
+		local encrypted = item:tag("encrypted");
+
+		local sock = session.conn and session.conn.socket and session.conn:socket()
+		local info = sock and sock.info and sock:info();
+		for k, v in pairs(info or {}) do
+			encrypted:tag("info", { name = k }):text(tostring(v)):up();
+		end
+		local sock = session.conn:socket()
+
 		if session.cert_identity_status == "valid" then
-			item:tag("encrypted"):tag("valid"):up():up();
+			encrypted:tag("valid");
 		else
-			item:tag("encrypted"):tag("invalid"):up():up();
+			encrypted:tag("invalid");
 		end
 	end
 	if session.compressed then
