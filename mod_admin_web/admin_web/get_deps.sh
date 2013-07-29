@@ -17,4 +17,4 @@ wget https://raw.github.com/strophe/strophe.im/gh-pages/strophejs/downloads/stro
 
 cd ../css
 rm -f bootstrap-$BOOTSTRAP_VERSION.min.css
-wget http://twitter.github.com/bootstrap/$BOOTSTRAP_VERSION/bootstrap.min.css -O bootstrap-$BOOTSTRAP_VERSION.min.css
+wget https://raw.github.com/twbs/bootstrap/v$BOOTSTRAP_VERSION/bootstrap.min.css -O bootstrap-$BOOTSTRAP_VERSION.min.css
