@@ -13,7 +13,7 @@ local hosts = hosts;
 local xmlns_bidi_feature = "urn:xmpp:features:bidi"
 local xmlns_bidi = "urn:xmpp:bidi";
 local secure_only = module:get_option_boolean("secure_bidi_only", true);
-local bidi_sessions = module:shared"sessions";
+local bidi_sessions = module:shared"sessions-cache";
 
 local function handleerr(err) log("error", "Traceback[s2s]: %s: %s", tostring(err), traceback()); end
 local function handlestanza(session, stanza)
