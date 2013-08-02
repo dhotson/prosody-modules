@@ -58,9 +58,9 @@ end
 module:hook("route/remote", function(event)
 	local from_host, to_host, stanza = event.from_host, event.to_host, event.stanza;
 	if from_host ~= module.host then return end
-	local to_session = bidi_sessions[to_host]
+	local to_session = bidi_sessions[to_host];
 	if not to_session or to_session.type ~= "s2sin" then return end
-	return to_session.sends2s(stanza);
+	if to_session.send(stanza) then return true end
 end, -2);
 
 -- Incoming s2s
