@@ -4,16 +4,15 @@
 --
 -- This file is MIT/X11 licensed.
 --
-local s2smanager = require"core.s2smanager";
 local add_filter = require "util.filters".add_filter;
 local st = require "util.stanza";
 local jid_split = require"util.jid".prepped_split;
-
+local core_process_stanza = prosody.core_process_stanza;
+local traceback = debug.traceback;
+local hosts = hosts;
 local xmlns_bidi_feature = "urn:xmpp:features:bidi"
 local xmlns_bidi = "urn:xmpp:bidi";
-local noop = function () end
-local core_process_stanza = prosody.core_process_stanza or core_process_stanza;
-local traceback = debug.traceback;
+local bidi_sessions = module:shared"sessions";
 
 local function handleerr(err) log("error", "Traceback[s2s]: %s: %s", tostring(err), traceback()); end
 local function handlestanza(session, stanza)
@@ -27,22 +26,26 @@ local function handlestanza(session, stanza)
 end
 
 local function new_bidi(origin)
-	local bidi_session, remote_host;
-	origin.log("debug", "Creating bidirectional session wrapper");
-	if origin.direction == "incoming" then -- then we create an "outgoing" bidirectional session
+	if origin.type == "s2sin" then -- then we create an "outgoing" bidirectional session
 		local conflicting_session = hosts[origin.to_host].s2sout[origin.from_host]
 		if conflicting_session then
 			conflicting_session.log("info", "We already have an outgoing connection to %s, closing it...", origin.from_host);
 			conflicting_session:close{ condition = "conflict", text = "Replaced by bidirectional stream" }
 			s2smanager.destroy_session(conflicting_session);
 		end
-		remote_host = origin.from_host;
-		bidi_session = s2smanager.new_outgoing(origin.to_host, origin.from_host)
-	else -- outgoing -- then we create an "incoming" bidirectional session
+		bidi_sessions[origin.from_host] = origin;
+	elseif origin.type == "s2sout" then -- handle incoming stanzas correctly
+		local bidi_session = {
+			type = "s2sin";
+			is_bidi = true; orig_session = origin;
+			to_host = origin.from_host;
+			from_host = origin.to_host;
+			hosts = {};
+		}
+		origin.bidi_session = bidi_session;
+		setmetatable(bidi_session, { __index = origin });
+		module:fire_event("s2s-authenticated", { session = bidi_session, host = origin.to_host });
 		remote_host = origin.to_host;
-		bidi_session = s2smanager.new_incoming(origin.conn)
-		bidi_session.to_host = origin.from_host;
-		bidi_session.from_host = origin.to_host;
 		add_filter(origin, "stanzas/in", function(stanza)
 			if stanza.attr.xmlns ~= nil then return stanza end
 			local _, host = jid_split(stanza.attr.from);
@@ -50,24 +53,15 @@ local function new_bidi(origin)
 			handlestanza(bidi_session, stanza);
 		end, 1);
 	end
-	origin.bidi_session = bidi_session;
-	bidi_session.sends2s = origin.sends2s;
-	bidi_session.bounce_sendq = noop;
-	bidi_session.notopen = nil;
-	bidi_session.is_bidi = true;
-	bidi_session.bidi_session = false;
-	bidi_session.orig_session = origin;
-	bidi_session.secure = origin.secure;
-	bidi_session.cert_identity_status = origin.cert_identity_status;
-	bidi_session.cert_chain_status = origin.cert_chain_status;
-	bidi_session.close = function(...)
-		return origin.close(...);
-	end
-
-	bidi_session.log("info", "Bidirectional session established");
-	module:fire_event("s2s-authenticated", { session = bidi_session, host = remote_host });
-	return bidi_session;
 end
+
+module:hook("route/remote", function(event)
+	local from_host, to_host, stanza = event.from_host, event.to_host, event.stanza;
+	if from_host ~= module.host then return end
+	local to_session = bidi_sessions[to_host]
+	if not to_session then return end
+	return to_session.sends2s(stanza);
+end, -2);
 
 -- Incoming s2s
 module:hook("s2s-stream-features", function(event)
@@ -111,16 +105,8 @@ module:hook("s2sout-established", enable_bidi);
 
 function disable_bidi(event)
 	local session = event.session;
-	if session.bidi_session then
-		local bidi_session = session.bidi_session;
-		session.bidi_session, bidi_session.orig_session = nil, nil;
-		session.log("debug", "Tearing down bidirectional stream");
-		s2smanager.destroy_session(bidi_session, event.reason);
-	elseif session.orig_session then
-		local orig_session = session.orig_session;
-		orig_session.bidi_session, session.orig_session = nil, nil;
-		orig_session.log("debug", "Tearing down bidirectional stream");
-		s2smanager.destroy_session(orig_session, event.reason);
+	if session.type == "s2sin" then -- then we create an "outgoing" bidirectional session
+		bidi_sessions[session.from_host] = nil;
 	end
 end
 
