@@ -31,7 +31,6 @@ local function new_bidi(origin)
 		if conflicting_session then
 			conflicting_session.log("info", "We already have an outgoing connection to %s, closing it...", origin.from_host);
 			conflicting_session:close{ condition = "conflict", text = "Replaced by bidirectional stream" }
-			s2smanager.destroy_session(conflicting_session);
 		end
 		bidi_sessions[origin.from_host] = origin;
 	elseif origin.type == "s2sout" then -- handle incoming stanzas correctly
@@ -105,7 +104,7 @@ module:hook("s2sout-established", enable_bidi);
 
 function disable_bidi(event)
 	local session = event.session;
-	if session.type == "s2sin" then -- then we create an "outgoing" bidirectional session
+	if session.type == "s2sin" then
 		bidi_sessions[session.from_host] = nil;
 	end
 end
