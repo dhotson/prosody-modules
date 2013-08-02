@@ -45,7 +45,7 @@ local function new_bidi(origin)
 		origin.bidi_session = bidi_session;
 		setmetatable(bidi_session, { __index = origin });
 		module:fire_event("s2s-authenticated", { session = bidi_session, host = origin.to_host });
-		remote_host = origin.to_host;
+		local remote_host = origin.to_host;
 		add_filter(origin, "stanzas/in", function(stanza)
 			if stanza.attr.xmlns ~= nil then return stanza end
 			local _, host = jid_split(stanza.attr.from);
