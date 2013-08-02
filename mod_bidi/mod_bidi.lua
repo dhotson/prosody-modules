@@ -12,6 +12,7 @@ local traceback = debug.traceback;
 local hosts = hosts;
 local xmlns_bidi_feature = "urn:xmpp:features:bidi"
 local xmlns_bidi = "urn:xmpp:bidi";
+local secure_only = module:get_option_boolean("secure_bidi_only", true);
 local bidi_sessions = module:shared"sessions";
 
 local function handleerr(err) log("error", "Traceback[s2s]: %s: %s", tostring(err), traceback()); end
@@ -65,7 +66,9 @@ end, -2);
 -- Incoming s2s
 module:hook("s2s-stream-features", function(event)
 	local origin, features = event.origin, event.features;
-	if not origin.is_bidi and not hosts[module.host].s2sout[origin.from_host] then
+	if not origin.is_bidi and not hosts[module.host].s2sout[origin.from_host]
+	and (not secure_only or origin.cert_chain_status == "valid"
+	and origin.cert_identity_status == "valid") then
 		module:log("debug", "Announcing support for bidirectional streams");
 		features:tag("bidi", { xmlns = xmlns_bidi_feature }):up();
 	end
@@ -73,7 +76,9 @@ end);
 
 module:hook("stanza/urn:xmpp:bidi:bidi", function(event)
 	local origin = event.session or event.origin;
-	if not origin.is_bidi and not origin.bidi_session then
+	if not origin.is_bidi and not origin.bidi_session
+	and (not secure_only or origin.cert_chain_status == "valid"
+	and origin.cert_identity_status == "valid") then
 		module:log("debug", "%s requested bidirectional stream", origin.from_host);
 		origin.do_bidi = true;
 		return true;
@@ -84,7 +89,9 @@ end);
 module:hook("stanza/http://etherx.jabber.org/streams:features", function(event)
 	local origin = event.session or event.origin;
 	if not ( origin.bidi_session or origin.is_bidi or origin.do_bidi)
-	and event.stanza:get_child("bidi", xmlns_bidi_feature) then
+	and event.stanza:get_child("bidi", xmlns_bidi_feature)
+	and (not secure_only or origin.cert_chain_status == "valid"
+	and origin.cert_identity_status == "valid") then
 		module:log("debug", "%s supports bidirectional streams", origin.to_host);
 		origin.sends2s(st.stanza("bidi", { xmlns = xmlns_bidi }));
 		origin.do_bidi = true;
