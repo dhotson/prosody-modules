@@ -41,9 +41,10 @@ module:hook("iq-get/bare/"..xmlns_mam..":query", function(event)
 	end
 	local from = jid_bare(stanza.attr.from);
 
+	-- Banned or not a member of a members-only room?
 	if room_obj._affiliations[from] == "outcast"
 		or room_obj._data.members_only and not room_obj._affiliations[from] then
-		return -- FIXME unauth
+		return origin.send(st.error_reply(stanza, "auth", "forbidden"))
 	end
 
 	local qid = query.attr.queryid;
