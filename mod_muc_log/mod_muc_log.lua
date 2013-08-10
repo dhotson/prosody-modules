@@ -3,31 +3,15 @@ local hosts = prosody.hosts;
 local tostring = tostring;
 local split_jid = require "util.jid".split;
 local cm = require "core.configmanager";
-local datamanager = require "util.datamanager";
+local storagemanager = storagemanager;
+local datamanager = storagemanager.olddm;
 local data_load, data_store, data_getpath = datamanager.load, datamanager.store, datamanager.getpath;
 local datastore = "muc_log";
 local error_reply = require "util.stanza".error_reply;
-local storagemanager = storagemanager;
 local muc_form_config_option = "muc#roomconfig_enablelogging"
 
 local mod_host = module:get_host();
 local log_presences = module:get_option_boolean("muc_log_presences", true);
-
--- Helper Functions
-
-local function inject_storage_config()
-	local _storage = cm.getconfig()[mod_host].storage;
-
-	module:log("debug", "injecting storage config...");
-	if type(_storage) == "string" then cm.getconfig()[mod_host].default_storage = _storage; end
-	if type(_storage) == "table" then -- append
-		_storage.muc_log = "internal";
-	else
-		cm.getconfig()[mod_host].storage = { muc_log = "internal" };
-	end
-
-	storagemanager.get_driver(mod_host, "muc_log"); -- init
-end
 
 -- Module Definitions
 
@@ -147,14 +131,6 @@ module:hook("message/bare", log_if_needed, 1);
 if log_presences then
 	module:hook("iq/bare", log_if_needed, 1);
 	module:hook("presence/full", log_if_needed, 1); 
-end
-
-local function reload()
-	inject_storage_config();
-end
-
-function module.load()
-	inject_storage_config();
 end
 
 module:log("debug", "module mod_muc_log loaded!");
