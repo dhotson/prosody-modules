@@ -61,6 +61,7 @@ end);
 module:hook("iq-get/bare/"..xmlns_mam..":query", function(event)
 	local origin, stanza = event.origin, event.stanza;
 	local room = stanza.attr.to;
+	local room_node = jid_split(room);
 	local query = stanza.tags[1];
 
 	local room_obj = rooms[room];
@@ -101,7 +102,7 @@ module:hook("iq-get/bare/"..xmlns_mam..":query", function(event)
 	if type(before) ~= "string" then before = nil; end
 
 	-- Load all the data!
-	local data, err = archive:find(origin.username, {
+	local data, err = archive:find(room_node, {
 		start = qstart; ["end"] = qend; -- Time range
 		limit = qmax;
 		before = before; after = after;
