@@ -23,6 +23,8 @@ local m_min = math.min;
 local timestamp, timestamp_parse = require "util.datetime".datetime, require "util.datetime".parse;
 local default_max_items, max_max_items = 20, module:get_option_number("max_archive_query_results", 50);
 
+local advertise_archive = module:get_option_boolean("muc_log_advertise", true);
+
 local archive = module:open_store("archive2", "archive");
 local rooms = hosts[module.host].modules.muc.rooms;
 
@@ -133,8 +135,11 @@ local function message_handler(event)
 
 	stanza.attr.from = nick;
 	-- And stash it
-	archive:append(room, time_now(), "", stanza);
+	local ok, id = archive:append(room, time_now(), "", stanza);
 	stanza.attr.from = orig_from;
+	if ok and advertise_archive then
+		stanza:tag("archived", { xmlns = xmlns_mam, by = jid_bare(orig_to), id = id }):up();
+	end
 end
 
 module:hook("message/bare", message_handler, 2);
