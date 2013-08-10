@@ -88,7 +88,13 @@ if append_host then
 		return new_sasl(module.host):plain_test(username .. "@".. (service_realm or module.host), password);
 	end
 
-	provider.get_sasl_handler = nil
+	function provider.get_sasl_handler()
+		return util_sasl_new(module.host, {
+			plain_test = function(sasl, username, password, realm)
+				return provider.test_password(username, password), true
+			end;
+		});
+	end
 end
 
 module:provides("auth", provider);
