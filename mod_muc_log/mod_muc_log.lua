@@ -1,22 +1,17 @@
-local prosody = prosody;
 local hosts = prosody.hosts;
 local tostring = tostring;
 local split_jid = require "util.jid".split;
-local cm = require "core.configmanager";
-local storagemanager = storagemanager;
-local datamanager = storagemanager.olddm;
-local data_load, data_store, data_getpath = datamanager.load, datamanager.store, datamanager.getpath;
+local datamanager = require"core.storagemanager".olddm;
+local data_load, data_store = datamanager.load, datamanager.store;
 local datastore = "muc_log";
-local error_reply = require "util.stanza".error_reply;
 local muc_form_config_option = "muc#roomconfig_enablelogging"
 
-local mod_host = module:get_host();
 local log_presences = module:get_option_boolean("muc_log_presences", true);
 
 -- Module Definitions
 
-function log_if_needed(e)
-	local stanza, origin = e.stanza, e.origin;
+function log_if_needed(event)
+	local stanza = event.stanza;
 	
 	if	(stanza.name == "presence") or
 		(stanza.name == "iq") or
