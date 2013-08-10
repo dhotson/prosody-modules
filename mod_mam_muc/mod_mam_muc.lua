@@ -26,6 +26,7 @@ local default_max_items, max_max_items = 20, module:get_option_number("max_archi
 --local rooms_to_archive = module:get_option_set("rooms_to_archive",{});
 -- TODO Should be possible to enforce it too
 
+local rooms = hosts[module.host].modules.muc.rooms;
 local archive_store = "archive2";
 
 -- Handle archive queries
@@ -34,7 +35,7 @@ module:hook("iq-get/bare/"..xmlns_mam..":query", function(event)
 	local room = jid_split(stanza.attr.to);
 	local query = stanza.tags[1];
 
-	local room_obj = hosts[module.host].modules.muc.rooms[jid_bare(stanza.attr.to)];
+	local room_obj = rooms[room];
 	if not room_obj then
 		return -- FIXME not found
 	end
