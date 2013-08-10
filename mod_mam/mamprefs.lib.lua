@@ -1,12 +1,7 @@
 -- XEP-0313: Message Archive Management for Prosody
--- Copyright (C) 2011-2012 Kim Alvefur
+-- Copyright (C) 2011-2013 Kim Alvefur
 --
 -- This file is MIT/X11 licensed.
-
-local host = module.host;
-
-local dm_load = require "util.datamanager".load;
-local dm_store = require "util.datamanager".store;
 
 local global_default_policy = module:get_option("default_archive_policy", false);
 
@@ -20,13 +15,12 @@ do
 	};
 end
 
-local prefs_store = "archive2_prefs";
+local prefs = module:open_store("archive2_prefs");
 local function get_prefs(user)
-	return dm_load(user, host, prefs_store) or
-		{ [false] = global_default_policy };
+	return prefs:get(user) or { [false] = global_default_policy };
 end
-local function set_prefs(user, prefs)
-	return dm_store(user, host, prefs_store, prefs);
+local function set_prefs(user, user_prefs)
+	return prefs:set(user, user_prefs);
 end
 
 return {
