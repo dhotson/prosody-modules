@@ -39,15 +39,10 @@ local default_attrs = {
 }
 
 local function mam_prefs_handler(self, data, state)
-	local username, hostname = jid_split(data.from);
+	local username = jid_split(data.from);
 	if state then -- the second return value
 		if data.action == "cancel" then
 			return { status = "canceled" };
-		end
-
-		if not username or not hostname or hostname ~= module.host then
-			return { status = "error", error = { type = "cancel",
-				condition = "forbidden", message = "Invalid user or hostname." } };
 		end
 
 		local fields = mam_prefs_form:data(data.form);
@@ -99,4 +94,4 @@ local function mam_prefs_handler(self, data, state)
 	end
 end
 
-module:provides("adhoc", module:require"adhoc".new("Archive settings", "urn:xmpp:mam#configure", mam_prefs_handler));
+module:provides("adhoc", module:require"adhoc".new("Archive settings", "urn:xmpp:mam#configure", mam_prefs_handler, "local_user"));
