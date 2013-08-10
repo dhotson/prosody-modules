@@ -65,7 +65,7 @@ module:hook("iq-get/bare/"..xmlns_mam..":query", function(event)
 
 	local room_obj = rooms[room];
 	if not room_obj then
-		return -- FIXME not found
+		return origin.send(st.error_reply(stanza, "cancel", "item-not-found"))
 	end
 	local from = jid_bare(stanza.attr.from);
 
