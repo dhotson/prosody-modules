@@ -10,7 +10,9 @@ local xmlns_forward = "urn:xmpp:forward:0";
 local st = require "util.stanza";
 local rsm = module:require "rsm";
 local prefs = module:require"mamprefs";
+local prefsxml = module:require"mamprefsxml";
 local set_prefs, get_prefs = prefs.set, prefs.get;
+local prefs_to_stanza, prefs_from_stanza = prefsxml.tostanza, prefsxml.fromstanza;
 local jid_bare = require "util.jid".bare;
 local jid_split = require "util.jid".split;
 local jid_prep = require "util.jid".prep;
@@ -47,51 +49,17 @@ module:hook("iq/self/"..xmlns_mam..":prefs", function(event)
 	local origin, stanza = event.origin, event.stanza;
 	local user = origin.username;
 	if stanza.attr.type == "get" then
-		local prefs = get_prefs(user);
-		local default = prefs[false];
-		default = default ~= nil and default_attrs[default] or global_default_policy;
-		local reply = st.reply(stanza):tag("prefs", { xmlns = xmlns_mam, default = default })
-		local always = st.stanza("always");
-		local never = st.stanza("never");
-		for k,v in pairs(prefs) do
-			if k then
-				(v and always or never):tag("jid"):text(k):up();
-			end
-		end
-		reply:add_child(always):add_child(never);
-		origin.send(reply);
-		return true
+		local prefs = prefs_to_stanza(get_prefs(user));
+		local reply = st.reply(stanza):add_child(prefs);
+		return origin.send(reply);
 	else -- type == "set"
-		local prefs = {};
 		local new_prefs = stanza:get_child("prefs", xmlns_mam);
-		local new_default = new_prefs.attr.default;
-		if new_default then
-			prefs[false] = default_attrs[new_default];
-		end
-
-		local always = new_prefs:get_child("always");
-		if always then
-			for rule in always:childtags("jid") do
-				local jid = rule:get_text();
-				prefs[jid] = true;
-			end
-		end
-
-		local never = new_prefs:get_child("never");
-		if never then
-			for rule in never:childtags("jid") do
-				local jid = rule:get_text();
-				prefs[jid] = false;
-			end
-		end
-
+		local prefs = prefs_from_stanza(new_prefs);
 		local ok, err = set_prefs(user, prefs);
 		if not ok then
-			origin.send(st.error_reply(stanza, "cancel", "internal-server-error", "Error storing preferences: "..tostring(err)));
-		else
-			origin.send(st.reply(stanza));
+			return origin.send(st.error_reply(stanza, "cancel", "internal-server-error", "Error storing preferences: "..tostring(err)));
 		end
-		return true
+		return origin.send(st.reply(stanza));
 	end
 end);
 
