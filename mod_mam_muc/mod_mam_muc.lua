@@ -60,7 +60,7 @@ end);
 -- Handle archive queries
 module:hook("iq-get/bare/"..xmlns_mam..":query", function(event)
 	local origin, stanza = event.origin, event.stanza;
-	local room = jid_split(stanza.attr.to);
+	local room = stanza.attr.to;
 	local query = stanza.tags[1];
 
 	local room_obj = rooms[room];
