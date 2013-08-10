@@ -6,6 +6,7 @@
 local xmlns_mam     = "urn:xmpp:mam:tmp";
 local xmlns_delay   = "urn:xmpp:delay";
 local xmlns_forward = "urn:xmpp:forward:0";
+local muc_form_config_option = "muc#roomconfig_enablelogging"
 
 local st = require "util.stanza";
 local rsm = module:require "mod_mam/rsm";
@@ -23,10 +24,38 @@ local m_min = math.min;
 local timestamp, timestamp_parse = require "util.datetime".datetime, require "util.datetime".parse;
 local default_max_items, max_max_items = 20, module:get_option_number("max_archive_query_results", 50);
 
+local log_all_rooms = module:get_option_boolean("muc_log_all_rooms", false);
+local log_by_default = module:get_option_boolean("muc_log_by_default", true);
 local advertise_archive = module:get_option_boolean("muc_log_advertise", true);
 
 local archive = module:open_store("archive2", "archive");
 local rooms = hosts[module.host].modules.muc.rooms;
+
+module:hook("muc-config-form", function(event)
+	local room, form = event.room, event.form;
+	table.insert(form,
+	{
+		name = muc_form_config_option,
+		type = "boolean",
+		label = "Enable Logging?",
+		value = room._data.logging or false,
+	}
+	);
+end);
+
+module:hook("muc-config-submitted", function(event)
+	local room, fields, changed = event.room, event.fields, event.changed;
+	local new = fields[muc_form_config_option];
+	if new ~= room._data.logging then
+		room._data.logging = new;
+		if type(changed) == "table" then
+			changed[muc_form_config_option] = true;
+		else
+			event.changed = true;
+		end
+	end
+end);
+
 
 -- Handle archive queries
 module:hook("iq-get/bare/"..xmlns_mam..":query", function(event)
@@ -129,6 +158,10 @@ local function message_handler(event)
 	local room = jid_split(orig_to);
 	local room_obj = rooms[orig_to]
 	if not room_obj then return end -- No such room
+
+	if not ( log_all_rooms == true -- Logging forced on all rooms
+	or (room_obj._data.logging == nil and log_by_default == true)
+	or room_obj._data.logging ) then return end -- Don't log
 
 	local nick = room_obj._jid_nick[orig_from];
 	if not nick then return end -- Message from someone not in the room?
