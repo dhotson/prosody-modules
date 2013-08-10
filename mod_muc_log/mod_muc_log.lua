@@ -1,3 +1,9 @@
+-- Copyright (C) 2009 Thilo Cestonaro
+-- Copyright (C) 2009 Waqas Hussain
+-- Copyright (C) 2009-2013 Matthew Wild
+-- Copyright (C) 2013 Kim Alvefur
+-- Copyright (C) 2013 Marco Cirillo
+
 local hosts = prosody.hosts;
 local tostring = tostring;
 local split_jid = require "util.jid".split;
