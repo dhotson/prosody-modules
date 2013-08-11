@@ -176,13 +176,9 @@ end
 local function message_handler(event, c2s)
 	local origin, stanza = event.origin, event.stanza;
 	local orig_type = stanza.attr.type or "normal";
-	local orig_to = stanza.attr.to;
 	local orig_from = stanza.attr.from;
-
-	if not orig_from and c2s then
-		orig_from = origin.full_jid;
-	end
-	orig_to = orig_to or orig_from; -- Weird corner cases
+	local orig_to = stanza.attr.to or orig_from;
+	-- Stanza without 'to' are treated as if it was to their own bare jid
 
 	-- Don't store messages of these types
 	if orig_type == "error"
@@ -192,17 +188,19 @@ local function message_handler(event, c2s)
 		return;
 	end
 
-	local store_user = jid_split(c2s and orig_from or orig_to);
-	local target_jid = c2s and orig_to or orig_from;
-	local target_bare = jid_bare(target_jid);
+	-- Whos storage do we put it in?
+	local store_user = c2s and origin.username or jid_split(orig_to);
+	-- And who are they chatting with?
+	local with = jid_bare(c2s and orig_to or orig_from);
 
-	if shall_store(store_user, target_bare) then
+	-- Check with the users preferences
+	if shall_store(store_user, with) then
 		module:log("debug", "Archiving stanza: %s", stanza:top_tag());
 
 		-- And stash it
-		local ok, id = archive:append(store_user, time_now(), target_bare, stanza);
+		local ok, id = archive:append(store_user, time_now(), with, stanza);
 		if ok and not c2s then
-			stanza:tag("archived", { xmlns = xmlns_mam, by = jid_bare(orig_to), id = id }):up();
+			stanza:tag("archived", { xmlns = xmlns_mam, by = store_user.."@"..host, id = id }):up();
 		end
 	else
 		module:log("debug", "Not archiving stanza: %s", stanza:top_tag());
