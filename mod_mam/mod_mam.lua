@@ -180,11 +180,16 @@ local function message_handler(event, c2s)
 	local orig_to = stanza.attr.to or orig_from;
 	-- Stanza without 'to' are treated as if it was to their own bare jid
 
-	-- Don't store messages of these types
+	-- We don't store messages of these types
 	if orig_type == "error"
 	or orig_type == "headline"
 	or orig_type == "groupchat"
-	or not stanza:get_child("body") then
+	-- or that don't have a <body/>
+	or not stanza:get_child("body")
+	-- or if hints suggest we shouldn't
+	or stanza:get_child("no-permanent-store", "urn:xmpp:hints")
+	or stanza:get_child("no-store", "urn:xmpp:hints") then
+		module:log("debug", "Not archiving stanza: %s (content)", stanza:top_tag());
 		return;
 	end
 
@@ -203,7 +208,7 @@ local function message_handler(event, c2s)
 			stanza:tag("archived", { xmlns = xmlns_mam, by = store_user.."@"..host, id = id }):up();
 		end
 	else
-		module:log("debug", "Not archiving stanza: %s", stanza:top_tag());
+		module:log("debug", "Not archiving stanza: %s (prefs)", stanza:top_tag());
 	end
 end
 
