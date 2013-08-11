@@ -31,15 +31,6 @@ local m_min = math.min;
 local timestamp, timestamp_parse = require "util.datetime".datetime, require "util.datetime".parse;
 local default_max_items, max_max_items = 20, module:get_option_number("max_archive_query_results", 50);
 local global_default_policy = module:get_option("default_archive_policy", false);
--- TODO Should be possible to enforce it too
-
--- For translating preference names from string to boolean and back
-local default_attrs = {
-	always = true, [true] = "always",
-	never = false, [false] = "never",
-	roster = "roster",
-}
-
 
 local archive_store = "archive2";
 local archive = module:open_store(archive_store, "archive");
