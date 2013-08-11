@@ -84,6 +84,9 @@ local function message_handler(event, c2s)
 		end);
 		module:log("debug", "Message tagged private, ignoring");
 		return
+	elseif stanza:get_child("no-copy", "urn:xmpp:hints") then
+		module:log("debug", "Message has no-copy hint, ignoring");
+		return
 	end
 
 	-- Create the carbon copy and wrap it as per the Stanza Forwarding XEP
