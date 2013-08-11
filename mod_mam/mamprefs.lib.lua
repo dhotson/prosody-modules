@@ -25,7 +25,7 @@ local function get_prefs(user)
 		user_prefs = prefs:get(user);
 		user_sessions.archive_prefs = user_prefs;
 	end
-	return user_prefs or { [false] = { default = global_default_policy } };
+	return user_prefs or { [false] = global_default_policy };
 end
 local function set_prefs(user, user_prefs)
 	local user_sessions = sessions[user];
