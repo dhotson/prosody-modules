@@ -19,7 +19,6 @@ local command = module:get_option_string("external_auth_command", "");
 local read_timeout = module:get_option_number("external_auth_timeout", 5);
 assert(not host:find(":"), "Invalid hostname");
 local usermanager = require "core.usermanager";
-local jid_bare = require "util.jid".bare;
 local new_sasl = require "util.sasl".new;
 
 local pty = lpty.new({ throw_errors = false, no_local_echo = true, use_path = false });
