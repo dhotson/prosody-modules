@@ -58,19 +58,17 @@ function do_query(kind, username, password)
 		query = query..'\n';
 	end
 	
-	local response = send_query(query);
-	if (script_type == "ejabberd" and response == "\0\2\0\0") or
+	local response, err = send_query(query);
+	if not response then
+		log("warn", "Error while waiting for result from auth process: %s", err or "unknown error");
+	elseif (script_type == "ejabberd" and response == "\0\2\0\0") or
 		(script_type == "generic" and response:gsub("\r?\n$", "") == "0") then
 			return nil, "not-authorized";
 	elseif (script_type == "ejabberd" and response == "\0\2\0\1") or
 		(script_type == "generic" and response:gsub("\r?\n$", "") == "1") then
 			return true;
 	else
-		if response then
-			log("warn", "Unable to interpret data from auth process, %s", (response:match("^error:") and response) or ("["..#response.." bytes]"));
-		else
-			log("warn", "Error while waiting for result from auth process: %s", response or "unknown error");
-		end
+		log("warn", "Unable to interpret data from auth process, %s", (response:match("^error:") and response) or ("["..#response.." bytes]"));
 		return nil, "internal-server-error";
 	end
 end
