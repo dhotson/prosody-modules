@@ -85,7 +85,7 @@ end
 
 if append_host then
 	function provider.test_password(username, password)
-		return new_sasl(module.host):plain_test(username .. "@".. (service_realm or module.host), password);
+		return new_sasl(module.host):plain_test(username .. "@".. (service_realm or module.host), password) == "success";
 	end
 
 	function provider.get_sasl_handler()
