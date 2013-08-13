@@ -1,82 +1,46 @@
 --
--- NOTE: currently this uses lpc; when waqas fixes process, it can go back to that
---
 -- Prosody IM
 -- Copyright (C) 2010 Waqas Hussain
 -- Copyright (C) 2010 Jeff Mitchell
 -- Copyright (C) 2013 Mikael Nordfeldth
+-- Copyright (C) 2013 Matthew Wild, finally came to fix it all
 --
 -- This project is MIT/X11 licensed. Please see the
 -- COPYING file in the source package for more information.
 --
 
+local lpty = assert(require "lpty", "mod_auth_external requires lpty: https://code.google.com/p/prosody-modules/wiki/mod_auth_external#Installation");
 
---local process = require "process";
-local lpc; pcall(function() lpc = require "lpc"; end);
-
-local config = require "core.configmanager";
 local log = module._log;
 local host = module.host;
-local script_type = config.get(host, "core", "external_auth_protocol") or "generic";
-assert(script_type == "ejabberd" or script_type == "generic");
-local command = config.get(host, "core", "external_auth_command") or "";
-assert(type(command) == "string");
-assert(not host:find(":"));
+local script_type = module:get_option_string("external_auth_protocol", "generic");
+assert(script_type == "ejabberd" or script_type == "generic", "Config error: external_auth_protocol must be 'ejabberd' or 'generic'");
+local command = module:get_option_string("external_auth_command", "");
+local read_timeout = module:get_option_number("external_auth_timeout", 5);
+assert(not host:find(":"), "Invalid hostname");
 local usermanager = require "core.usermanager";
 local jid_bare = require "util.jid".bare;
 local new_sasl = require "util.sasl".new;
 
-local function send_query(text)
-	local tmpname = os.tmpname();
-	local p = io.popen(command.." > "..tmpname, "w");	-- dump result to file
-	p:write(text);	-- push colon-separated args through pipe to above command
-	p:close();
-	local tmpfile = io.open(tmpname, "r");	-- open file to read auth result
-	local result;
-	if script_type == "ejabberd" then
-		result = tmpfile:read(4);
-	elseif script_type == "generic" then
-		result = tmpfile:read();
-	end
-	tmpfile:close();
-	os.remove(tmpname);	-- clean up after us
-	return result;
-end
+local pty = lpty.new({ throw_errors = false, no_local_echo = true, use_path = false });
 
-if lpc then
-	--local proc;
-	local pid;
-	local readfile;
-	local writefile;
-
-	function send_query(text)
-		if pid and lpc.wait(pid,1) ~= nil then
-	    	    log("debug","error, process died, force reopen");
-		    pid=nil;
-		end
-		if not pid then
-			log("debug", "Opening process " .. command);
-			-- proc = process.popen(command);
-			pid, writefile, readfile = lpc.run(command);
-		end
-		-- if not proc then
-		if not pid then
-			log("debug", "Process failed to open");
+function send_query(text)
+	if not pty:hasproc() then
+		local status, ret = pty:exitstatus();
+		if status and (status ~= "exit" or ret ~= 0) then
+			log("warn", "Auth process exited unexpectedly with %s %d, restarting", status, ret or 0);
 			return nil;
 		end
-		-- proc:write(text);
-		-- proc:flush();
-
-		writefile:write(text);
-		writefile:flush();
-		if script_type == "ejabberd" then
-			-- return proc:read(4); -- FIXME do properly
-			return readfile:read(4); -- FIXME do properly
-		elseif script_type == "generic" then
-			-- return proc:read(1);
-			return readfile:read();
+		local ok, err = pty:startproc(command);
+		if not ok then
+			log("error", "Failed to start auth process '%s': %s", command, err);
+			return nil;
 		end
+		log("debug", "Started auth process");
 	end
+
+	pty:send(text);
+	return pty:read(read_timeout);
 end
 
 function do_query(kind, username, password)
@@ -97,15 +61,19 @@ function do_query(kind, username, password)
 	
 	local response = send_query(query);
 	if (script_type == "ejabberd" and response == "\0\2\0\0") or
-		(script_type == "generic" and response == "0") then
+		(script_type == "generic" and response:gsub("\r?\n$", "") == "0") then
 			return nil, "not-authorized";
 	elseif (script_type == "ejabberd" and response == "\0\2\0\1") or
-		(script_type == "generic" and response == "1") then
+		(script_type == "generic" and response:gsub("\r?\n$", "") == "1") then
 			return true;
 	else
-		log("debug", "Nonsense back");
-		--proc:close();
-		--proc = nil;
+		if response then
+			log("warn", "Unable to interpret data from auth process, %d bytes beginning with: %s", #response, (response:sub(1,4):gsub(".", function (c)
+				return ("%02X "):format(c:byte());
+			end)));
+		else
+			log("warn", "Error while waiting for result from auth process: %s", response or "unknown error");
+		end
 		return nil, "internal-server-error";
 	end
 end
