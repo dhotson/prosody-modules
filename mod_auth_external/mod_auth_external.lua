@@ -20,10 +20,25 @@ local read_timeout = module:get_option_number("external_auth_timeout", 5);
 assert(not host:find(":"), "Invalid hostname");
 local usermanager = require "core.usermanager";
 local new_sasl = require "util.sasl".new;
+local server = require "net.server";
+local have_async, async = pcall(require, "util.async");
 
-local pty = lpty.new({ throw_errors = false, no_local_echo = true, use_path = false });
+local blocking = module:get_option_boolean("external_auth_blocking", not(have_async and server.event and lpty.getfd));
+
+if not blocking then
+	log("debug", "External auth in non-blocking mode, yay!")
+	waiter, guard = async.waiter, async.guarder();
+end
+
+local ptys = { lpty.new({ throw_errors = false, no_local_echo = true, use_path = false }) };
 
 function send_query(text)
+	local pty = ptys[1];
+
+	local finished_with_pty
+	if not blocking then
+		finished_with_pty = guard(pty); -- Prevent others from crossing this line while we're busy
+	end
 	if not pty:hasproc() then
 		local status, ret = pty:exitstatus();
 		if status and (status ~= "exit" or ret ~= 0) then
@@ -39,7 +54,20 @@ function send_query(text)
 	end
 
 	pty:send(text);
-	return pty:read(read_timeout);
+	if blocking then
+		return pty:read(read_timeout);
+	else
+		local response;
+		local wait, done = waiter();
+		server.addevent(pty:getfd(), server.event.EV_READ, function ()
+			response = pty:read();
+			done();
+			return -1;
+		end);
+		wait();
+		finished_with_pty();
+		return response;
+	end
 end
 
 function do_query(kind, username, password)
