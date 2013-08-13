@@ -104,19 +104,4 @@ function provider.get_sasl_handler()
 	return new_sasl(host, testpass_authentication_profile);
 end
 
-function provider.is_admin(jid)
-	local admins = config.get(host, "core", "admins");
-	if admins ~= config.get("*", "core", "admins") then
-		if type(admins) == "table" then
-			jid = jid_bare(jid);
-			for _,admin in ipairs(admins) do
-				if admin == jid then return true; end
-			end
-		elseif admins then
-			log("error", "Option 'admins' for host '%s' is not a table", host);
-		end
-	end
-	return usermanager.is_admin(jid); -- Test whether it's a global admin instead
-end
-
 module:provides("auth", provider);
