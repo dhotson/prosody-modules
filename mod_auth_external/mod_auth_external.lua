@@ -67,9 +67,7 @@ function do_query(kind, username, password)
 			return true;
 	else
 		if response then
-			log("warn", "Unable to interpret data from auth process, %d bytes beginning with: %s", #response, (response:sub(1,4):gsub(".", function (c)
-				return ("%02X "):format(c:byte());
-			end)));
+			log("warn", "Unable to interpret data from auth process, %s", (response:match("^error:") and response) or ("["..#response.." bytes]"));
 		else
 			log("warn", "Error while waiting for result from auth process: %s", response or "unknown error");
 		end
