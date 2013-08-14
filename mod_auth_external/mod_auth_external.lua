@@ -19,22 +19,34 @@ local log = module._log;
 local host = module.host;
 
 local script_type = module:get_option_string("external_auth_protocol", "generic");
-assert(script_type == "ejabberd" or script_type == "generic", "Config error: external_auth_protocol must be 'ejabberd' or 'generic'");
 local command = module:get_option_string("external_auth_command", "");
 local read_timeout = module:get_option_number("external_auth_timeout", 5);
+local blocking = module:get_option_boolean("external_auth_blocking", not(have_async and server.event and lpty.getfd));
+local auth_processes = module:get_option_number("external_auth_processes", 1);
+
+assert(script_type == "ejabberd" or script_type == "generic", "Config error: external_auth_protocol must be 'ejabberd' or 'generic'");
 assert(not host:find(":"), "Invalid hostname");
 
-local blocking = module:get_option_boolean("external_auth_blocking", not(have_async and server.event and lpty.getfd));
 
 if not blocking then
 	log("debug", "External auth in non-blocking mode, yay!")
 	waiter, guard = async.waiter, async.guarder();
+elseif auth_processes > 1 then
+	log("warn", "external_auth_processes is greater than 1, but we are in blocking mode - reducing to 1");
+	auth_processes = 1;
 end
 
-local ptys = { lpty.new({ throw_errors = false, no_local_echo = true, use_path = false }) };
+local ptys = {};
 
+local pty_options = { throw_errors = false, no_local_echo = true, use_path = false };
+for i = 1, auth_processes do
+	ptys[i] = lpty.new(pty_options);
+end
+
+local curr_process = 0;
 function send_query(text)
-	local pty = ptys[1];
+	curr_process = (curr_process%auth_processes)+1;
+	local pty = ptys[curr_process];
 
 	local finished_with_pty
 	if not blocking then
