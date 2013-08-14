@@ -10,18 +10,19 @@
 --
 
 local lpty = assert(require "lpty", "mod_auth_external requires lpty: https://code.google.com/p/prosody-modules/wiki/mod_auth_external#Installation");
+local usermanager = require "core.usermanager";
+local new_sasl = require "util.sasl".new;
+local server = require "net.server";
+local have_async, async = pcall(require, "util.async");
 
 local log = module._log;
 local host = module.host;
+
 local script_type = module:get_option_string("external_auth_protocol", "generic");
 assert(script_type == "ejabberd" or script_type == "generic", "Config error: external_auth_protocol must be 'ejabberd' or 'generic'");
 local command = module:get_option_string("external_auth_command", "");
 local read_timeout = module:get_option_number("external_auth_timeout", 5);
 assert(not host:find(":"), "Invalid hostname");
-local usermanager = require "core.usermanager";
-local new_sasl = require "util.sasl".new;
-local server = require "net.server";
-local have_async, async = pcall(require, "util.async");
 
 local blocking = module:get_option_boolean("external_auth_blocking", not(have_async and server.event and lpty.getfd));
 
