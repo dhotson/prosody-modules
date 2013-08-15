@@ -2,11 +2,11 @@
 local new_sasl = require "util.sasl".new;
 local log = require "util.logger".init("auth_ldap");
 
-local ldap_server = module:get_option("ldap_server") or "localhost";
-local ldap_rootdn = module:get_option("ldap_rootdn") or "";
-local ldap_password = module:get_option("ldap_password") or "";
-local ldap_tls = module:get_option("ldap_tls");
-local ldap_base = assert(module:get_option("ldap_base"), "ldap_base is a required option for ldap");
+local ldap_server = module:get_option_string("ldap_server", "localhost");
+local ldap_rootdn = module:get_option_string("ldap_rootdn", "");
+local ldap_password = module:get_option_string("ldap_password", "");
+local ldap_tls = module:get_option_boolean("ldap_tls");
+local ldap_base = assert(module:get_option_string("ldap_base"), "ldap_base is a required option for ldap");
 
 local lualdap = require "lualdap";
 local ld = assert(lualdap.open_simple(ldap_server, ldap_rootdn, ldap_password, ldap_tls));
