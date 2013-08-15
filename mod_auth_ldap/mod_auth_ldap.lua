@@ -6,6 +6,7 @@ local ldap_server = module:get_option_string("ldap_server", "localhost");
 local ldap_rootdn = module:get_option_string("ldap_rootdn", "");
 local ldap_password = module:get_option_string("ldap_password", "");
 local ldap_tls = module:get_option_boolean("ldap_tls");
+local ldap_scope = module:get_option_string("ldap_scope", "onelevel");
 local ldap_base = assert(module:get_option_string("ldap_base"), "ldap_base is a required option for ldap");
 
 local lualdap = require "lualdap";
@@ -24,12 +25,14 @@ local function ldap_filter_escape(s) return (s:gsub("[\\*\\(\\)\\\\%z]", functio
 function provider.test_password(username, password)
 	return do_query({
 		base = ldap_base;
+		scope = ldap_scope;
 		filter = "(&(uid="..ldap_filter_escape(username)..")(userPassword="..ldap_filter_escape(password)..")(accountStatus=active))";
 	});
 end
 function provider.user_exists(username)
 	return do_query({
 		base = ldap_base;
+		scope = ldap_scope;
 		filter = "(uid="..ldap_filter_escape(username)..")";
 	});
 end
