@@ -37,7 +37,6 @@ module:hook("s2s-check-certificate", function(event)
 		elseif must_match then
 			session.cert_chain_status = "invalid";
 			session.cert_identity_status = "invalid";
-			return false;
 		end
 	end
 end);
