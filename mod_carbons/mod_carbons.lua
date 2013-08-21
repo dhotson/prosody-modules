@@ -79,8 +79,9 @@ local function message_handler(event, c2s)
 
 	if not c2s and stanza:get_child("private", xmlns_carbons) then
 		stanza:maptags(function(tag)
-			return tag.attr.xmlns == xmlns_carbons
-				and tag.name == "private" and tag or nil;
+			if not ( tag.attr.xmlns == xmlns_carbons and tag.name == "private" ) then
+				return tag;
+			end
 		end);
 		module:log("debug", "Message tagged private, ignoring");
 		return
