@@ -48,6 +48,7 @@ if module:get_host_type() == "component" then
 	end);
 
 elseif module:get_option_boolean("lastlog_stamp_offline") then
+	local datetime = require"util.datetime".datetime;
 	local function offline_stamp(event)
 		local stanza = event.stanza;
 		local node, to_host = jid.split(stanza.attr.from);
@@ -58,7 +59,7 @@ elseif module:get_option_boolean("lastlog_stamp_offline") then
 				stanza:tag("delay", {
 					xmlns = "urn:xmpp:delay",
 					from = host,
-					stamp = datetime.datetime(timestamp),
+					stamp = datetime(timestamp),
 				}):up();
 			end
 		end
