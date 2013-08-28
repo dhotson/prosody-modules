@@ -15,9 +15,9 @@ if not (secret and host) then
     return;
 end
 
-module:hook("iq/host/urn:xmpp:extdisco:1:services", function(event)
+module:hook("iq-get/host/urn:xmpp:extdisco:1:services", function(event)
     local origin, stanza = event.origin, event.stanza;
-    if stanza.attr.type ~= "get" or stanza.tags[1].name ~= "services" or origin.type ~= "c2s" then
+    if stanza.tags[1].name ~= "services" or origin.type ~= "c2s" then
         return;
     end
     local now = os_time() + ttl;
