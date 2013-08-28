@@ -17,7 +17,7 @@ end
 
 module:hook("iq-get/host/urn:xmpp:extdisco:1:services", function(event)
     local origin, stanza = event.origin, event.stanza;
-    if stanza.tags[1].name ~= "services" or origin.type ~= "c2s" then
+    if origin.type ~= "c2s" then
         return;
     end
     local now = os_time() + ttl;
