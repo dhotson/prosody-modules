@@ -26,6 +26,15 @@ module:hook("resource-unbind", function(event)
 	end
 end);
 
+module:hook("user-registered", function(event)
+	local session = event.session;
+	datamanager.store(event.username, host, "lastlog", {
+		event = "registered";
+		timestamp = time(),
+		ip = log_ip and session.ip or nil,
+	});
+end);
+
 if module:get_option_boolean("lastlog_stamp_offline") then
 	local function offline_stamp(event)
 		local stanza = event.stanza;
