@@ -54,7 +54,7 @@ function module.command(arg)
 	end
 	local user, host = jid.prepped_split(table.remove(arg, 1));
 	require"core.storagemanager".initialize_host(host);
-	local lastlog = assert(datamanager.load(user, host, "lastlog"));
+	local lastlog = datamanager.load(user, host, "lastlog");
 	if lastlog then
 		print(("Last %s: %s"):format(lastlog.event or "login",
 		lastlog.timestamp and os.date("%Y-%m-%d %H:%M:%S", lastlog.timestamp) or "<unknown>"));
@@ -63,6 +63,7 @@ function module.command(arg)
 		end
 	else
 		print("No record found");
+		return 1;
 	end
 	return 0;
 end
