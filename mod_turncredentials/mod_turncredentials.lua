@@ -6,10 +6,10 @@ local st = require "util.stanza";
 local hmac_sha1 = require "util.hashes".hmac_sha1;
 local base64 = require "util.encodings".base64;
 local os_time = os.time;
-local secret = module:get_option("turncredentials_secret") or false;
-local host = module:get_option("turncredentials_host") or false -- use ip addresses here to avoid further dns lookup latency
-local port = module:get_option("turncredentials_port") or 3478
-local ttl = module:get_option("turncredentials_ttl") or 86400
+local secret = module:get_option_string("turncredentials_secret");
+local host = module:get_option_string("turncredentials_host"); -- use ip addresses here to avoid further dns lookup latency
+local port = module:get_option_number("turncredentials_port", 3478);
+local ttl = module:get_option_number("turncredentials_ttl", 86400);
 if not (secret and host) then
     module:log("error", "turncredentials not configured");
     return;
