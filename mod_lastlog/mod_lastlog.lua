@@ -38,7 +38,7 @@ end);
 
 if module:get_host_type() == "component" then
 	module:hook("message/bare", function(event)
-		local room = split_jid(event.stanza.attr.to);
+		local room = jid.split(event.stanza.attr.to);
 		if room then
 			datamanager.store(room, module.host, "lastlog", {
 				event = "message";
