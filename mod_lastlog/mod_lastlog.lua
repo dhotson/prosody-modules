@@ -35,7 +35,19 @@ module:hook("user-registered", function(event)
 	});
 end);
 
-if module:get_option_boolean("lastlog_stamp_offline") then
+
+if module:get_host_type() == "component" then
+	module:hook("message/bare", function(event)
+		local room = split_jid(event.stanza.attr.to);
+		if room then
+			datamanager.store(room, module.host, "lastlog", {
+				event = "message";
+				timestamp = time(),
+			});
+		end
+	end);
+
+elseif module:get_option_boolean("lastlog_stamp_offline") then
 	local function offline_stamp(event)
 		local stanza = event.stanza;
 		local node, to_host = jid.split(stanza.attr.from);
