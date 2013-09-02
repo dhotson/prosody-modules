@@ -49,17 +49,20 @@ local function db2uri(params)
 	};
 end
 
+local connect
+
 local function test_connection()
 	if not connection then return nil; end
 	if connection:ping() then
 		return true;
 	else
 		module:log("debug", "Database connection closed");
+		module:log("debug", "Attempting to reconnect");
 		connection = nil;
-		connections[dburi] = nil;
+		return connect();
 	end
 end
-local function connect()
+function connect()
 	if not test_connection() then
 		prosody.unlock_globals();
 		local dbh, err = DBI.Connect(
@@ -115,6 +118,9 @@ function getsql(sql, ...)
 		sql = sql:gsub("`", "\"");
 	end
 	if not connection then
+		return nil, 'connection failed';
+	end
+	if not test_connection() then
 		return nil, 'connection failed';
 	end
 	-- do prepared statement stuff
