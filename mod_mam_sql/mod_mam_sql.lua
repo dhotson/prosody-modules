@@ -114,13 +114,20 @@ function getsql(sql, ...)
 	if params.driver == "PostgreSQL" then
 		sql = sql:gsub("`", "\"");
 	end
+	if not connection then
+		return nil, 'connection failed';
+	end
 	-- do prepared statement stuff
 	local stmt, err = connection:prepare(sql);
-	if not stmt and not test_connection() then error("connection failed"); end
+	if not stmt and not test_connection() then
+		return nil, "connection failed";
+	end
 	if not stmt then module:log("error", "QUERY FAILED: %s %s", err, debug.traceback()); return nil, err; end
 	-- run query
 	local ok, err = stmt:execute(...);
-	if not ok and not test_connection() then error("connection failed"); end
+	if not ok and not test_connection() then
+		return nil, "connection failed";
+	end
 	if not ok then return nil, err; end
 	
 	return stmt;
