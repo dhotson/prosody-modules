@@ -10,6 +10,7 @@ local function stanza_checker(attr)
 		local host = select(2, jid_split(event.stanza.attr[attr]));
 		if blacklist:contains(host) then
 			module:send(st.error_reply(event.stanza, "cancel", "not-allowed", "Communication with this domain is restricted"));
+			return true;
 		end
 	end
 end
