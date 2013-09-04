@@ -14,7 +14,7 @@ local full_sessions, bare_sessions = full_sessions, bare_sessions;
 local function toggle_carbons(event)
 	local origin, stanza = event.origin, event.stanza;
 	if stanza.attr.type == "set" then
-		local state = stanza.tags[1].name;
+		local state = stanza.tags[1].attr.mode or stanza.tags[1].name;
 		module:log("debug", "%s %sd carbons", origin.full_jid, state);
 		origin.want_carbons = state == "enable" and stanza.tags[1].attr.xmlns;
 		origin.send(st.reply(stanza));
@@ -27,19 +27,7 @@ module:hook("iq/self/"..xmlns_carbons..":enable", toggle_carbons);
 -- COMPAT
 module:hook("iq/self/"..xmlns_carbons_old..":disable", toggle_carbons);
 module:hook("iq/self/"..xmlns_carbons_old..":enable", toggle_carbons);
-
--- COMPAT :(
-if module:get_option_boolean("carbons_v0") then
-	module:hook("iq/self/"..xmlns_carbons_really_old..":carbons", function(event)
-		local origin, stanza = event.origin, event.stanza;
-		if stanza.attr.type == "set" then
-			local state = stanza.tags[1].attr.mode;
-			origin.want_carbons = state == "enable" and xmlns_carbons_really_old;
-			origin.send(st.reply(stanza));
-			return true;
-		end
-	end);
-end
+module:hook("iq/self/"..xmlns_carbons_really_old..":carbons", toggle_carbons);
 
 local function message_handler(event, c2s)
 	local origin, stanza = event.origin, event.stanza;
