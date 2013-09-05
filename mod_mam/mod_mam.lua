@@ -34,6 +34,13 @@ local global_default_policy = module:get_option("default_archive_policy", false)
 
 local archive_store = "archive2";
 local archive = module:open_store(archive_store, "archive");
+if not archive then
+	module:log("error", "Could not open archive storage");
+	return
+elseif not archive.find then
+	module:log("error", "mod_%s does not support archiving, switch to mod_storage_sql2", archive._provided_by);
+	return
+end
 
 -- Handle prefs.
 module:hook("iq/self/"..xmlns_mam..":prefs", function(event)
