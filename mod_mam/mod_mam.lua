@@ -202,7 +202,7 @@ local function message_handler(event, c2s)
 
 		-- And stash it
 		local ok, id = archive:append(store_user, time_now(), with, stanza);
-		if ok and not c2s then
+		if ok then
 			stanza:tag("archived", { xmlns = xmlns_mam, by = store_user.."@"..host, id = id }):up();
 		end
 	else
@@ -220,6 +220,17 @@ module:hook("pre-message/full", c2s_message_handler, 2);
 -- Stanszas to local clients
 module:hook("message/bare", message_handler, 2);
 module:hook("message/full", message_handler, 2);
+
+local function post_carbons_handler(event)
+	event.stanza:maptags(function(tag)
+		if not ( tag.attr.xmlns == xmlns_mam and tag.name == "archived" ) then
+			return tag;
+		end
+	end);
+end
+
+module:hook("pre-message/bare", post_carbons_handler, 0.9);
+module:hook("pre-message/full", post_carbons_handler, 0.9);
 
 module:add_feature(xmlns_mam);
 
