@@ -111,7 +111,7 @@ module:hook("iq-get/self/"..xmlns_mam..":query", function(event)
 	});
 
 	if not data then
-		return origin.send(st.error_reply(stanza, "cancel", "internal-server-error"));
+		return origin.send(st.error_reply(stanza, "cancel", "internal-server-error", err));
 	end
 	local count = err;
 
