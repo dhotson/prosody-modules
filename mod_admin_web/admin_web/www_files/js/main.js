@@ -52,7 +52,7 @@ function _cbNewS2S(e) {
         metadata.appendTo(entry);
         for (j = 0; j < infos.length; j++) {
             info = infos[j];
-            metadata.append('<li><b>' + info.attributes.getNamedItem('name').value + ':</b> ' + info.innerHTML + '</li>');
+            metadata.append('<li><b>' + info.attributes.getNamedItem('name').value + ':</b> ' + info.textContent + '</li>');
         }
         if (infos.length == 0)
             metadata.append('<li>No information available</li>');
@@ -93,7 +93,7 @@ function _cbNewC2S(e) {
         metadata.appendTo(entry);
         for (j = 0; j < infos.length; j++) {
             info = infos[j];
-            metadata.append('<li><b>' + info.attributes.getNamedItem('name').value + ':</b> ' + info.innerHTML + '</li>');
+            metadata.append('<li><b>' + info.attributes.getNamedItem('name').value + ':</b> ' + info.textContent + '</li>');
         }
         if (infos.length == 0)
             metadata.append('<li>No information available</li>');
