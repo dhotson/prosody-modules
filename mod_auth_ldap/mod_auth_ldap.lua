@@ -7,47 +7,51 @@ local ldap_rootdn = module:get_option_string("ldap_rootdn", "");
 local ldap_password = module:get_option_string("ldap_password", "");
 local ldap_tls = module:get_option_boolean("ldap_tls");
 local ldap_scope = module:get_option_string("ldap_scope", "onelevel");
+local ldap_filter = module:get_option_string("ldap_filter", "(uid=%s)");
 local ldap_base = assert(module:get_option_string("ldap_base"), "ldap_base is a required option for ldap");
 
 local lualdap = require "lualdap";
 local ld = assert(lualdap.open_simple(ldap_server, ldap_rootdn, ldap_password, ldap_tls));
 module.unload = function() ld:close(); end
 
-function do_query(query)
-	for dn, attribs in ld:search(query) do
-		return true; -- found a result
-	end
+local function ldap_filter_escape(s) return (s:gsub("[\\*\\(\\)\\\\%z]", function(c) return ("\\%02x"):format(c:byte()) end)); end
+
+local function get_user(username)
+	module:log("debug", "get_user(%q)", username);
+	return ld:search({
+		base = ldap_base;
+		scope = ldap_scope;
+		filter = ldap_filter:format(ldap_filter_escape(username));
+	})();
 end
 
 local provider = {};
 
-local function ldap_filter_escape(s) return (s:gsub("[\\*\\(\\)\\\\%z]", function(c) return ("\\%02x"):format(c:byte()) end)); end
-function provider.test_password(username, password)
-	return do_query({
-		base = ldap_base;
-		scope = ldap_scope;
-		filter = "(&(uid="..ldap_filter_escape(username)..")(userPassword="..ldap_filter_escape(password)..")(accountStatus=active))";
-	});
-end
-function provider.user_exists(username)
-	return do_query({
-		base = ldap_base;
-		scope = ldap_scope;
-		filter = "(uid="..ldap_filter_escape(username)..")";
-	});
+function provider.get_password(username)
+	local dn, attr = get_user(username);
+	if dn and attr then
+		return attr.userPassword;
+	end
 end
 
-function provider.get_password(username) return nil, "Passwords unavailable for LDAP."; end
+function provider.test_password(username, password)
+	return provider.get_password(username) == password;
+end
+function provider.user_exists(username)
+	return not not get_user(username);
+end
+
 function provider.set_password(username, password) return nil, "Passwords unavailable for LDAP."; end
 function provider.create_user(username, password) return nil, "Account creation/modification not available with LDAP."; end
 
 function provider.get_sasl_handler()
-	local testpass_authentication_profile = {
-		plain_test = function(sasl, username, password, realm)
-			return provider.test_password(username, password), true;
+	return new_sasl(module.host, {
+		plain = function(sasl, username)
+			local password = provider.get_password(username);
+			if not password then return "", nil; end
+			return password, true;
 		end
-	};
-	return new_sasl(module.host, testpass_authentication_profile);
+	});
 end
 
 module:provides("auth", provider);
