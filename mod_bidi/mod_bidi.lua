@@ -34,6 +34,7 @@ local function new_bidi(origin)
 			conflicting_session:close{ condition = "conflict", text = "Replaced by bidirectional stream" }
 		end
 		bidi_sessions[origin.from_host] = origin;
+		origin.is_bidi = true;
 	elseif origin.type == "s2sout" then -- handle incoming stanzas correctly
 		local bidi_session = {
 			type = "s2sin"; direction = "incoming";
@@ -66,9 +67,10 @@ end, -2);
 -- Incoming s2s
 module:hook("s2s-stream-features", function(event)
 	local origin, features = event.origin, event.features;
-	if not origin.is_bidi and not hosts[module.host].s2sout[origin.from_host]
-	and (not secure_only or origin.cert_chain_status == "valid"
-	and origin.cert_identity_status == "valid") then
+	if not origin.is_bidi and not origin.bidi_session and not origin.do_bidi
+	and not hosts[module.host].s2sout[origin.from_host]
+	and (not secure_only or (origin.cert_chain_status == "valid"
+	and origin.cert_identity_status == "valid")) then
 		module:log("debug", "Announcing support for bidirectional streams");
 		features:tag("bidi", { xmlns = xmlns_bidi_feature }):up();
 	end
