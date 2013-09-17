@@ -25,6 +25,7 @@ local t_concat = table.concat;
 local s_byte = string.byte;
 local s_char= string.char;
 
+local consider_websocket_secure = module:get_option_boolean("consider_websocket_secure");
 local cross_domain = module:get_option("cross_domain_websocket");
 if cross_domain then
 	if cross_domain == true then
@@ -240,8 +241,12 @@ function handle_request(event, path)
 	conn:setlistener(c2s_listener);
 	c2s_listener.onconnect(conn);
 
+	local session = sessions[conn];
+
+	session.secure = consider_websocket_secure or session.secure;
+
 	local frameBuffer = "";
-	add_filter(sessions[conn], "bytes/in", function(data)
+	add_filter(session, "bytes/in", function(data)
 		local cache = {};
 		frameBuffer = frameBuffer .. data;
 		local frame, length = parse_frame(frameBuffer);
@@ -256,7 +261,7 @@ function handle_request(event, path)
 		return t_concat(cache, "");
 	end);
 
-	add_filter(sessions[conn], "bytes/out", function(data)
+	add_filter(session, "bytes/out", function(data)
 		return build_frame({ FIN = true, opcode = 0x01, data = tostring(data)});
 	end);
 
