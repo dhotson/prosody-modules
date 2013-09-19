@@ -94,8 +94,7 @@ function do_query(kind, username, password)
 		local lo = len % 256;
 		local hi = (len - lo) / 256;
 		query = string.char(hi, lo)..query;
-	end
-	if script_type == "generic" then
+	elseif script_type == "generic" then
 		query = query..'\n';
 	end
 	
