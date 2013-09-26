@@ -4,7 +4,7 @@ IFS=":"
 AUTH_OK=1
 AUTH_FAILED=0
 LOGFILE="/var/log/prosody/auth.log"
-USELOG=true
+USELOG=false
 
 while read ACTION USER HOST PASS ; do
 
