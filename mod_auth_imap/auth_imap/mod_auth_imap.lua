@@ -11,7 +11,16 @@ local imap_port = module:get_option_number("imap_auth_port");
 
 local imap_service_realm = module:get_option("imap_service_realm");
 local imap_service_name = module:get_option("imap_service_name");
+local append_host = module:get_option_boolean("auth_append_host");
 
+local verify_certificate = module:get_option_boolean("auth_imap_verify_certificate", true);
+local ssl_params = module:get_option("auth_imap_ssl", {
+	mode = "client", protocol = "sslv23";
+	capath = "/etc/ssl/certs";
+	options = { "no_sslv2", "no_sslv3" };
+	verify = verify_certificate and { "peer", "fail_if_no_peer_cert" } or nil;
+	ciphers = "HIGH:!DSS:!aNULL@STRENGTH";
+});
 
 local new_imap_sasl = module:require "sasl_imap".new;
 
@@ -19,7 +28,8 @@ local new_sasl = function(realm)
 	return new_imap_sasl(
 		imap_service_realm or realm,
 		imap_service_name or "xmpp",
-		imap_host, imap_port
+		imap_host, imap_port,
+		ssl_params, append_host
 	);
 end
 

@@ -12,7 +12,8 @@ local t_concat = table.concat;
 local tostring, tonumber = tostring, tonumber;
 
 local socket = require "socket"
--- TODO -- local ssl = require "ssl"
+local ssl = require "ssl"
+local x509 = require "util.x509";
 local base64 = require "util.encodings".base64;
 local b64, unb64 = base64.encode, base64.decode;
 
@@ -34,9 +35,9 @@ local mitm = {
 	end,
 }
 
-local function connect(host, port, ssl)
-	port = tonumber(port) or (ssl and 993 or 143);
-	log("debug", "connect() to %s:%s:%d", ssl and "ssl" or "tcp", host, tonumber(port));
+local function connect(host, port, ssl_params)
+	port = tonumber(port) or (ssl_params and 993 or 143);
+	log("debug", "connect() to %s:%s:%d", ssl_params and "ssl" or "tcp", host, tonumber(port));
 	local conn = socket.tcp();
 
 	-- Create a connection to imap socket
@@ -44,21 +45,59 @@ local function connect(host, port, ssl)
 	local ok, err = conn:connect(host, port);
 	conn:settimeout(10);
 	if not ok then
-		log("error", "error connecting to imap at '%s:%d'. error was '%s'. check permissions", host, port, err);
+		log("error", "error connecting to imap at '%s:%d': %s", host, port, err);
 		return false;
 	end
 
+	if ssl_params then
+		-- Perform SSL handshake
+		local ok, err = ssl.wrap(conn, ssl_params);
+		if ok then
+			conn = ok;
+			ok, err = conn:dohandshake();
+		end
+		if not ok then
+			log("error", "error initializing ssl connection to imap at '%s:%d': %s", host, port, err);
+			conn:close();
+			return false;
+		end
+
+		-- Verify certificate
+		if ssl_params.verify then
+			if not conn.getpeercertificate then
+				log("error", "unable to verify certificate, newer LuaSec required: https://prosody.im/doc/depends#luasec");
+				conn:close();
+				return false;
+			end
+			if not x509.verify_identity(host, nil, conn:getpeercertificate()) then
+				log("warn", "invalid certificate for imap service %s:%d, denying connection", host, port);
+				return false;
+			end
+		end
+	end
+
 	-- Parse IMAP handshake
-	local done = false;
 	local supported_mechs = {};
 	local line = conn:receive("*l");
-	log("debug", "imap handshake: '%s'", line);
 	if not line then
 		return false;
 	end
+	log("debug", "imap greeting: '%s'", line);
 	local caps = line:match("^%*%s+OK%s+(%b[])");
+	if not caps or not caps:match("^%[CAPABILITY ") then
+		conn:send("A CAPABILITY\n");
+		line = conn:receive("*l");
+		log("debug", "imap capabilities response: '%s'", line);
+		caps = line:match("^%*%s+CAPABILITY%s+(.*)$");
+		if not conn:receive("*l"):match("^A OK") then
+			log("debug", "imap capabilities command failed")
+			conn:close();
+			return false;
+		end
+	elseif caps then
+		caps = caps:sub(2,-2); -- Strip surrounding []
+	end
 	if caps then
-		caps = caps:sub(2,-2);
 		for cap in caps:gmatch("%S+") do
 			log("debug", "Capability: %s", cap);
 			local mech = cap:match("AUTH=(.*)");
@@ -73,19 +112,23 @@ local function connect(host, port, ssl)
 end
 
 -- create a new SASL object which can be used to authenticate clients
-function _M.new(realm, service_name, host, port, ssl)
+function _M.new(realm, service_name, host, port, ssl_params, append_host)
 	log("debug", "new(%q, %q, %q, %d)", realm or "", service_name or "", host or "", port or 0);
 	local sasl_i = {
-		realm = realm,
-		service_name = service_name,
-		_host = host,
-		_port = port,
-		_ssl = ssl
+		realm = realm;
+		service_name = service_name;
+		_host = host;
+		_port = port;
+		_ssl_params = ssl_params;
+		_append_host = append_host;
 	};
 
-	local conn, mechs = connect(host, port, ssl);
+	local conn, mechs = connect(host, port, ssl_params);
 	if not conn then
 		return nil, "Socket connection failure";
+	end
+	if append_host then
+		mechs = { PLAIN = mechs.PLAIN };
 	end
 	sasl_i.conn, sasl_i.mechs = conn, mechs;
 	return setmetatable(sasl_i, method);
@@ -98,7 +141,7 @@ function method:clean_clone()
 		self.conn = nil;
 	end
 	log("debug", "method:clean_clone()");
-	return _M.new(self.realm, self.service_name, self._host, self._port)
+	return _M.new(self.realm, self.service_name, self._host, self._port, self._ssl_params, self._append_host)
 end
 
 -- get a list of possible SASL mechanisms to use
@@ -134,7 +177,10 @@ end
 function method:process(message)
 	local username = mitm[self.selected](message);
 	if username then self.username = username; end
-	log("debug", "method:process(%d bytes)", #message);
+	if self._append_host and self.selected == "PLAIN" then
+		message = message:gsub("^([^%z]*%z[^%z]+)(%z[^%z]+)$", "%1@"..self.realm.."%2");
+	end
+	log("debug", "method:process(%d bytes): %q", #message, message:gsub("%z", "."));
 	local ok, err = self.conn:send(b64(message).."\n");
 	if not ok then
 		log("error", "Could not write to socket: %s", err);
@@ -147,6 +193,10 @@ function method:process(message)
 		return "failure", "internal-server-error", err
 	end
 	log("debug", "Received %d bytes from socket: %s", #line, line);
+
+	while line and line:match("^%* ") do
+		line, err = self.conn:receive("*l");
+	end
 
 	if line:match("^%+") and #line > 2 then
 		local data = line:sub(3);
