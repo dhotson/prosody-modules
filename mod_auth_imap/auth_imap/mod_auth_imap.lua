@@ -8,7 +8,7 @@ local log = require "util.logger".init("auth_imap");
 local imap_host = module:get_option_string("imap_auth_host", "localhost");
 local imap_port = module:get_option_number("imap_auth_port");
 
-local imap_service_realm = module:get_option_string("imap_auth_realm", module_get_option("sasl_realm"));
+local imap_service_realm = module:get_option_string("imap_auth_realm", module:get_option("sasl_realm"));
 local imap_service_name = module:get_option_string("imap_auth_service_name");
 local append_host = module:get_option_boolean("auth_append_host");
 
