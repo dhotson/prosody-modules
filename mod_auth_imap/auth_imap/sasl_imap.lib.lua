@@ -7,9 +7,8 @@ local log = require "util.logger".init("sasl_imap");
 
 local setmetatable = setmetatable;
 
-local s_match, s_gmatch = string.match, string.gmatch
+local s_match = string.match;
 local t_concat = table.concat;
-local m_random = math.random;
 local tostring, tonumber = tostring, tonumber;
 
 local socket = require "socket"
