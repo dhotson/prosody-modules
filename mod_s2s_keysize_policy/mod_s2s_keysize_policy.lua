@@ -1,4 +1,5 @@
 -- mod_s2s_keysize_policy.lua
+-- Requires LuaSec with this patch: https://github.com/brunoos/luasec/pull/12
 
 module:set_global();
 
