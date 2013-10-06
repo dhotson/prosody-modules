@@ -59,6 +59,9 @@ local function handle_stanza(event)
 			t_insert(dropped_jids, from_jid);
 		end
 		dropped_count = dropped_count + 1;
+		if stanza.attr.type == "error" then -- We don't want to bounce errors
+			return true;
+		end
 		local reply = st.error_reply(stanza, "wait", "policy-violation", "The room is currently overactive, please try again later");
 		local body = stanza:get_child_text("body");
 		if body then
