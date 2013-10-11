@@ -233,5 +233,8 @@ function connect()
 	------------------------
 	return true;
 end
-assert(connect());
+local s, err = connect();
+if not s then
+	listener.ondisconnect(nil, err);
+end
 
