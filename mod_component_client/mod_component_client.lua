@@ -91,6 +91,7 @@ end
 module:hook("stanza/jabber:component:accept:handshake", function(event)
 	session.type = "component";
 	module:log("debug", "Handshake complete");
+	module:fire_event("component_client/connected", {});
 	return true; -- READY!
 end);
 
@@ -210,6 +211,7 @@ function listener.ondisconnect(conn, err)
 	end
 	__conn = nil;
 	module:log("error", "connection lost");
+	module:fire_event("component_client/disconnected", { reason = err });
 end
 
 function connect()
