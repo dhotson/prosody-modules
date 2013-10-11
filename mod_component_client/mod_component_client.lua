@@ -36,6 +36,7 @@ local config = module:get_option("component_client", {});
 local server_host = config.host or "localhost";
 local server_port = config.port or 5347;
 local server_secret = config.secret or error("client_component.secret not provided");
+local exit_on_disconnect = config.exit_on_disconnect;
 
 local __conn;
 
@@ -212,6 +213,9 @@ function listener.ondisconnect(conn, err)
 	__conn = nil;
 	module:log("error", "connection lost");
 	module:fire_event("component_client/disconnected", { reason = err });
+	if exit_on_disconnect then
+		prosody.shutdown("Shutdown by component_client disconnect");
+	end
 end
 
 function connect()
