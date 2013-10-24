@@ -37,6 +37,7 @@ local server_host = config.host or "localhost";
 local server_port = config.port or 5347;
 local server_secret = config.secret or error("client_component.secret not provided");
 local exit_on_disconnect = config.exit_on_disconnect;
+local keepalive_interval = config.keepalive_interval or 3600;
 
 local __conn;
 
@@ -216,6 +217,16 @@ function listener.ondisconnect(conn, err)
 	if exit_on_disconnect then
 		prosody.shutdown("Shutdown by component_client disconnect");
 	end
+end
+
+-- send whitespace keep-alive one an hour
+if keepalive_interval ~= 0 then
+	module:add_timer(keepalive_interval, function()
+		if __conn then
+			__conn:write(" ");
+		end
+		return keepalive_interval;
+	end);
 end
 
 function connect()
