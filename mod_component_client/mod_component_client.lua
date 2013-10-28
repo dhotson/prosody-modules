@@ -240,7 +240,7 @@ function connect()
 	end
 
 	local handler , conn = server.wrapclient ( conn , server_host , server_port , listener , "*l")
-	__conn = conn;
+	__conn = handler;
 	------------------------
 	return true;
 end
