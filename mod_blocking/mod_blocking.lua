@@ -9,6 +9,9 @@ module:add_feature("urn:xmpp:blocking");
 function add_blocked_jid(username, host, jid)
 	local privacy_lists = datamanager.load(username, host, "privacy") or {lists = {}};
 	local default_list_name = privacy_lists.default;
+	if not privacy_lists.lists then
+		privacy_lists.lists = {}
+	end
 	if not default_list_name then
 		default_list_name = "blocklist";
 		privacy_lists.default = default_list_name;
