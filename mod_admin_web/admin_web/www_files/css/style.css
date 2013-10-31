@@ -55,9 +55,15 @@ a {
   padding: 0;
 }
 
-#header {
-  height: 170px;
-  background: url(../images/blue_orange.png) repeat-x
+@media screen and (min-width: 757px) {
+  #header {
+    background: url(../images/blue_orange.png) repeat-x
+  }
+}
+
+#header img {
+  max-width: 100%;
+  height: auto
 }
 
 #menu {
@@ -88,6 +94,10 @@ a {
 #menu li a:hover {
   color: #6197DF;
   text-decoration: underline
+}
+
+#selector {
+  display: inline-block
 }
 
 #s2sList h2, #c2sList h2 {
