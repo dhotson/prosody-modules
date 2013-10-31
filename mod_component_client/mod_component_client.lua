@@ -249,3 +249,10 @@ if not s then
 	listener.ondisconnect(nil, err);
 end
 
+module:hook_global("server-stopping", function(event)
+	local reason = event.reason;
+	if session then
+		session:close{ condition = "system-shutdown", text = reason };
+	end
+end, 1000);
+
