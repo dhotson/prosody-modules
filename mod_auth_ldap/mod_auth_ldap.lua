@@ -43,10 +43,8 @@ end
 function provider.set_password(username, password)
 	local dn, attr = get_user(username);
 	if not dn then return nil, attr end
-	if attr.password ~= password then
-		ld:modify(dn, { '=', userPassword = password });
-	end
-	return true
+	if attr.userPassword == password then return true end
+	return ld:modify(dn, { '=', userPassword = password })();
 end
 function provider.create_user(username, password) return nil, "Account creation not available with LDAP."; end
 
