@@ -239,7 +239,7 @@ function connect()
 		return nil, err;
 	end
 
-	local handler , conn = server.wrapclient ( conn , server_host , server_port , listener , "*l")
+	local handler , conn = server.wrapclient ( conn , server_host , server_port , listener , "*a")
 	__conn = handler;
 	------------------------
 	return true;
