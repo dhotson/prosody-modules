@@ -4,10 +4,10 @@ local nodeprep = require "util.encodings".stringprep.nodeprep;
 function generate_captcha(display_options)
 	return (([[
 		<script type="text/javascript"
-     		src="http://www.google.com/recaptcha/api/challenge?k=$$recaptcha_public_key$$">
+     		src="https://www.google.com/recaptcha/api/challenge?k=$$recaptcha_public_key$$">
   		</script>
   		<noscript>
-     		<iframe src="http://www.google.com/recaptcha/api/noscript?k=$$recaptcha_public_key$$$$recaptcha_display_error$$"
+     		<iframe src="https://www.google.com/recaptcha/api/noscript?k=$$recaptcha_public_key$$$$recaptcha_display_error$$"
          		height="300" width="500" frameborder="0"></iframe><br>
      		<textarea name="recaptcha_challenge_field" rows="3" cols="40">
      		</textarea>
@@ -77,7 +77,7 @@ end
 function handle_form(event)
 	local request, response = event.request, event.response;
 	local form = http.formdecode(request.body);
-	http.request("http://www.google.com/recaptcha/api/verify", {
+	http.request("https://www.google.com/recaptcha/api/verify", {
 		body = http.formencode {
 			privatekey = captcha_options.recaptcha_private_key;
 			remoteip = request.conn:ip();
