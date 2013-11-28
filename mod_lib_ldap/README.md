@@ -149,3 +149,4 @@ This set of plugins is missing a few features, some of which are really just ide
   * Non-hardcoded LDAP groups (derive groups from LDAP queries)
   * LDAP-based MUCs (like a private MUC per group, or something)
   * This suite of plugins was developed with a POSIX-style setup in mind; YMMV. Patches to work with other setups are welcome!
+  * Add ability for users to change their vCard/passwords/etc from within Prosody
