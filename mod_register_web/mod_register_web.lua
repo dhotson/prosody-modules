@@ -3,6 +3,12 @@ local nodeprep = require "util.encodings".stringprep.nodeprep;
 local usermanager = require "core.usermanager";
 local http = require "util.http";
 
+local extra_fields = {
+	nick = true; name = true; first = true; last = true; email = true;
+	address = true; city = true; state = true; zip = true;
+	phone = true; url = true; date = true;
+}
+
 function template(data)
 	-- Like util.template, but deals with plain text
 	return { apply = function(values) return (data:gsub("{([^}]+)}", values)); end }
@@ -110,6 +116,16 @@ function register_user(form)
 	end
 	local ok, err = usermanager.create_user(prepped_username, form.password, module.host);
 	if ok then
+		local extra_data = {};
+		for field in pairs(extra_fields) do
+			local field_value = form[field];
+			if field_value and #field_value > 0 then
+				extra_data[field] = field_value;
+			end
+		end
+		if next(first) ~= nil then
+			datamanager.store(prepped_username, module.host, "account_details", extra_data);
+		end
 		module:fire_event("user-registered", {
 			username = prepped_username,
 			host = module.host,
