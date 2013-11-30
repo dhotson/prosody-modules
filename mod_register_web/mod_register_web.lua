@@ -100,11 +100,11 @@ function generate_page(event, display_options)
 end
 
 function register_user(form)
-        local prepped_username = nodeprep(form.username);
-        if usermanager.user_exists(prepped_username, module.host) then
-                return nil, "user-exists";
-        end
-        return usermanager.create_user(prepped_username, form.password, module.host);
+	local prepped_username = nodeprep(form.username);
+	if usermanager.user_exists(prepped_username, module.host) then
+		return nil, "user-exists";
+	end
+	return usermanager.create_user(prepped_username, form.password, module.host);
 end
 
 function generate_success(event, form)
