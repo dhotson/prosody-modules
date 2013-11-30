@@ -111,6 +111,9 @@ function register_user(form)
 	if not prepped_username then
 		return nil, "Username contains forbidden characters";
 	end
+	if #prepped_username == 0 then
+		return nil, "The username field was empty";
+	end
 	if usermanager.user_exists(prepped_username, module.host) then
 		return nil, "Username already taken";
 	end
