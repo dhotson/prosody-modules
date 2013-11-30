@@ -26,6 +26,23 @@ function generate_captcha(display_options)
   		end })
   	));
 end
+function verify_captcha(form, callback)
+	http.request("https://www.google.com/recaptcha/api/verify", {
+		body = http.formencode {
+			privatekey = captcha_options.recaptcha_private_key;
+			remoteip = request.conn:ip();
+			challenge = form.recaptcha_challenge_field;
+			response = form.recaptcha_response_field;
+		};
+	}, function (verify_result, code)
+		local verify_ok, verify_err = verify_result:match("^([^\n]+)\n([^\n]+)");
+		if verify_ok == "true" then
+			callback(true);
+		else
+			callback(false, verify_err)
+		end
+	end);
+end
 
 function generate_page(event, display_options)
 	local request = event.request;
@@ -79,20 +96,12 @@ end
 function handle_form(event)
 	local request, response = event.request, event.response;
 	local form = http.formdecode(request.body);
-	http.request("https://www.google.com/recaptcha/api/verify", {
-		body = http.formencode {
-			privatekey = captcha_options.recaptcha_private_key;
-			remoteip = request.conn:ip();
-			challenge = form.recaptcha_challenge_field;
-			response = form.recaptcha_response_field;
-		};
-	}, function (verify_result, code)
-		local verify_ok, verify_err = verify_result:match("^([^\n]+)\n([^\n]+)");
-		if verify_ok == "true" then
+	verify_captcha(form, function (ok, err)
+		if ok then
 			local register_ok, register_err = register_user(form);
 			response:send(generate_register_response(event, form, register_ok, register_err));
 		else
-			response:send(generate_page(event, { register_error = verify_err }));
+			response:send(generate_page(event, { register_error = err }));
 		end
 	end);
 	return true; -- Leave connection open until we respond above
