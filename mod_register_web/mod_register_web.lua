@@ -101,8 +101,11 @@ end
 
 function register_user(form)
 	local prepped_username = nodeprep(form.username);
+	if not prepped_username then
+		return nil, "Username contains forbidden characters";
+	end
 	if usermanager.user_exists(prepped_username, module.host) then
-		return nil, "user-exists";
+		return nil, "Username already taken";
 	end
 	return usermanager.create_user(prepped_username, form.password, module.host);
 end
