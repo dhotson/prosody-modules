@@ -55,15 +55,16 @@ if next(captcha_options) ~= nil then
 	end
 else
 	module:log("debug", "No Recaptcha options set, using fallback captcha")
+	local random = math.random;
 	local hmac_sha1 = require "util.hashes".hmac_sha1;
 	local secret = require "util.uuid".generate()
 	local ops = { '+', '-' };
 	local captcha_tpl = get_template "simplecaptcha";
 	function generate_captcha()
-		local op = ops[math.random(1, #ops)];
-		local x, y = math.random(1, 9)
+		local op = ops[random(1, #ops)];
+		local x, y = random(1, 9)
 		repeat
-			y = math.random(1, 9);
+			y = random(1, 9);
 		until x ~= y;
 		local answer;
 		if op == '+' then
