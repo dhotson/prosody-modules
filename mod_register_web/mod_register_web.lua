@@ -117,7 +117,7 @@ function register_user(form)
 	if usermanager.user_exists(prepped_username, module.host) then
 		return nil, "Username already taken";
 	end
-	local registering = { username = username , host = host, allowed = true }
+	local registering = { username = prepped_username , host = module.host, allowed = true }
 	module:fire_event("user-registering", registering);
 	if not registering.allowed then
 		return nil, "Registration not allowed";
@@ -131,7 +131,7 @@ function register_user(form)
 				extra_data[field] = field_value;
 			end
 		end
-		if next(first) ~= nil then
+		if next(extra_data) ~= nil then
 			datamanager.store(prepped_username, module.host, "account_details", extra_data);
 		end
 		module:fire_event("user-registered", {
