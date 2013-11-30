@@ -21,35 +21,72 @@ end
 
 local register_tpl = get_template "register";
 local success_tpl = get_template "success";
-local recaptcha_tpl = get_template "recaptcha";
 
-function generate_captcha(display_options)
-	return recaptcha_tpl.apply(setmetatable({
-  		recaptcha_display_error = display_options and display_options.recaptcha_error
-  			and ("&error="..display_options.recaptcha_error) or "";
-  	}, {
-  		__index = function (t, k)
-  			if captcha_options[k] then return captcha_options[k]; end
-  			module:log("error", "Missing parameter from captcha_options: %s", k);
+if next(captcha_options) ~= nil then
+	local recaptcha_tpl = get_template "recaptcha";
+
+	function generate_captcha(display_options)
+		return recaptcha_tpl.apply(setmetatable({
+	  		recaptcha_display_error = display_options and display_options.recaptcha_error
+	  			and ("&error="..display_options.recaptcha_error) or "";
+	  	}, {
+	  		__index = function (t, k)
+	  			if captcha_options[k] then return captcha_options[k]; end
+	  			module:log("error", "Missing parameter from captcha_options: %s", k);
+			end
+		}));
+	end
+	function verify_captcha(form, callback)
+		http.request("https://www.google.com/recaptcha/api/verify", {
+			body = http.formencode {
+				privatekey = captcha_options.recaptcha_private_key;
+				remoteip = request.conn:ip();
+				challenge = form.recaptcha_challenge_field;
+				response = form.recaptcha_response_field;
+			};
+		}, function (verify_result, code)
+			local verify_ok, verify_err = verify_result:match("^([^\n]+)\n([^\n]+)");
+			if verify_ok == "true" then
+				callback(true);
+			else
+				callback(false, verify_err)
+			end
+		end);
+	end
+else
+	module:log("debug", "No Recaptcha options set, using fallback captcha")
+	local hmac_sha1 = require "util.hashes".hmac_sha1;
+	local secret = require "util.uuid".generate()
+	local ops = { '+', '-' };
+	local captcha_tpl = get_template "simplecaptcha";
+	function generate_captcha()
+		local op = ops[math.random(1, #ops)];
+		local x, y = math.random(1, 9)
+		repeat
+			y = math.random(1, 9);
+		until x ~= y;
+		local answer;
+		if op == '+' then
+			answer = x + y;
+		elseif op == '-' then
+			if x < y then
+				-- Avoid negative numbers
+				x, y = y, x;
+			end
+			answer = x - y;
 		end
-	}));
-end
-function verify_captcha(form, callback)
-	http.request("https://www.google.com/recaptcha/api/verify", {
-		body = http.formencode {
-			privatekey = captcha_options.recaptcha_private_key;
-			remoteip = request.conn:ip();
-			challenge = form.recaptcha_challenge_field;
-			response = form.recaptcha_response_field;
+		local challenge = hmac_sha1(secret, answer, true);
+		return captcha_tpl.apply {
+			op = op, x = x, y = y, challenge = challenge;
 		};
-	}, function (verify_result, code)
-		local verify_ok, verify_err = verify_result:match("^([^\n]+)\n([^\n]+)");
-		if verify_ok == "true" then
+	end
+	function verify_captcha(form, callback)
+		if hmac_sha1(secret, form.captcha_reply, true) == form.captcha_challenge then
 			callback(true);
 		else
-			callback(false, verify_err)
+			callback(false, "Captcha verification failed");
 		end
-	end);
+	end
 end
 
 function generate_page(event, display_options)
