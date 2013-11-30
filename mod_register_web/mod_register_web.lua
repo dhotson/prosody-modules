@@ -36,7 +36,7 @@ if next(captcha_options) ~= nil then
 			end
 		}));
 	end
-	function verify_captcha(form, callback)
+	function verify_captcha(request, form, callback)
 		http.request("https://www.google.com/recaptcha/api/verify", {
 			body = http.formencode {
 				privatekey = captcha_options.recaptcha_private_key;
@@ -81,7 +81,7 @@ else
 			op = op, x = x, y = y, challenge = challenge;
 		};
 	end
-	function verify_captcha(form, callback)
+	function verify_captcha(request, form, callback)
 		if hmac_sha1(secret, form.captcha_reply, true) == form.captcha_challenge then
 			callback(true);
 		else
@@ -135,7 +135,7 @@ end
 function handle_form(event)
 	local request, response = event.request, event.response;
 	local form = http.formdecode(request.body);
-	verify_captcha(form, function (ok, err)
+	verify_captcha(request, form, function (ok, err)
 		if ok then
 			local register_ok, register_err = register_user(form);
 			response:send(generate_register_response(event, form, register_ok, register_err));
