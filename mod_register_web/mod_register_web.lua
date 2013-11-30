@@ -1,5 +1,7 @@
 local captcha_options = module:get_option("captcha_options", {});
 local nodeprep = require "util.encodings".stringprep.nodeprep;
+local usermanager = require "core.usermanager";
+local http = require "util.http";
 
 function generate_captcha(display_options)
 	return (([[
