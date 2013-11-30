@@ -108,7 +108,7 @@ function register_user(form)
 	if usermanager.user_exists(prepped_username, module.host) then
 		return nil, "Username already taken";
 	end
-	local ok, err usermanager.create_user(prepped_username, form.password, module.host);
+	local ok, err = usermanager.create_user(prepped_username, form.password, module.host);
 	if ok then
 		module:fire_event("user-registered", {
 			username = prepped_username,
