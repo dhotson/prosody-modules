@@ -3,28 +3,36 @@ local nodeprep = require "util.encodings".stringprep.nodeprep;
 local usermanager = require "core.usermanager";
 local http = require "util.http";
 
+function template(data)
+	-- Like util.template, but deals with plain text
+	return { apply = function(values) return (data:gsub("{([^}]+)}", values)); end }
+end
+
+local function get_template(name)
+	local fh = assert(module:load_resource("templates/"..name..".html"));
+	local data = assert(fh:read("*a"));
+	fh:close();
+	return template(data);
+end
+
+local function render(template, data)
+	return tostring(template.apply(data));
+end
+
+local register_tpl = get_template "register";
+local success_tpl = get_template "success";
+local recaptcha_tpl = get_template "recaptcha";
+
 function generate_captcha(display_options)
-	return (([[
-		<script type="text/javascript"
-     		src="https://www.google.com/recaptcha/api/challenge?k=$$recaptcha_public_key$$">
-  		</script>
-  		<noscript>
-     		<iframe src="https://www.google.com/recaptcha/api/noscript?k=$$recaptcha_public_key$$$$recaptcha_display_error$$"
-         		height="300" width="500" frameborder="0"></iframe><br>
-     		<textarea name="recaptcha_challenge_field" rows="3" cols="40">
-     		</textarea>
-     		<input type="hidden" name="recaptcha_response_field"
-         		value="manual_challenge">
-  		</noscript>
-  	]]):gsub("$$([^$]+)$%$", setmetatable({
+	return recaptcha_tpl.apply(setmetatable({
   		recaptcha_display_error = display_options and display_options.recaptcha_error
   			and ("&error="..display_options.recaptcha_error) or "";
   	}, {
   		__index = function (t, k)
   			if captcha_options[k] then return captcha_options[k]; end
   			module:log("error", "Missing parameter from captcha_options: %s", k);
-  		end })
-  	));
+		end
+	}));
 end
 function verify_captcha(form, callback)
 	http.request("https://www.google.com/recaptcha/api/verify", {
@@ -46,27 +54,12 @@ end
 
 function generate_page(event, display_options)
 	local request = event.request;
-	return [[<!DOCTYPE html>
-	<html><body>
-	<h1>XMPP Account Registration</h1>
-	<form action="]]..request.path..[[" method="POST">]]
-	..("<p>%s</p>\n"):format((display_options or {}).register_error or "")..
-	[[	<table>
-		<tr>
-			<td>Username:</td>
-			<td><input type="text" name="username">@]]..module.host..[[</td>
-		</tr>
-		<tr>
-			<td>Password:</td>
-			<td><input type="password" name="password"></td>
-		</tr>
-		<tr>
-			<td colspan='2'>]]..generate_captcha(display_options)..[[</td>
-		</tr>
-		</table>
-		<input type="submit" value="Register!">
-	</form>
-	</body></html>]];
+
+	return render(register_tpl, {
+		path = request.path; hostname = module.host;
+		notice = display_options and display_options.register_error or "";
+		captcha = generate_captcha(display_options);
+	})
 end
 
 function register_user(form)
@@ -78,10 +71,7 @@ function register_user(form)
 end
 
 function generate_success(event, form)
-	return [[<!DOCTYPE html>
-	<html><body><p>Registration succeeded! Your account is <pre>]]
-		..form.username.."@"..module.host..
-	[[</pre> - happy chatting!</p></body></html>]];
+	return render(success_tpl, { jid = nodeprep(form.username).."@"..module.host });
 end
 
 function generate_register_response(event, form, ok, err)
