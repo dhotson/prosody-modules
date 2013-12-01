@@ -173,6 +173,8 @@ end
 module:provides("http", {
 	route = {
 		GET = generate_page;
+		["GET /"] = generate_page;
 		POST = handle_form;
+		["POST /"] = handle_form;
 	};
 });
