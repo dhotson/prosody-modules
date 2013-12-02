@@ -45,7 +45,11 @@ function handle_update(event)
 	module:log("debug", "Item published: %q", event.node);
 	local node = event.node;
 	local clientlist = streams[node];
-	local data = "data: "..tostring(event.item):gsub("\n", "\ndata: \n").."\n\n";
+	local item = event.item;
+	if (item.name == "json" and item.attr.xmlns == "urn:xmpp:json:0") or (item.name == "data" and item.attr.xmlns == "https://prosody.im/protocol/data") then
+		item = item[1];
+	end
+	local data = "data: "..tostring(item):gsub("\n", "\ndata: \n").."\n\n";
 	if not clientlist then module:log("debug", "No clients for %q", node); return; end
 	for response, conn in pairs(clientlist) do
 		conn:write(data);
