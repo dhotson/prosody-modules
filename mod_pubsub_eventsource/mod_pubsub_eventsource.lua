@@ -24,6 +24,9 @@ function serve_stream(event, node)
 	response.conn:write(table.concat({
 		"HTTP/1.1 200 OK";
 		"Content-Type: text/event-stream";
+		"Access-Control-Allow-Origin: *";
+		"Access-Control-Allow-Methods: GET";
+		"Access-Control-Max-Age: 7200";
 		"";
 		"";	
 	}, "\r\n"));
