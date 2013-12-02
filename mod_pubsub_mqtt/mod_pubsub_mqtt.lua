@@ -41,7 +41,7 @@ function packet_handlers.publish(session, packet)
 	end
 	local id = "mqtt";
 	local ok, err = pubsub:publish(node, true, id,
-		st.stanza("data", { xmlns = "https://prosody.im/protocol/mqtt" })
+		st.stanza("data", { xmlns = "https://prosody.im/protocol/data" })
 			:text(packet.data)
 	);
 	if not ok then
