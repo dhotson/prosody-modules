@@ -121,7 +121,7 @@ local function tostring_content(item)
 end
 
 local data_translators = setmetatable({
-	["data https://prosody.im/protocol/mqtt"] = tostring_content;
+	["data https://prosody.im/protocol/data"] = tostring_content;
 	["json urn:xmpp:json:0"] = tostring_content;
 }, {
 	__index = function () return tostring; end;
