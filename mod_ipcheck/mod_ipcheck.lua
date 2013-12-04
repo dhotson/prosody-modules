@@ -31,8 +31,10 @@ module:hook("iq/bare/urn:xmpp:sic:1:address", function(event)
 		elseif origin.ip then
 			local reply = st.reply(stanza):tag("address", {xmlns='urn:xmpp:sic:0'})
 				:tag("ip"):text(origin.ip):up()
-			if origin.conn and origin.conn.port then
+			if origin.conn and origin.conn.port then -- server_event
 				reply:tag("port"):text(tostring(origin.conn:port()))
+			elseif origin.conn and origin.conn.clientport then -- server_select
+				reply:tag("port"):text(tostring(origin.conn:clientport()))
 			end
 			origin.send(reply);
 		else
