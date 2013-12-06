@@ -1,7 +1,7 @@
 local captcha_options = module:get_option("captcha_options", {});
 local nodeprep = require "util.encodings".stringprep.nodeprep;
 local usermanager = require "core.usermanager";
-local http = require "util.http";
+local http = require "net.http";
 
 local extra_fields = {
 	nick = true; name = true; first = true; last = true; email = true;
