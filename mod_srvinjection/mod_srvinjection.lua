@@ -3,9 +3,10 @@ module:set_global();
 
 local adns = require "net.adns";
 
-local map = module:get_option("srvinjection") or {};
+local map_config = module:get_option("srvinjection") or {};
+local map = module:shared "s2s_map"
 
-for host, mapping in pairs(map) do
+for host, mapping in pairs(map_config) do
 	if type(mapping) == "table" and type(mapping[1]) == "string" and (type(mapping[2]) == "number") then
 		local connecthost, connectport = mapping[1], mapping[2] or 5269;
 		map[host] = {{
