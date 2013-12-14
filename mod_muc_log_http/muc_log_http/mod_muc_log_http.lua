@@ -709,8 +709,8 @@ function module.load()
 
 	module:provides("http", {
 		default_path = url_base,
-	        route = {
-                	["GET /*"] = handle_request;
-        	}
+		route = {
+			["GET /*"] = handle_request;
+		}
 	});
 end
