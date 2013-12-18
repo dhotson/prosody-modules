@@ -58,7 +58,7 @@ module:hook("presence/host", handle_stanza, -1);
 function handle_component_auth(event)
 	local session, stanza = event.origin, event.stanza;
 	
-	if session.type ~= "component" then return; end
+	if session.type ~= "component_unauthed" then return; end
 	if sessions[session] then return; end
 
 	if (not session.host) or #stanza.tags > 0 then
@@ -92,4 +92,4 @@ function handle_component_auth(event)
 	return true;
 end
 
-module:hook("stanza/jabber:component:accept:handshake", handle_component_auth);
+module:hook("stanza/jabber:component:accept:handshake", handle_component_auth, 10);
