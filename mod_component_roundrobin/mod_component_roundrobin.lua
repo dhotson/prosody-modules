@@ -86,6 +86,7 @@ function handle_component_auth(event)
 	sessions[session] = true;
 	session.on_destroy = on_destroy;
 	session.component_validate_from = module:get_option_boolean("validate_from_addresses", true);
+	session.type = "component";
 	log("info", "Component successfully authenticated: %s", session.host);
 	session.send(st.stanza("handshake"));
 	
