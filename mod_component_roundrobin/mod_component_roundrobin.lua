@@ -21,14 +21,15 @@ local log = module._log;
 
 local sessions = {};
 
+local last_session;
 local function on_destroy(session, err)
 	if sessions[session] then
+		if last_session == session then last_session = nil; end
 		sessions[session] = nil;
 		session.on_destroy = nil;
 	end
 end
 
-local last_session;
 local function handle_stanza(event)
 	local stanza = event.stanza;
 	if next(sessions) then
