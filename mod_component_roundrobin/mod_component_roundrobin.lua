@@ -19,7 +19,7 @@ local st = require "util.stanza";
 
 local log = module._log;
 
-local sessions = {};
+local sessions = module:shared("sessions");
 
 local last_session;
 local function on_destroy(session, err)
