@@ -60,15 +60,20 @@ module:hook("s2s-check-certificate", function(event)
 					certdata = pem2der(cert:pem());
 				elseif select == 1 then
 					certdata = pem2der(cert:pubkey());
+				else
+					module:log("warn", "DANE selector %d is unsupported", select);
 				end
 				if match == 1 then
 					certdata = hashes.sha256(certdata);
 				elseif match == 2 then
 					certdata = hashes.sha512(certdata);
+				elseif match ~= 0 then
+					module:log("warn", "DANE match rule %d is unsupported", match);
+					certdata = nil
 				end
 
 				-- Should we check if the cert subject matches?
-				if certdata == tlsa.data then
+				if certdata and certdata == tlsa.data then
 					(session.log or module._log)("info", "DANE validation successful");
 					session.cert_identity_status = "valid"
 					if use == 3 then
@@ -78,7 +83,7 @@ module:hook("s2s-check-certificate", function(event)
 					break;
 				end
 			else
-				module:log("warn", "DANE %s is unsupported", tlsa:getUsage());
+				module:log("warn", "DANE %s is unsupported", tlsa:getUsage() or ("usage "..tostring(use)));
 				-- TODO Ca checks needs to loop over the chain and stuff
 			end
 		end
