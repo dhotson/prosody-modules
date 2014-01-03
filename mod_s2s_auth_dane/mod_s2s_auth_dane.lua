@@ -31,7 +31,7 @@ function s2sout.try_connect(host_session, connect_host, connect_port, err)
 	local srv_choice = host_session.srv_choice;
 	if srv_hosts and srv_hosts.answer.secure and not srv_hosts[srv_choice].dane then
 		dns_lookup(function(answer)
-			if answer and #answer > 0 then
+			if answer and ( #answer > 0 or answer.bogus ) then
 				srv_hosts[srv_choice].dane = answer;
 				for i, tlsa in ipairs(answer) do
 					module:log("debug", "TLSA %s", tostring(tlsa));
@@ -48,7 +48,7 @@ module:hook("s2s-check-certificate", function(event)
 	local srv_choice = session.srv_choice;
 	local choosen = srv_hosts and srv_hosts[srv_choice];
 	if choosen and choosen.dane then
-		local use, select, match, tlsa, certdata
+		local use, select, match, tlsa, certdata, match_found
 		for i, rr in ipairs(choosen.dane) do
 			tlsa = rr.tlsa
 			module:log("debug", "TLSA %s", tostring(tlsa));
@@ -80,6 +80,7 @@ module:hook("s2s-check-certificate", function(event)
 						session.cert_chain_status = "valid"
 						-- for usage 1 the chain has to be valid already
 					end
+					match_found = true
 					break;
 				end
 			else
@@ -87,9 +88,12 @@ module:hook("s2s-check-certificate", function(event)
 				-- TODO Ca checks needs to loop over the chain and stuff
 			end
 		end
+		if not match_found then
+			(session.log or module._log)("info", "DANE validation successful");
+			session.cert_identity_status = "invalid";
+			session.cert_chain_status = "invalid";
+		end
 	end
-
-	-- TODO Optionally, if no TLSA record matches, mark connection as untrusted.
 end);
 
 function module.unload()
