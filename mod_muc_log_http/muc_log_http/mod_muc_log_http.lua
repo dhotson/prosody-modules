@@ -62,6 +62,9 @@ function urlunescape (url)
 	url = url:gsub("\r\n", "\n")
 	return url
 end
+local function urlencode(s)
+	return s and (s:gsub("[^a-zA-Z0-9.~_-]", function (c) return ("%%%02x"):format(c:byte()); end));
+end
 
 local function generate_room_list(component)
 	local rooms = "";
@@ -70,7 +73,7 @@ local function generate_room_list(component)
 		for jid, room in pairs(component_host.muc.rooms) do
 			local node = split_jid(jid);
 			if not room._data.hidden and room._data.logging and node then
-				rooms = rooms .. html.rooms.bit:gsub("###ROOM###", node):gsub("###COMPONENT###", component);
+				rooms = rooms .. html.rooms.bit:gsub("###ROOM###", urlencode(node)):gsub("###COMPONENT###", component);
 			end
 		end
 		return html.rooms.body:gsub("###ROOMS_STUFF###", rooms):gsub("###COMPONENT###", component), "Chatroom logs for "..component;
@@ -242,7 +245,7 @@ local function generate_day_room_content(bare_room_jid)
 					found = 1
 				end
 
-				rooms = rooms .. html.days.rooms.bit:gsub("###ROOM###", node);
+				rooms = rooms .. html.days.rooms.bit:gsub("###ROOM###", urlencode(node));
 			end
 		end
 
