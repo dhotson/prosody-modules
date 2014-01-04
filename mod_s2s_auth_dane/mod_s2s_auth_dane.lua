@@ -1,6 +1,6 @@
 -- mod_s2s_auth_dane
 --
--- Between the DNS lookup and the chertificate validation, there is a race condition.
+-- Between the DNS lookup and the certificate validation, there is a race condition.
 -- Solving that probably requires changes to mod_s2s, like using util.async
 
 
