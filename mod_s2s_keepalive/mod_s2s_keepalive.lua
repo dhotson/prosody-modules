@@ -19,7 +19,7 @@ local function send_pings()
 	for session in pairs(prosody.incoming_s2s) do
 		if session.type == "s2sin" -- as opposed to _unauthed
 		and (not(keepalive_servers) or keepalive_servers:contains(session.from_host)) then
-			session.conn:send " ";
+			session.sends2s " ";
 			-- If the connection is dead, this should make it time out.
 		end
 	end
