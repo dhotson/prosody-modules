@@ -89,7 +89,7 @@ module:hook("s2s-check-certificate", function(event)
 			end
 		end
 		if not match_found then
-			(session.log or module._log)("info", "DANE validation successful");
+			(session.log or module._log)("warn", "DANE validation failed");
 			session.cert_identity_status = "invalid";
 			session.cert_chain_status = "invalid";
 		end
