@@ -11,7 +11,7 @@ local hashes = require"util.hashes";
 local base64 = require"util.encodings".base64;
 
 local s2sout = module:depends"s2s".route_to_new_session.s2sout;
-local _try_connect = s2sout.try_connect
+local _try_connect = s2sout.try_connect;
 
 local pat = "%-%-%-%-%-BEGIN ([A-Z ]+)%-%-%-%-%-\r?\n"..
 "([0-9A-Za-z=+/\r\n]*)\r?\n%-%-%-%-%-END %1%-%-%-%-%-";
@@ -37,9 +37,9 @@ function s2sout.try_connect(host_session, connect_host, connect_port, err)
 					module:log("debug", "TLSA %s", tostring(tlsa));
 				end
 			end
-		end, ("_%d._tcp.%s"):format(connect_port, connect_host), "TLSA")
+		end, ("_%d._tcp.%s"):format(connect_port, connect_host), "TLSA");
 	end
-	return _try_connect(host_session, connect_host, connect_port, err)
+	return _try_connect(host_session, connect_host, connect_port, err);
 end
 
 module:hook("s2s-check-certificate", function(event)
@@ -48,9 +48,9 @@ module:hook("s2s-check-certificate", function(event)
 	local srv_choice = session.srv_choice;
 	local choosen = srv_hosts and srv_hosts[srv_choice];
 	if choosen and choosen.dane then
-		local use, select, match, tlsa, certdata, match_found
+		local use, select, match, tlsa, certdata, match_found;
 		for i, rr in ipairs(choosen.dane) do
-			tlsa = rr.tlsa
+			tlsa = rr.tlsa;
 			module:log("debug", "TLSA %s", tostring(tlsa));
 			use, select, match, certdata = tlsa.use, tlsa.select, tlsa.match;
 
@@ -69,18 +69,18 @@ module:hook("s2s-check-certificate", function(event)
 					certdata = hashes.sha512(certdata);
 				elseif match ~= 0 then
 					module:log("warn", "DANE match rule %d is unsupported", match);
-					certdata = nil
+					certdata = nil;
 				end
 
 				-- Should we check if the cert subject matches?
 				if certdata and certdata == tlsa.data then
 					(session.log or module._log)("info", "DANE validation successful");
-					session.cert_identity_status = "valid"
+					session.cert_identity_status = "valid";
 					if use == 3 then
-						session.cert_chain_status = "valid"
+						session.cert_chain_status = "valid";
 						-- for usage 1 the chain has to be valid already
 					end
-					match_found = true
+					match_found = true;
 					break;
 				end
 			else
