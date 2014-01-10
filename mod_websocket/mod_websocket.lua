@@ -177,7 +177,7 @@ function handle_request(event, path)
 					websocket_close(1002, "Closed with invalid status code");
 					return false;
 				elseif ((status_code > 1003 and status_code < 1007) or status_code > 1011) and status_code < 3000 then
-					websocket_close(1002, "Cosed with reserved status code");
+					websocket_close(1002, "Closed with reserved status code");
 					return false;
 				end
 			end
