@@ -33,12 +33,16 @@ local rooms = hosts[module.host].modules.muc.rooms;
 
 module:hook("muc-config-form", function(event)
 	local room, form = event.room, event.form;
+	local logging_enabled = room._data.logging;
+	if logging_enabled == nil then
+		logging_enabled = log_by_default;
+	end
 	table.insert(form,
 	{
 		name = muc_form_config_option,
 		type = "boolean",
 		label = "Enable Logging?",
-		value = room._data.logging or false,
+		value = logging_enabled,
 	}
 	);
 end);
