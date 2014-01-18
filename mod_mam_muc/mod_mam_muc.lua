@@ -31,34 +31,36 @@ local advertise_archive = module:get_option_boolean("muc_log_advertise", true);
 local archive = module:open_store("archive2", "archive");
 local rooms = hosts[module.host].modules.muc.rooms;
 
-module:hook("muc-config-form", function(event)
-	local room, form = event.room, event.form;
-	local logging_enabled = room._data.logging;
-	if logging_enabled == nil then
-		logging_enabled = log_by_default;
-	end
-	table.insert(form,
-	{
-		name = muc_form_config_option,
-		type = "boolean",
-		label = "Enable Logging?",
-		value = logging_enabled,
-	}
-	);
-end);
-
-module:hook("muc-config-submitted", function(event)
-	local room, fields, changed = event.room, event.fields, event.changed;
-	local new = fields[muc_form_config_option];
-	if new ~= room._data.logging then
-		room._data.logging = new;
-		if type(changed) == "table" then
-			changed[muc_form_config_option] = true;
-		else
-			event.changed = true;
+if not log_all_rooms then
+	module:hook("muc-config-form", function(event)
+		local room, form = event.room, event.form;
+		local logging_enabled = room._data.logging;
+		if logging_enabled == nil then
+			logging_enabled = log_by_default;
 		end
-	end
-end);
+		table.insert(form,
+		{
+			name = muc_form_config_option,
+			type = "boolean",
+			label = "Enable Logging?",
+			value = logging_enabled,
+		}
+		);
+	end);
+
+	module:hook("muc-config-submitted", function(event)
+		local room, fields, changed = event.room, event.fields, event.changed;
+		local new = fields[muc_form_config_option];
+		if new ~= room._data.logging then
+			room._data.logging = new;
+			if type(changed) == "table" then
+				changed[muc_form_config_option] = true;
+			else
+				event.changed = true;
+			end
+		end
+	end);
+end
 
 
 -- Handle archive queries
