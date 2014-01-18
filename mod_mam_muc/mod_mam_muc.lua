@@ -184,6 +184,10 @@ end
 
 module:hook("message/bare", message_handler, 2);
 
+module:hook("muc-room-destroyed", function(event)
+	archive:delete(jid_split(event.room.jid));
+end);
+
 -- TODO should we perhaps log presence as well?
 -- And role/affiliation changes?
 
