@@ -12,6 +12,7 @@ local st = require "util.stanza";
 local rsm = module:require "mod_mam/rsm";
 local jid_bare = require "util.jid".bare;
 local jid_split = require "util.jid".split;
+local room_mt = module:depends"muc".room_mt;
 
 local getmetatable = getmetatable;
 local function is_stanza(x)
@@ -23,6 +24,7 @@ local time_now = os.time;
 local m_min = math.min;
 local timestamp, timestamp_parse = require "util.datetime".datetime, require "util.datetime".parse;
 local default_max_items, max_max_items = 20, module:get_option_number("max_archive_query_results", 50);
+local max_history_length = module:get_option_number("max_history_messages", 1000);
 
 local log_all_rooms = module:get_option_boolean("muc_log_all_rooms", false);
 local log_by_default = module:get_option_boolean("muc_log_by_default", true);
@@ -62,6 +64,10 @@ if not log_all_rooms then
 	end);
 end
 
+local _send_history = room_mt.send_history;
+function module.unload()
+	room_mt.send_history = _send_history;
+end
 
 -- Handle archive queries
 module:hook("iq-get/bare/"..xmlns_mam..":query", function(event)
@@ -148,6 +154,54 @@ module:hook("iq-get/bare/"..xmlns_mam..":query", function(event)
 		:query(xmlns_mam):add_child(rsm.generate {
 			first = first, last = last, count = count }));
 end);
+
+function room_mt:send_history(to, stanza)
+	local maxchars, maxstanzas, seconds, since;
+	local history_tag = stanza:find("{http://jabber.org/protocol/muc}x/history")
+	if history_tag then
+		module:log("debug", tostring(history_tag));
+		local history_attr = history_tag.attr;
+		maxchars = tonumber(history_attr.maxchars);
+		maxstanzas = tonumber(history_attr.maxstanzas);
+		seconds = tonumber(history_attr.seconds);
+		since = history_attr.since;
+		if since then
+			since = timestamp_parse(since);
+		end
+		if seconds then
+			since = math.max(os.time() - seconds, since or 0);
+		end
+	end
+
+	-- Load all the data!
+	local data, err = archive:find(jid_split(self.jid), {
+		limit = m_min(maxstanzas or 20, max_history_length);
+		after = since;
+		reverse = true;
+	});
+
+	if not data then
+		module:log("error", "Could not fetch history: %s", tostring(err));
+		return
+	end
+
+	local to_send = {};
+	local charcount = 0;
+	local chars;
+	for id, item, when in data do
+		item.attr.to = to;
+		item:tag("delay", { xmlns = "urn:xmpp:delay", from = self.jid, stamp = timestamp(when) }):up(); -- XEP-0203
+		if maxchars then
+			chars = #tostring(item);
+			if chars + charcount > maxchars then break end
+			charcount = charcount + chars;
+		end
+		to_send[1+#to_send] = item;
+	end
+	for i = #to_send,1,-1 do
+		self:_route_stanza(to_send[i]);
+	end
+end
 
 -- Handle messages
 local function message_handler(event)
