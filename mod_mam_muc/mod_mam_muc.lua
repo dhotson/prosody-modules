@@ -65,8 +65,10 @@ if not log_all_rooms then
 end
 
 local _send_history = room_mt.send_history;
+local _save_to_history = room_mt.save_to_history;
 function module.unload()
 	room_mt.send_history = _send_history;
+	room_mt.save_to_history = _save_to_history;
 end
 
 -- Handle archive queries
@@ -204,39 +206,22 @@ function room_mt:send_history(to, stanza)
 end
 
 -- Handle messages
-local function message_handler(event)
-	local stanza = event.stanza;
-	local orig_type = stanza.attr.type or "normal";
+function room_mt:save_to_history(stanza)
 	local orig_to = stanza.attr.to;
-	local orig_from = stanza.attr.from;
+	local room = jid_split(self.jid);
 
-	-- Only store groupchat messages
-	if not (orig_type == "groupchat" and (stanza:get_child("body") or stanza:get_child("subject"))) then
-		return;
-		-- Chat states and other non-content messages, what TODO?
-	end
-
-	local room = jid_split(orig_to);
-	local room_obj = rooms[orig_to]
-	if not room_obj then return end -- No such room
-
+	-- Policy check
 	if not ( log_all_rooms == true -- Logging forced on all rooms
-	or (room_obj._data.logging == nil and log_by_default == true)
-	or room_obj._data.logging ) then return end -- Don't log
+	or (self._data.logging == nil and log_by_default == true)
+	or self._data.logging ) then return end -- Don't log
 
-	local nick = room_obj._jid_nick[orig_from];
-	if not nick then return end -- Message from someone not in the room?
-
-	stanza.attr.from = nick;
+	module:log("debug", "We're logging this")
 	-- And stash it
 	local ok, id = archive:append(room, time_now(), "", stanza);
-	stanza.attr.from = orig_from;
 	if ok and advertise_archive then
 		stanza:tag("archived", { xmlns = xmlns_mam, by = jid_bare(orig_to), id = id }):up();
 	end
 end
-
-module:hook("message/bare", message_handler, 2);
 
 module:hook("muc-room-destroyed", function(event)
 	archive:delete(jid_split(event.room.jid));
