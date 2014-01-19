@@ -26,7 +26,7 @@ local contact_vcards = {};
 
 -- Advertise in disco
 
-module:add_identity("server", "directory", "Prosody");
+module:add_identity("server", "directory", module:get_option_string("name", "Prosody"));
 module:add_feature("urn:xmpp:server-presence");
 
 -- Handle subscriptions
