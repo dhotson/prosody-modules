@@ -66,7 +66,7 @@ module:hook("resource-bind", function (event)
 				end
 			end
 			for session in pairs(incoming_s2s) do
-				if session.to_host == host and session.from_host == contact_host then
+				if session.to_host == host and session.from_host == contact_host and session.type == "s2sin" then
 					if not session.secure then
 						bad = true;
 					end
