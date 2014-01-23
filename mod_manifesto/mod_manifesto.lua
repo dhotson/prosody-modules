@@ -9,6 +9,7 @@ local time = os.time;
 local hosts = prosody.hosts;
 local host = module.host;
 local host_session = hosts[host];
+local incoming_s2s = prosody.incoming_s2s;
 
 local default_tpl = [[
 Hello there.
@@ -53,24 +54,34 @@ module:hook("resource-bind", function (event)
 		return
 	end
 
-	notified[session.username] = now;
 	timer.add_task(15, function ()
 		local bad_contacts, bad_hosts = {}, {};
 		for contact_jid, item in pairs(session.roster) do
-			local _, host = jid_split(contact_jid);
-			local remote_host_session = host_session.s2sout[host];
+			local _, contact_host = jid_split(contact_jid);
+			local bad = false;
+			local remote_host_session = host_session.s2sout[contact_host];
 			if remote_host_session and remote_host_session.type == "s2sout" then -- Only check remote hosts we have completed s2s connections to
 				if not remote_host_session.secure then
-					local contact_name = item.name;
-					if contact_name then
-						table.insert(bad_contacts, contact_name.." <"..contact_jid..">");
-					else
-						table.insert(bad_contacts, contact_jid);
+					bad = true;
+				end
+			end
+			for session in pairs(incoming_s2s) do
+				if session.to_host == host and session.from_host == contact_host then
+					if not session.secure then
+						bad = true;
 					end
-					if not bad_hosts[host] then
-						bad_hosts[host] = true;
-						table.insert(bad_hosts, host);
-					end
+				end
+			end
+			if bad then
+				local contact_name = item.name;
+				if contact_name then
+					table.insert(bad_contacts, contact_name.." <"..contact_jid..">");
+				else
+					table.insert(bad_contacts, contact_jid);
+				end
+				if not bad_hosts[contact_host] then
+					bad_hosts[contact_host] = true;
+					table.insert(bad_hosts, contact_host);
 				end
 			end
 		end
@@ -83,6 +94,7 @@ module:hook("resource-bind", function (event)
 			};
 			session.send(st.message({ type = "headline", from = host }):tag("body"):text(message:gsub("$(%w+)", vars)));
 		end
+		notified[session.username] = now;
 	end);
 end);
 
