@@ -56,7 +56,7 @@ module:hook("resource-bind", function (event)
 
 	timer.add_task(15, function ()
 		local bad_contacts, bad_hosts = {}, {};
-		for contact_jid, item in pairs(session.roster) do
+		for contact_jid, item in pairs(session.roster or {}) do
 			local _, contact_host = jid_split(contact_jid);
 			local bad = false;
 			local remote_host_session = host_session.s2sout[contact_host];
