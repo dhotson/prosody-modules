@@ -2,6 +2,7 @@
 
 local new_sasl = require "util.sasl".new;
 local lualdap = require "lualdap";
+local function ldap_filter_escape(s) return (s:gsub("[\\*\\(\\)\\\\%z]", function(c) return ("\\%02x"):format(c:byte()) end)); end
 
 -- Config options
 local ldap_server = module:get_option_string("ldap_server", "localhost");
@@ -9,22 +10,24 @@ local ldap_rootdn = module:get_option_string("ldap_rootdn", "");
 local ldap_password = module:get_option_string("ldap_password", "");
 local ldap_tls = module:get_option_boolean("ldap_tls");
 local ldap_scope = module:get_option_string("ldap_scope", "onelevel");
-local ldap_filter = module:get_option_string("ldap_filter", "(uid=%s)");
+local ldap_filter = module:get_option_string("ldap_filter", "(uid=$user)"):gsub("%%s", "$user", 1);
 local ldap_base = assert(module:get_option_string("ldap_base"), "ldap_base is a required option for ldap");
 local ldap_mode = module:get_option_string("ldap_mode", "getpasswd");
+local host = ldap_filter_escape(module:get_option_string("realm", module.host));
 
 -- Initiate connection
 local ld = assert(lualdap.open_simple(ldap_server, ldap_rootdn, ldap_password, ldap_tls));
 module.unload = function() ld:close(); end
-
-local function ldap_filter_escape(s) return (s:gsub("[\\*\\(\\)\\\\%z]", function(c) return ("\\%02x"):format(c:byte()) end)); end
 
 local function get_user(username)
 	module:log("debug", "get_user(%q)", username);
 	return ld:search({
 		base = ldap_base;
 		scope = ldap_scope;
-		filter = ldap_filter:format(ldap_filter_escape(username));
+		filter = ldap_filter:gsub("%$(%a+)", {
+			user = ldap_filter_escape(username);
+			host = host;
+		});
 	})();
 end
 
