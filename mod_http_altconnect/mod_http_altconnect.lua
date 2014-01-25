@@ -30,7 +30,7 @@ local function GET_xml(event)
 	end
 	response.headers.content_type = "application/xrd+xml"
 	response.headers.access_control_allow_origin = "*";
-	return tostring(xrd);
+	return '<?xml version="1.0" encoding="UTF-8"?>' .. tostring(xrd);
 end
 
 local function GET_json(event)
