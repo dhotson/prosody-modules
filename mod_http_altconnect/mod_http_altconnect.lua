@@ -14,7 +14,7 @@ local function GET_xml(event)
 		xrd:tag("Link", { rel="urn:xmpp:altconnect:bosh", href = module:http_url("bosh", "/http-bind") }):up();
 	end
 	if host_modules["websocket"] then
-		xrd:tag("Link", { rel="urn:xmpp:altconnect:websocket", href = module:http_url("bosh", "/xmpp-websocket"):gsub("^http", "ws") }):up();
+		xrd:tag("Link", { rel="urn:xmpp:altconnect:websocket", href = module:http_url("websocket", "/xmpp-websocket"):gsub("^http", "ws") }):up();
 	end
 	response.headers.content_type = "application/xrd+xml"
 	response.headers.access_control_allow_origin = "*";
@@ -28,7 +28,7 @@ local function GET_json(event)
 		jrd.links[#jrd.links+1] = { rel="urn:xmpp:altconnect:bosh", href = module:http_url("bosh", "/http-bind") };
 	end
 	if host_modules["websocket"] then
-		jrd.links[#jrd.links+1] = { rel="urn:xmpp:altconnect:websocket", href = module:http_url("bosh", "/xmpp-websocket"):gsub("^http", "ws") }
+		jrd.links[#jrd.links+1] = { rel="urn:xmpp:altconnect:websocket", href = module:http_url("websocket", "/xmpp-websocket"):gsub("^http", "ws") }
 	end
 	response.headers.content_type = "application/json"
 	response.headers.access_control_allow_origin = "*";
