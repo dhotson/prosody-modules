@@ -221,10 +221,7 @@ module:hook("pre-resource-unbind", function (event)
 		if not session.resumption_token then
 			local queue = session.outgoing_stanza_queue;
 			if #queue > 0 then
-				module:log("warn", "Destroying session with %d unacked stanzas:", #queue);
-				for i=1,#queue do
-					module:log("warn", "::%s", tostring(queue[i]));
-				end
+				module:log("warn", "Destroying session with %d unacked stanzas", #queue);
 				handle_unacked_stanzas(session);
 			end
 		else
