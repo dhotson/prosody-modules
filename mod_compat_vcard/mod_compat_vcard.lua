@@ -10,7 +10,7 @@ local core_process_stanza = prosody.core_process_stanza;
 module:hook("iq/full", function(event)
 	local stanza = event.stanza;
 	local payload = stanza.tags[1];
-	if payload.name == "vCard" and stanza.attr.type == "get" and payload.attr.xmlns == "vcard-temp" then
+	if payload and stanza.attr.type == "get" and payload.name == "vCard" and payload.attr.xmlns == "vcard-temp" then
 		local fixed_stanza = st.clone(event.stanza);
 		fixed_stanza.attr.to = jid_bare(stanza.attr.to);
 		core_process_stanza(event.origin, fixed_stanza);
