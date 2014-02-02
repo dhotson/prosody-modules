@@ -12,15 +12,17 @@ local s_find = string.find;
 local st = require "util.stanza";
 local template = require "util.template";
 
+local instructions = module:get_option_string("vjud_instructions", "Fill in one or more fields to search for any matching Jabber users.");
+
 local get_reply = template[[
 <query xmlns="jabber:iq:search">
-  <instructions>Fill in one or more fields to search for any matching Jabber users.</instructions>
+  <instructions>{instructions}</instructions>
   <first/>
   <last/>
   <nick/>
   <email/>
 </query>
-]].apply({});
+]].apply({ instructions = instructions });
 local item_template = template[[
 <item xmlns="jabber:iq:search" jid="{jid}">
   <first>{first}</first>
