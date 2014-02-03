@@ -9,11 +9,13 @@ local add_filter = require "util.filters".add_filter;
 local timer = require "util.timer";
 local datetime = require "util.datetime";
 
-local xmlns_sm = "urn:xmpp:sm:2";
+local xmlns_sm2 = "urn:xmpp:sm:2";
+local xmlns_sm3 = "urn:xmpp:sm:3";
 local xmlns_errors = "urn:ietf:params:xml:ns:xmpp-stanzas";
 local xmlns_delay = "urn:xmpp:delay";
 
-local sm_attr = { xmlns = xmlns_sm };
+local sm2_attr = { xmlns = xmlns_sm2 };
+local sm3_attr = { xmlns = xmlns_sm3 };
 
 local resume_timeout = module:get_option_number("smacks_hibernation_time", 300);
 local s2s_smacks = module:get_option_boolean("smacks_enabled_s2s", false);
@@ -42,25 +44,32 @@ end
 module:hook("stream-features",
 		function (event)
 			if can_do_smacks(event.origin, true) then
-				event.features:tag("sm", sm_attr):tag("optional"):up():up();
+				event.features:tag("sm", sm2_attr):tag("optional"):up():up();
+				event.features:tag("sm", sm3_attr):tag("optional"):up():up();
 			end
 		end);
 
 module:hook("s2s-stream-features",
 		function (event)
 			if can_do_smacks(event.origin, true) then
-				event.features:tag("sm", sm_attr):tag("optional"):up():up();
+				event.features:tag("sm", sm2_attr):tag("optional"):up():up();
+				event.features:tag("sm", sm3_attr):tag("optional"):up():up();
 			end
 		end);
 
 module:hook_stanza("http://etherx.jabber.org/streams", "features",
 		function (session, stanza)
-			if can_do_smacks(session) and stanza:get_child("sm", xmlns_sm) then
-				session.sends2s(st.stanza("enable", sm_attr));
+			if can_do_smacks(session) then
+				if stanza:get_child("sm", xmlns_sm3) then
+					session.sends2s(st.stanza("enable", sm3_attr));
+				elseif stanza:get_child("sm", xmlns_sm2) then
+					session.sends2s(st.stanza("enable", sm2_attr));
+				end
 			end
-end);
+		end);
 
-local function wrap_session(session, resume)
+local function wrap_session(session, resume, xmlns_sm)
+	local sm_attr = { xmlns = xmlns_sm };
 	-- Overwrite process_stanza() and send()
 	local queue;
 	if not resume then
@@ -125,7 +134,7 @@ local function wrap_session(session, resume)
 	return session;
 end
 
-module:hook_stanza(xmlns_sm, "enable", function (session, stanza)
+function handle_enable(session, stanza, xmlns_sm)
 	local ok, err, err_text = can_do_smacks(session);
 	if not ok then
 		session.log("warn", "Failed to enable smacks: %s", err_text); -- TODO: XEP doesn't say we can send error text, should it?
@@ -136,7 +145,7 @@ module:hook_stanza(xmlns_sm, "enable", function (session, stanza)
 	module:log("debug", "Enabling stream management");
 	session.smacks = true;
 	
-	wrap_session(session);
+	wrap_session(session, false, xmlns_sm);
 	
 	local resume_token;
 	local resume = stanza.attr.resume;
@@ -147,20 +156,24 @@ module:hook_stanza(xmlns_sm, "enable", function (session, stanza)
 	end
 	(session.sends2s or session.send)(st.stanza("enabled", { xmlns = xmlns_sm, id = resume_token, resume = resume }));
 	return true;
-end, 100);
+end
+module:hook_stanza(xmlns_sm2, "enable", function (session, stanza) return handle_enable(session, stanza, xmlns_sm2); end, 100);
+module:hook_stanza(xmlns_sm3, "enable", function (session, stanza) return handle_enable(session, stanza, xmlns_sm3); end, 100);
 
-module:hook_stanza(xmlns_sm, "enabled", function (session, stanza)
+function handle_enabled(session, stanza, xmlns_sm)
 	module:log("debug", "Enabling stream management");
 	session.smacks = true;
 	
-	wrap_session(session);
+	wrap_session(session, false, xmlns_sm);
 
 	-- FIXME Resume?
 	
 	return true;
-end, 100);
+end
+module:hook_stanza(xmlns_sm2, "enabled", function (session, stanza) return handle_enabled(session, stanza, xmlns_sm2); end, 100);
+module:hook_stanza(xmlns_sm3, "enabled", function (session, stanza) return handle_enabled(session, stanza, xmlns_sm3); end, 100);
 
-module:hook_stanza(xmlns_sm, "r", function (origin, stanza)
+function handle_r(origin, stanza, xmlns_sm)
 	if not origin.smacks then
 		module:log("debug", "Received ack request from non-smack-enabled session");
 		return;
@@ -169,9 +182,11 @@ module:hook_stanza(xmlns_sm, "r", function (origin, stanza)
 	-- Reply with <a>
 	(origin.sends2s or origin.send)(st.stanza("a", { xmlns = xmlns_sm, h = tostring(origin.handled_stanza_count) }));
 	return true;
-end);
+end
+module:hook_stanza(xmlns_sm2, "r", function (origin, stanza) return handle_r(origin, stanza, xmlns_sm2); end);
+module:hook_stanza(xmlns_sm3, "r", function (origin, stanza) return handle_r(origin, stanza, xmlns_sm3); end);
 
-module:hook_stanza(xmlns_sm, "a", function (origin, stanza)
+function handle_a(origin, stanza)
 	if not origin.smacks then return; end
 	origin.awaiting_ack = nil;
 	-- Remove handled stanzas from outgoing_stanza_queue
@@ -191,7 +206,9 @@ module:hook_stanza(xmlns_sm, "a", function (origin, stanza)
 	end
 	origin.last_acknowledged_stanza = origin.last_acknowledged_stanza + handled_stanza_count;
 	return true;
-end);
+end
+module:hook_stanza(xmlns_sm2, "a", handle_a);
+module:hook_stanza(xmlns_sm3, "a", handle_a);
 
 --TODO: Optimise... incoming stanzas should be handled by a per-session
 -- function that has a counter as an upvalue (no table indexing for increments,
@@ -256,10 +273,10 @@ module:hook("pre-resource-unbind", function (event)
 	end
 end);
 
-module:hook_stanza(xmlns_sm, "resume", function (session, stanza)
+function handle_resume(session, stanza, xmlns_sm)
 	if session.full_jid then
 		session.log("warn", "Tried to resume after resource binding");
-		session.send(st.stanza("failed", sm_attr)
+		session.send(st.stanza("failed", { xmlns = xmlns_sm })
 			:tag("unexpected-request", { xmlns = xmlns_errors })
 		);
 		return true;
@@ -269,7 +286,7 @@ module:hook_stanza(xmlns_sm, "resume", function (session, stanza)
 	local original_session = session_registry[id];
 	if not original_session then
 		session.log("debug", "Tried to resume non-existent session with id %s", id);
-		session.send(st.stanza("failed", sm_attr)
+		session.send(st.stanza("failed", { xmlns = xmlns_sm })
 			:tag("item-not-found", { xmlns = xmlns_errors })
 		);
 	elseif session.username == original_session.username
@@ -300,7 +317,7 @@ module:hook_stanza(xmlns_sm, "resume", function (session, stanza)
 				original_session:close("xml-not-well-formed");
 			end
 		end
-		wrap_session(original_session, true);
+		wrap_session(original_session, true, xmlns_sm);
 		-- Inform xmppstream of the new session (passed to its callbacks)
 		stream:set_session(original_session);
 		-- Similar for connlisteners
@@ -323,8 +340,10 @@ module:hook_stanza(xmlns_sm, "resume", function (session, stanza)
 		module:log("warn", "Client %s@%s[%s] tried to resume stream for %s@%s[%s]",
 			session.username or "?", session.host or "?", session.type,
 			original_session.username or "?", original_session.host or "?", original_session.type);
-		session.send(st.stanza("failed", sm_attr)
+		session.send(st.stanza("failed", { xmlns = xmlns_sm })
 			:tag("not-authorized", { xmlns = xmlns_errors }));
 	end
 	return true;
-end);
+end
+module:hook_stanza(xmlns_sm2, "resume", function (session, stanza) return handle_resume(session, stanza, xmlns_sm2); end);
+module:hook_stanza(xmlns_sm3, "resume", function (session, stanza) return handle_resume(session, stanza, xmlns_sm3); end);
