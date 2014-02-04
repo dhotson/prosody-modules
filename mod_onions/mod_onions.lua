@@ -92,7 +92,7 @@ local function socks5_connect_sent(conn, data)
 			if t then
 				t = filter("bytes/out", tostring(t));
 				if t then
-					return w(conn, tostring(t));
+					return conn:write(tostring(t));
 				end
 			end
 		end
@@ -136,8 +136,8 @@ local function socks5_handshake_sent(conn, data)
 	module:log("debug", "Sending connect message.");
 
 	-- version 5, connect, (reserved), type: domainname, (length, hostname), port
-	conn:send(c(5) .. c(1) .. c(0) .. c(3) .. c(#session.socks5_to) .. session.socks5_to);
-	conn:send(c(rshift(session.socks5_port, 8)) .. c(band(session.socks5_port, 0xff)));
+	conn:write(c(5) .. c(1) .. c(0) .. c(3) .. c(#session.socks5_to) .. session.socks5_to);
+	conn:write(c(rshift(session.socks5_port, 8)) .. c(band(session.socks5_port, 0xff)));
 
 	session.socks5_handler = socks5_connect_sent;
 end
@@ -146,7 +146,7 @@ function socks5listener.onconnect(conn)
 	module:log("debug", "Connected to SOCKS5 proxy, sending SOCKS5 handshake.");
 
 	-- Socks version 5, 1 method, no auth
-	conn:send(c(5) .. c(1) .. c(0));
+	conn:write(c(5) .. c(1) .. c(0));
 	
 	sessions[conn].socks5_handler = socks5_handshake_sent;
 end
