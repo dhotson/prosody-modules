@@ -55,6 +55,7 @@ module:hook("resource-bind", function (event)
 	end
 
 	timer.add_task(15, function ()
+		if session.type ~= "c2s" then return end -- user quit already
 		local bad_contacts, bad_hosts = {}, {};
 		for contact_jid, item in pairs(session.roster or {}) do
 			local _, contact_host = jid_split(contact_jid);
