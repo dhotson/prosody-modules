@@ -6,6 +6,7 @@ local msg = require "util.stanza".message;
 local test_password = require "core.usermanager".test_password;
 local b64_decode = require "util.encodings".base64.decode;
 local formdecode = require "net.http".formdecode;
+local xml = require"util.xml";
 
 local function require_valid_user(f)
 	return function(event, path)
@@ -46,8 +47,16 @@ local function handle_post(event, path, authed_user)
 		end
 	elseif body_type == "application/x-www-form-urlencoded" then
 		local post_body = formdecode(request.body);
-			message = msg({ to = post_body.to or to, from = authed_user,
+		message = msg({ to = post_body.to or to, from = authed_user,
 				type = post_body.type or "chat"}, post_body.body);
+		if post_body.html then
+		   local html, err = xml.parse(post_body.html);
+		   if not html then
+		      module:log("warn", "mod_post_msg: invalid XML: %s", err);
+		      return 400;
+		   end
+		   message:tag("html", {xmlns="http://jabber.org/protocol/xhtml-im"}):add_child(html):up();
+		end
 	else
 		return 415;
 	end
