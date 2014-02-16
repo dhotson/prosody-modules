@@ -44,7 +44,7 @@ end
 -- end
 
 local available_deps = {
-	st = { global_code = [[local st = require "util.stanza"]]};
+	st = { global_code = [[local st = require "util.stanza";]]};
 	jid_split = {
 		global_code = [[local jid_split = require "util.jid".split;]];
 	};
@@ -117,9 +117,9 @@ local function include_dep(dep, code)
 	end
 	if dep_info.local_code then
 		if dep_param ~= "" then
-			table.insert(code, "\n\t-- "..dep.."\n\t"..dep_info.local_code(dep_param).."\n\n\t");
+			table.insert(code, "\n\t\t-- "..dep.."\n\t\t"..dep_info.local_code(dep_param).."\n");
 		else
-			table.insert(code, "\n\t-- "..dep.."\n\t"..dep_info.local_code.."\n\n\t");
+			table.insert(code, "\n\t\t-- "..dep.."\n\t\t"..dep_info.local_code.."\n");
 		end
 	end
 	code.included_deps[dep] = true;
@@ -283,7 +283,8 @@ local function compile_firewall_rules(filename)
 			for _, dep in ipairs(rule.deps) do
 				include_dep(dep, code);
 			end
-			local rule_code = table.concat(rule.actions, "\n\t");
+			table.insert(code, "\n\t\t");
+			local rule_code;
 			if #rule.conditions > 0 then
 				for i, condition in ipairs(rule.conditions) do
 					local negated = condition:match("^not%(.+%)$");
@@ -296,13 +297,15 @@ local function compile_firewall_rules(filename)
 						n_conditions = n_conditions + 1;
 						local name = "condition"..n_conditions;
 						condition_cache[condition] = name;
-						table.insert(code, "local "..name.." = "..condition..";\n\t");
+						table.insert(code, "local "..name.." = "..condition..";\n\t\t");
 						rule.conditions[i] = (negated and "not(" or "")..name..(negated and ")" or "");
 					end
 				end
-				rule_code = "if "..table.concat(rule.conditions, " and ").." then\n\t"
-				..rule_code
-				.."\n end\n";
+				rule_code = "if "..table.concat(rule.conditions, " and ").." then\n\t\t\t"
+					..table.concat(rule.actions, "\n\t\t\t")
+					.."\n\t\tend\n";
+			else
+				rule_code = table.concat(rule.actions, "\n\t\t");
 			end
 			table.insert(code, rule_code);
 		end
@@ -311,15 +314,13 @@ local function compile_firewall_rules(filename)
 			table.insert(code.global_header, 1, "local "..name:lower().."s = definitions."..name..";");
 		end
 
-		local code_string = [[return function (definitions, fire_event, log)
-			]]..table.concat(code.global_header, "\n")..[[
-			local db = require 'util.debug'
-			return function (event)
-				local stanza, session = event.stanza, event.origin;
-
-				]]..table.concat(code, " ")..[[
-			end;
-		end]];
+		local code_string = "return function (definitions, fire_event, log)\n\t"
+			..table.concat(code.global_header, "\n\t")
+			.."\n\tlocal db = require 'util.debug';\n\n\t"
+			.."return function (event)\n\t\t"
+			.."local stanza, session = event.stanza, event.origin;\n"
+			..table.concat(code, "")
+			.."\n\tend;\nend";
 
 		chain_handlers[chain_name] = code_string;
 	end
