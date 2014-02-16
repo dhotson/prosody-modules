@@ -276,9 +276,19 @@ local function compile_firewall_rules(filename)
 	-- Loop through the chains in the parsed ruleset (e.g. incoming, outgoing)
 	for chain_name, rules in pairs(ruleset) do
 		local code = { included_deps = {}, global_header = {} };
-		local condition_cache, n_conditions = {}, 0;
+		local condition_uses = {};
 		-- This inner loop assumes chain is an event-based, not a filter-based
 		-- chain (filter-based will be added later)
+		for _, rule in ipairs(rules) do
+			for _, condition in ipairs(rule.conditions) do
+				if condition:match("^not%(.+%)$") then
+					condition = condition:match("^not%((.+)%)$");
+				end
+				condition_uses[condition] = (condition_uses[condition] or 0) + 1;
+			end
+		end
+
+		local condition_cache, n_conditions = {}, 0;
 		for _, rule in ipairs(rules) do
 			for _, dep in ipairs(rule.deps) do
 				include_dep(dep, code);
@@ -291,16 +301,20 @@ local function compile_firewall_rules(filename)
 					if negated then
 						condition = condition:match("^not%((.+)%)$");
 					end
-					if condition_cache[condition] then
-						rule.conditions[i] = (negated and "not(" or "")..condition_cache[condition]..(negated and "_" or "");
-					else
-						n_conditions = n_conditions + 1;
-						local name = "condition"..n_conditions;
-						condition_cache[condition] = name;
-						table.insert(code, "local "..name.." = "..condition..";\n\t\t");
+					if condition_uses[condition] > 1 then
+						local name = condition_cache[condition];
+						if not name then
+							n_conditions = n_conditions + 1;
+							name = "condition"..n_conditions;
+							condition_cache[condition] = name;
+							table.insert(code, "local "..name.." = "..condition..";\n\t\t");
+						end
 						rule.conditions[i] = (negated and "not(" or "")..name..(negated and ")" or "");
+					else
+						rule.conditions[i] = (negated and "not(" or "(")..condition..")";
 					end
 				end
+
 				rule_code = "if "..table.concat(rule.conditions, " and ").." then\n\t\t\t"
 					..table.concat(rule.actions, "\n\t\t\t")
 					.."\n\t\tend\n";
