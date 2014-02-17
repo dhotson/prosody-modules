@@ -94,8 +94,8 @@ module:hook("resource-bind", function (event)
 				CONTACTVIA = contact_method, CONTACT = contact;
 			};
 			session.send(st.message({ type = "headline", from = host }):tag("body"):text(message:gsub("$(%w+)", vars)));
+			notified[session.username] = now;
 		end
-		notified[session.username] = now;
 	end);
 end);
 
