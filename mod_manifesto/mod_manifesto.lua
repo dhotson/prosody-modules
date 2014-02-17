@@ -4,6 +4,14 @@ local timer = require "util.timer";
 local jid_split = require "util.jid".split;
 local st = require "util.stanza";
 local dm = require "util.datamanager";
+local dataforms_new = require "util.dataforms".new;
+local adhoc_initial = require "util.adhoc".new_initial_data_form;
+local mm_reload = require "modulemanager".reload;
+local config = require "core.configmanager";
+local config_get = config.get;
+local config_set = config.set;
+local t_concat = table.concat;
+local adhoc_new = module:require "adhoc".new;
 local time = os.time;
 
 local hosts = prosody.hosts;
@@ -119,3 +127,50 @@ end
 function module.uninstall()
 	dm.store(nil, host, module.name, nil);
 end
+
+-- Ad-hoc command for switching to/from "manifesto mode"
+local layout = dataforms_new {
+	title = "Configure manifesto mode";
+
+	{ name = "FORM_TYPE", type = "hidden", value = "http://prosody.im/protocol/manifesto" };
+	{ name = "state", type = "list-single", required = true, label = "Manifesto mode:"};
+};
+
+local adhoc_handler = adhoc_initial(layout, function()
+	local enabled = config_get(host, "c2s_require_encryption") and config_get(host, "s2s_require_encryption");
+	return { state = {
+		{ label = "Enabled", value = "enabled", default = enabled },
+		{ label = "Configuration settings", value = "config", default = not enabled },
+	}};
+end, function(fields, err)
+	if err then
+		local errmsg = {};
+		for name, err in pairs(errors) do
+			errmsg[#errmsg + 1] = name .. ": " .. err;
+		end
+		return { status = "completed", error = { message = t_concat(errmsg, "\n") } };
+	end
+
+	local info;
+	if fields.state == "enabled" then
+		config_set(host, "c2s_require_encryption", true);
+		config_set(host, "s2s_require_encryption", true);
+		info = "Manifesto mode enabled";
+	else
+		local ok, err = prosody.reload_config();
+		if not ok then
+			return { status = "completed", error = { message = "Failed to reload config: " .. tostring(err) } };
+		end
+		info = "Reset to configuration settings";
+	end
+
+	local ok, err = mm_reload(host, "tls");
+	if not ok then return { status = "completed", error = { message = "Failed to reload mod_tls: " .. tostring(err) } }; end
+	ok, err = mm_reload(host, "s2s");
+	if not ok then return { status = "completed", error = { message = "Failed to reload mod_s2s: " .. tostring(err) } }; end
+	ok, err = mm_reload(host, "saslauth");
+	if not ok then return { status = "completed", error = { message = "Failed to reload mod_saslauth: " .. tostring(err) } }; end
+
+	return { status = "completed", info = info };
+end);
+module:provides("adhoc", adhoc_new("Configure manifesto mode", "http://prosody.im/protocol/manifesto", adhoc_handler, "admin"));
