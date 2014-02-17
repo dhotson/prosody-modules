@@ -7,6 +7,7 @@ local dm = require "util.datamanager";
 local dataforms_new = require "util.dataforms".new;
 local adhoc_initial = require "util.adhoc".new_initial_data_form;
 local mm_reload = require "modulemanager".reload;
+local s2s_destroy_session = require "core.s2smanager".destroy_session;
 local config = require "core.configmanager";
 local config_get = config.get;
 local config_set = config.set;
@@ -18,6 +19,7 @@ local hosts = prosody.hosts;
 local host = module.host;
 local host_session = hosts[host];
 local incoming_s2s = prosody.incoming_s2s;
+local s2s_sessions = module:shared"/*/s2s/sessions";
 
 local default_tpl = [[
 Hello there.
@@ -155,6 +157,13 @@ end, function(fields, err)
 	if fields.state == "enabled" then
 		config_set(host, "c2s_require_encryption", true);
 		config_set(host, "s2s_require_encryption", true);
+
+		for _, session in pairs(s2s_sessions) do
+			if not session.secure then
+				(session.close or s2s_destroy_session)(session);
+			end
+		end
+
 		info = "Manifesto mode enabled";
 	else
 		local ok, err = prosody.reload_config();
