@@ -18,7 +18,7 @@ This is a brief system message to let you know about some upcoming changes to th
 
 Some of your contacts are on other Jabber/XMPP services that do not support encryption.  As part of an initiative to increase the security of the Jabber/XMPP network, this service ($HOST) will be participating in a series of tests to discover the impact of our planned changes, and you may lose the ability to communicate with some of your contacts.
 
-The test days well be on the following dates: January 4, February 22, March 22 and April 19.  On these days we will require that all client and server connections are encrypted.  Unless they enable encryption before that, you will be unable to communicate with your contacts that use these services:
+The test days will be on the following dates: January 4, February 22, March 22 and April 19.  On these days we will require that all client and server connections are encrypted.  Unless they enable encryption before that, you will be unable to communicate with your contacts that use these services:
 
 $SERVICES
 
