@@ -11,8 +11,10 @@ module:add_feature(xmlns_label_catalog_old);
 
 module:hook("account-disco-info", function(event) -- COMPAT
 	local stanza = event.stanza;
-	stanza:tag('feature', {var=xmlns_label}):up();
-	stanza:tag('feature', {var=xmlns_label_catalog}):up();
+	if stanza then
+		stanza:tag('feature', {var=xmlns_label}):up();
+		stanza:tag('feature', {var=xmlns_label_catalog}):up();
+	end;
 end);
 
 local default_labels = {
