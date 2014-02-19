@@ -141,7 +141,7 @@ function module.add_host(module)
 				type = "publish";
 				id = "\000\000";
 				topic = module.host.."/"..event.node;
-				data = data_translators[event.item.name.." "..event.item.attr.xmlns](event.item);
+				data = data_translators[tostring(event.item.name).." "..tostring(event.item.attr.xmlns)](event.item);
 			};
 			-- Broadcast to subscribers
 			module:log("debug", "Broadcasting PUBLISH to subscribers of %s/%s", module.host, event.node);
