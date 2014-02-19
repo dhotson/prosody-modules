@@ -30,7 +30,16 @@ local log_all_rooms = module:get_option_boolean("muc_log_all_rooms", false);
 local log_by_default = module:get_option_boolean("muc_log_by_default", true);
 local advertise_archive = module:get_option_boolean("muc_log_advertise", true);
 
-local archive = module:open_store("archive2", "archive");
+local archive_store = "archive2";
+local archive = module:open_store(archive_store, "archive");
+if not archive then
+        module:log("error", "Could not open archive storage");
+        return
+elseif not archive.find then
+        module:log("error", "mod_%s does not support archiving, switch to mod_storage_sql2", archive._provided_by);
+        return
+end
+
 local rooms = hosts[module.host].modules.muc.rooms;
 
 if not log_all_rooms then
