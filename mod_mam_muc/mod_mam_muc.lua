@@ -111,13 +111,6 @@ else
 	end);
 end
 
-local _send_history = room_mt.send_history;
-local _save_to_history = room_mt.save_to_history;
-function module.unload()
-	room_mt.send_history = _send_history;
-	room_mt.save_to_history = _save_to_history;
-end
-
 -- Handle archive queries
 module:hook("iq-get/bare/"..xmlns_mam..":query", function(event)
 	local origin, stanza = event.origin, event.stanza;
