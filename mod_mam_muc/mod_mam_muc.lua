@@ -42,7 +42,38 @@ end
 
 local rooms = hosts[module.host].modules.muc.rooms;
 
-if not log_all_rooms then
+local send_history, save_to_history;
+
+if log_all_rooms then
+	-- Override history methods for all rooms.
+	local _send_history = room_mt.send_history;
+	local _save_to_history = room_mt.save_to_history;
+	function module.load()
+		room_mt.send_history = send_history;
+		room_mt.save_to_history = save_to_history;
+	end
+	function module.unload()
+		room_mt.send_history = _send_history;
+		room_mt.save_to_history = _save_to_history;
+	end
+else
+	-- Only override histary on rooms with logging enabled
+	function module.load()
+		for _, room in pairs(rooms) do
+			if room._data.logging then
+				room.send_history = send_history;
+				room.save_to_history = save_to_history;
+			end
+		end
+	end
+	function module.unload()
+		for _, room in pairs(rooms) do
+			if room.send_history == send_history then
+				room.send_history = nil;
+				room.save_to_history = nil;
+			end
+		end
+	end
 	module:hook("muc-config-form", function(event)
 		local room, form = event.room, event.form;
 		local logging_enabled = room._data.logging;
@@ -68,6 +99,13 @@ if not log_all_rooms then
 				changed[muc_form_enable_logging] = true;
 			else
 				event.changed = true;
+			end
+			if new then
+				room.send_history = send_history;
+				room.save_to_history = save_to_history;
+			else
+				room.send_history = nil;
+				room.save_to_history = nil;
 			end
 		end
 	end);
