@@ -94,8 +94,9 @@ module:hook("iq-get/bare/"..xmlns_mam..":query", function(event)
 	local from = jid_bare(stanza.attr.from);
 
 	-- Banned or not a member of a members-only room?
-	if room_obj._affiliations[from] == "outcast"
-		or room_obj._data.members_only and not room_obj._affiliations[from] then
+	local from_affiliation = room_obj:get_affiliation(from);
+	if from_affiliation == "outcast" -- banned
+		or room_obj:get_members_only() and not from_affiliation then -- members-only, not a member
 		return origin.send(st.error_reply(stanza, "auth", "forbidden"))
 	end
 
