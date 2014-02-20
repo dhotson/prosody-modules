@@ -1,4 +1,4 @@
--- XEP-0313: Message Archive Management for Prosody
+-- XEP-0313: Message Archive Management for Prosody MUC
 -- Copyright (C) 2011-2013 Kim Alvefur
 --
 -- This file is MIT/X11 licensed.
@@ -6,7 +6,7 @@
 local xmlns_mam     = "urn:xmpp:mam:tmp";
 local xmlns_delay   = "urn:xmpp:delay";
 local xmlns_forward = "urn:xmpp:forward:0";
-local muc_form_config_option = "muc#roomconfig_enablelogging"
+local muc_form_enable_logging = "muc#roomconfig_enablelogging"
 
 local st = require "util.stanza";
 local rsm = module:require "mod_mam/rsm";
@@ -51,7 +51,7 @@ if not log_all_rooms then
 		end
 		table.insert(form,
 		{
-			name = muc_form_config_option,
+			name = muc_form_enable_logging,
 			type = "boolean",
 			label = "Enable Logging?",
 			value = logging_enabled,
@@ -61,11 +61,11 @@ if not log_all_rooms then
 
 	module:hook("muc-config-submitted", function(event)
 		local room, fields, changed = event.room, event.fields, event.changed;
-		local new = fields[muc_form_config_option];
+		local new = fields[muc_form_enable_logging];
 		if new ~= room._data.logging then
 			room._data.logging = new;
 			if type(changed) == "table" then
-				changed[muc_form_config_option] = true;
+				changed[muc_form_enable_logging] = true;
 			else
 				event.changed = true;
 			end
