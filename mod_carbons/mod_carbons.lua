@@ -73,6 +73,9 @@ local function message_handler(event, c2s)
 	elseif stanza:get_child("no-copy", "urn:xmpp:hints") then
 		module:log("debug", "Message has no-copy hint, ignoring");
 		return
+	elseif stanza:get_child("x", "http://jabber.org/protocol/muc#user") then
+		module:log("debug", "MUC PM, ignoring");
+		return
 	end
 
 	-- Create the carbon copy and wrap it as per the Stanza Forwarding XEP
