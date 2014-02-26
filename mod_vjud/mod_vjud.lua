@@ -40,7 +40,7 @@ local base_host = module:get_option_string("vjud_search_domain",
 		or module.host);
 
 module:depends"disco";
-if module:get_host_type() == "completed" then
+if module:get_host_type() == "component" then
 	module:add_identity("directory", "user", module:get_option_string("name", "User search"));
 end
 module:add_feature("jabber:iq:search");
