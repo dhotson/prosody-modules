@@ -12,10 +12,10 @@ local host_modules = hosts[module.host].modules;
 local function get_supported()
 	local uris = array();
 	if host_modules["bosh"] then
-		uris:push({ rel = "urn:xmpp:altconnect:bosh", href = module:http_url("bosh", "/http-bind") });
+		uris:push({ rel = "urn:xmpp:alt-connections:xbosh", href = module:http_url("bosh", "/http-bind") });
 	end
 	if host_modules["websocket"] then
-		uris:push({ rel = "urn:xmpp:altconnect:websocket", href = module:http_url("websocket", "xmpp-websocket"):gsub("^http", "ws") });
+		uris:push({ rel = "urn:xmpp:alt-connections:websocket", href = module:http_url("websocket", "xmpp-websocket"):gsub("^http", "ws") });
 	end
 	return uris;
 end
