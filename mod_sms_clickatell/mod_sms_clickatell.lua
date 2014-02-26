@@ -35,7 +35,6 @@ end
 
 local jid_split = require "util.jid".split;
 local st = require "util.stanza";
-local componentmanager = require "core.componentmanager";
 local datamanager = require "util.datamanager";
 local timer = require "util.timer";
 local config_get = require "core.configmanager".get;
@@ -584,7 +583,12 @@ end);
 
 -- Component registration hooks: these hook in with the Prosody component
 -- manager 
-module.unload = function()
-	componentmanager.deregister_component(component_host);
-end
-component = componentmanager.register_component(component_host, sms_event_handler);
+module:hook("iq/bare", sms_event_handler);
+module:hook("message/bare", sms_event_handler);
+module:hook("presence/bare", sms_event_handler);
+module:hook("iq/full", sms_event_handler);
+module:hook("message/full", sms_event_handler);
+module:hook("presence/full", sms_event_handler);
+module:hook("iq/host", sms_event_handler);
+module:hook("message/host", sms_event_handler);
+module:hook("presence/host", sms_event_handler);
