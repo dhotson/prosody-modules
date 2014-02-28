@@ -60,7 +60,7 @@ end
 function get_sasl_handler(session)
 	return new_sasl(module.host, {
 		external = session.secure and function(authz)
-			if not session.secure or not session.conn:ssl() then
+			if not session.secure then
 				-- getpeercertificate() on a TCP connection would be bad, abort!
 				(session.log or log)("error", "How did you manage to select EXTERNAL without TLS?");
 				return nil, false;

@@ -62,8 +62,8 @@ local function connect(socket_info)
 	end
 
 	if not ok then
-		log("error", "error connecting to dovecot %s socket at '%s'. error was '%s'", socket_type, socket_path or socket_info, err);
-		return false;
+		return false, "error connecting to dovecot "..tostring(socket_type).." socket at '"
+			..tostring(socket_path or socket_info).."'. error was '"..tostring(err).."'";
 	end
 
 	-- Send our handshake
@@ -95,7 +95,6 @@ local function connect(socket_info)
 			local major_version = parts();
 
 			if major_version ~= "1" then
-				log("error", "dovecot server version is not 1.x. it is %s.x", major_version);
 				conn:close();
 				return false, "dovecot server version is not 1.x. it is "..tostring(major_version)..".x";
 			end

@@ -8,7 +8,6 @@ local tonumber, tostring = tonumber, tostring;
 local add_filter = require "util.filters".add_filter;
 local timer = require "util.timer";
 local datetime = require "util.datetime";
-local tb = require"util.debug".traceback;
 
 local xmlns_sm2 = "urn:xmpp:sm:2";
 local xmlns_sm3 = "urn:xmpp:sm:3";
@@ -85,7 +84,6 @@ local function wrap_session(session, resume, xmlns_sm)
 	local function new_send(stanza)
 		local attr = stanza.attr;
 		if attr and not attr.xmlns then -- Stanza in default stream namespace
-			session.log("debug", "Sending stanza %s", stanza:top_tag());
 			local cached_stanza = st.clone(stanza);
 			
 			if cached_stanza and cached_stanza:get_child("delay", xmlns_delay) == nil then
@@ -93,10 +91,8 @@ local function wrap_session(session, resume, xmlns_sm)
 			end
 			
 			queue[#queue+1] = cached_stanza;
-			session.log("debug", "#queue = %d", #queue);
 		end
 		if session.hibernating then
-			session.log("debug", "hibernating, stanza queued")
 			-- The session is hibernating, no point in sending the stanza
 			-- over a dead connection.  It will be delivered upon resumption.
 			return true;
@@ -208,7 +204,6 @@ function handle_a(origin, stanza)
 	for i=1,math_min(handled_stanza_count,#queue) do
 		t_remove(origin.outgoing_stanza_queue, 1);
 	end
-	origin.log("debug", "#queue = %d", #queue);
 	origin.last_acknowledged_stanza = origin.last_acknowledged_stanza + handled_stanza_count;
 	return true;
 end
@@ -338,11 +333,9 @@ function handle_resume(session, stanza, xmlns_sm)
 		-- Ok, we need to re-send any stanzas that the client didn't see
 		-- ...they are what is now left in the outgoing stanza queue
 		local queue = original_session.outgoing_stanza_queue;
-		session.log("debug", "#queue = %d", #queue);
 		for i=1,#queue do
 			session.send(queue[i]);
 		end
-		session.log("debug", "#queue = %d -- after send", #queue);
 	else
 		module:log("warn", "Client %s@%s[%s] tried to resume stream for %s@%s[%s]",
 			session.username or "?", session.host or "?", session.type,

@@ -2,14 +2,15 @@
 --
 -- This file is MIT/X11 licensed.
 
-local http_request, formdecode, formencode = import("net.http", "request", "formdecode", "formencode");
+local http = require "net.http";
+local formdecode = http.formdecode;
+local formencode = http.formencode;
 local uuid = require "util.uuid".generate;
 local hmac_sha1 = require "util.hmac".sha1;
 local json_encode = require "util.json".encode;
 local time = os.time;
 local m_min, m_max = math.min, math.max;
 local tostring = tostring;
-
 local xmlns_pubsub = "http://jabber.org/protocol/pubsub";
 local xmlns_pubsub_event = xmlns_pubsub .. "#event";
 local subs_by_topic = module:shared"subscriptions";
@@ -90,7 +91,7 @@ local function handle_request(event)
 			module:log("debug", require"util.serialization".serialize(verify_modes));
 			if verify_modes["async"] then
 				module:log("debug", "Sending async verification request to %s for %s", tostring(callback_url), tostring(subscription));
-				http_request(callback_url, nil, function(body, code)
+				http.request(callback_url, nil, function(body, code)
 					if body == challenge and code > 199 and code < 300 then
 						if not subscription.want_state then
 							module:log("warn", "Verification of already verified request, probably");
@@ -108,7 +109,7 @@ local function handle_request(event)
 				end)
 				return 202;
 			elseif verify_modes["sync"] then
-				http_request(callback_url, nil, function(body, code)
+				http.request(callback_url, nil, function(body, code)
 					if body == challenge and code > 199 and code < 300 then
 						if not subscription.want_state then
 							module:log("warn", "Verification of already verified request, probably");
@@ -160,7 +161,7 @@ local function periodic()
 						["hub.lease_seconds"] = subscription.lease_seconds,
 						["hub.verify_token"] = subscription.verify_token,
 					}
-					http_request(callback_url, nil, function(body, code)
+					http.request(callback_url, nil, function(body, code)
 						if body == challenge and code > 199 and code < 300 then
 							subscription.expires = now + subscription.lease_seconds;
 						end
@@ -200,7 +201,7 @@ local function on_notify(subscription, content)
 	if subscription.secret then
 		headers["X-Hub-Signature"] = "sha1="..hmac_sha1(subscription.secret, body, true);
 	end
-	http_request(subscription.callback, { method = "POST", body = body, headers = headers }, function(body, code)
+	http.request(subscription.callback, { method = "POST", body = body, headers = headers }, function(body, code)
 		if code >= 200 and code <= 299 then
 			module:log("debug", "Delivered");
 		else

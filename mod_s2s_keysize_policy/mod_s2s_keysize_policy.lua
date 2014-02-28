@@ -26,9 +26,9 @@ module:hook("s2s-check-certificate", function(event)
 	if cert and cert.pubkey then
 		local _, key_type, key_size = cert:pubkey();
 		if key_size < ( weak_key_size[key_type] or 0 ) then
-			local expires = parse_x509_datetime(cert:notafter());
-			if expires > weak_key_cutoff then
-				session.log("error", "%s has a %s-bit %s key valid after 31 December 2013, invalidating trust!", host, key_size, key_type);
+			local issued = parse_x509_datetime(cert:notbefore());
+			if issued > weak_key_cutoff then
+				session.log("error", "%s has a %s-bit %s key issued after 31 December 2013, invalidating trust!", host, key_size, key_type);
 				session.cert_chain_status = "invalid";
 				session.cert_identity_status = "invalid";
 			else

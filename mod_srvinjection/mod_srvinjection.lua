@@ -1,4 +1,3 @@
-local s = require"util.serialization".new"oneline".serialize;
 
 module:set_global();
 
@@ -26,12 +25,8 @@ end
 
 local original_lookup = adns.lookup;
 function adns.lookup(handler, qname, qtype, qclass)
-	module:log("debug", "adns.lookup(%s, %s, %s)", s(qname), s(qtype), s(qclass));
 	if qtype == "SRV" then
 		local host = qname:match("^_xmpp%-server%._tcp%.(.*)%.$");
-		module:log("debug", "qname:match(...) → %s", s(host));
-		local mapping = map[host] or map["*"];
-		module:log("debug", "map[%s] → %s", s(host), s(mapping));
 		local mapping = map[host] or map["*"];
 		if mapping then
 			handler(mapping);

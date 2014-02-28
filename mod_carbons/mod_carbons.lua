@@ -62,11 +62,10 @@ local function message_handler(event, c2s)
 		return -- No use in sending carbons to an offline user
 	end
 
-	local private_tag = stanza:child_with_name("private");
-	if private_tag and private.attr.xmlns == xmlns_carbons or private.attr.xmlns == xmlns_carbons_old then
+	if stanza:get_child("private", xmlns_carbons) then
 		if not c2s then
 			stanza:maptags(function(tag)
-				if tag ~= private_tag then
+				if not ( tag.attr.xmlns == xmlns_carbons and tag.name == "private" ) then
 					return tag;
 				end
 			end);

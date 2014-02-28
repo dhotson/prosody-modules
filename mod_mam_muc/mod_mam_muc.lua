@@ -111,36 +111,6 @@ else
 	end);
 end
 
-module:hook("muc-config-form", function(event)
-	local room, form = event.room, event.form;
-	local mam_query = room._data.mam_query or 'anyone';
-	table.insert(form, {
-		name = muc_form_allow_who,
-		type = 'list-single',
-		label = 'Who may query the archive?',
-		value = {
-			{ value = 'moderators', label = 'Moderators Only',     default = mam_query == 'moderators' },
-			{ value = 'members',    label = 'Members',             default = mam_query == 'members' },
-			{ value = 'anyone',     label = 'Anyone who can join', default = mam_query == 'anyone' },
-		}
-	}
-	);
-end);
-
-module:hook("muc-config-submitted", function(event)
-	local room, fields, changed = event.room, event.fields, event.changed;
-	local new = fields[muc_form_allow_who];
-	if new ~= room._data.mam_query then
-		room._data.mam_query = new;
-		if type(changed) == "table" then
-			changed[muc_form_allow_who] = true;
-		else
-			event.changed = true;
-		end
-	end
-end);
-
-
 -- Handle archive queries
 module:hook("iq-get/bare/"..xmlns_mam..":query", function(event)
 	local origin, stanza = event.origin, event.stanza;
@@ -156,11 +126,8 @@ module:hook("iq-get/bare/"..xmlns_mam..":query", function(event)
 
 	-- Banned or not a member of a members-only room?
 	local from_affiliation = room_obj:get_affiliation(from);
-	local allowed_to_query = room_obj._data.mam_query or "anyone";
 	if from_affiliation == "outcast" -- banned
-		or room_obj:get_members_only() and not from_affiliation -- members-only, not a member
-		or allowed_to_query == "moderators" and not (from_affiliation == "owner" or from_affiliation == "admin" )
-		or allowed_to_query ~= "anyone" then
+		or room_obj:get_members_only() and not from_affiliation then -- members-only, not a member
 		return origin.send(st.error_reply(stanza, "auth", "forbidden"))
 	end
 

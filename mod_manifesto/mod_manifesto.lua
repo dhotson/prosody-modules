@@ -57,18 +57,14 @@ local notified;
 
 module:hook("resource-bind", function (event)
 	local session = event.session;
-	module:log("debug", "mod_%s sees that %s logged in", module.name, session.username);
 
 	local now = time();
 	local last_notify = notified[session.username] or 0;
 	if last_notify > ( now - 86400 * 7 ) then
-		module:log("debug", "Already notified %s", session.username);
 		return
 	end
 
-	module:log("debug", "Waiting 15 seconds");
 	timer.add_task(15, function ()
-		module:log("debug", "15 seconds later... session.type is %q", session.type);
 		if session.type ~= "c2s" then return end -- user quit already
 		local bad_contacts, bad_hosts = {}, {};
 		for contact_jid, item in pairs(session.roster or {}) do
@@ -100,7 +96,6 @@ module:hook("resource-bind", function (event)
 				end
 			end
 		end
-		module:log("debug", "%s has %d bad contacts", session.username, #bad_contacts);
 		if #bad_contacts > 0 then
 			local vars = {
 				HOST = host;
@@ -108,7 +103,6 @@ module:hook("resource-bind", function (event)
 				SERVICES = "    "..table.concat(bad_hosts, "\n    ");
 				CONTACTVIA = contact_method, CONTACT = contact;
 			};
-			module:log("debug", "Sending notification to %s", session.username);
 			session.send(st.message({ type = "headline", from = host }):tag("body"):text(message:gsub("$(%w+)", vars)));
 			notified[session.username] = now;
 		end
@@ -165,7 +159,7 @@ end, function(fields, err)
 		config_set(host, "s2s_require_encryption", true);
 
 		for _, session in pairs(s2s_sessions) do
-			if session.type == "s2sin" or session.type == "s2sout" and not session.secure then
+			if not session.secure then
 				(session.close or s2s_destroy_session)(session);
 			end
 		end

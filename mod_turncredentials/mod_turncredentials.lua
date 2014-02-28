@@ -15,8 +15,6 @@ if not (secret and host) then
     return;
 end
 
-module:add_feature("urn:xmpp:extdisco:1");
-
 module:hook("iq-get/host/urn:xmpp:extdisco:1:services", function(event)
     local origin, stanza = event.origin, event.stanza;
     if origin.type ~= "c2s" then

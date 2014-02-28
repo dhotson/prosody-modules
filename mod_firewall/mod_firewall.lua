@@ -27,10 +27,6 @@ local chains = {
 		type = "event"; "route/remote";
 		priority = 0.1;
 	};
-	send_remote = { -- FIXME name
-		type = "filter"; "s2sout";
-		priority = 0.1;
-	};
 };
 
 local function idsafe(name)
@@ -376,13 +372,9 @@ function module.load()
 					module:log("error", "Compilation error for %s: %s", script, err);
 				else
 					local chain_definition = chains[chain];
-					if chain_definition then
-						if chain_definition.type == "event" then
-							for _, event_name in ipairs(chain_definition) do
-								module:hook(event_name, handler, chain_definition.priority);
-							end
-						elseif chain_definition.type == "filter" then
-							-- TODO
+					if chain_definition and chain_definition.type == "event" then
+						for _, event_name in ipairs(chain_definition) do
+							module:hook(event_name, handler, chain_definition.priority);
 						end
 					elseif not chain:match("^user/") then
 						module:log("warn", "Unknown chain %q", chain);
