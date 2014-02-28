@@ -2,6 +2,7 @@
 local jid_split = require "util.jid".split;
 local jid_bare = require "util.jid".bare;
 local is_contact_subscribed = require "core.rostermanager".is_contact_subscribed;
+local error_reply = require "util.stanza".error_reply;
 
 function check_subscribed(event)
 	local stanza = event.stanza;
@@ -11,7 +12,7 @@ function check_subscribed(event)
 		if to_resource and stanza.attr.type == "groupchat" then
 			return nil; -- Pass through
 		end
-		return true; -- Drop stanza
+		return error_reply("auth", "forbidden", "Subscription required"); -- Bounce with error
 	end
 end
 

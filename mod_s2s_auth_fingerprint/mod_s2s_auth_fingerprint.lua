@@ -5,6 +5,7 @@ module:set_global();
 
 local digest_algo = module:get_option_string(module:get_name().."_digest", "sha1");
 local must_match = module:get_option_boolean("s2s_pin_fingerprints", false);
+local tofu = module:get_option_boolean("s2s_tofu", false);
 
 local fingerprints = {};
 
@@ -38,5 +39,20 @@ module:hook("s2s-check-certificate", function(event)
 			session.cert_chain_status = "invalid";
 			session.cert_identity_status = "invalid";
 		end
+	elseif tofu
+			and ( session.cert_chain_status ~= "valid"
+			or session.cert_identity_status ~= "valid" ) then
+		local digest = cert and cert:digest(digest_algo);
+		fingerprints[host] = {
+			[digest] = true;
+		}
 	end
 end);
+
+function module.save()
+	return { fingerprints = fingerprints };
+end
+
+function module.restore(state)
+	fingerprints = state.fingerprints;
+end

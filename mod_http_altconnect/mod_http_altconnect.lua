@@ -6,16 +6,20 @@ module:depends"http";
 local json = require"util.json";
 local st = require"util.stanza";
 local array = require"util.array";
+local it = require"util.iterators";
 
 local host_modules = hosts[module.host].modules;
 
 local function get_supported()
-	local uris = array();
-	if host_modules["bosh"] then
-		uris:push({ rel = "urn:xmpp:alt-connections:xbosh", href = module:http_url("bosh", "/http-bind") });
-	end
-	if host_modules["websocket"] then
-		uris:push({ rel = "urn:xmpp:alt-connections:websocket", href = module:http_url("websocket", "xmpp-websocket"):gsub("^http", "ws") });
+	local uris = array(it.values(module:get_host_items("alt-conn-method")));
+	if #uris == 0 then
+		-- COMPAT for with before item array was added
+		if host_modules["bosh"] then
+			uris:push({ rel = "urn:xmpp:alt-connections:xbosh", href = module:http_url("bosh", "/http-bind") });
+		end
+		if host_modules["websocket"] then
+			uris:push({ rel = "urn:xmpp:alt-connections:websocket", href = module:http_url("websocket", "xmpp-websocket"):gsub("^http", "ws") });
+		end
 	end
 	return uris;
 end

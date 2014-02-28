@@ -25,6 +25,7 @@ end
 -- TODO Things to test/handle:
 -- Negative or bogus answers
 -- No SRV records
+-- No encryption offered
 
 function s2sout.try_connect(host_session, connect_host, connect_port, err)
 	local srv_hosts = host_session.srv_hosts;

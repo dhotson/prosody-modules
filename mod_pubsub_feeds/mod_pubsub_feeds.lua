@@ -17,8 +17,8 @@
 
 local pubsub = module:depends"pubsub";
 
-local date, time = os.date, os.time;
-local dt_parse, dt_datetime = require "util.datetime".parse, require "util.datetime".datetime;
+local date, time = import("os", "date", "time");
+local dt_parse, dt_datetime = import("util.datetime", "parse", "datetime");
 local uuid = require "util.uuid".generate;
 local hmac_sha1 = require "util.hashes".hmac_sha1;
 local parse_feed = require "feeds".feed_from_string;

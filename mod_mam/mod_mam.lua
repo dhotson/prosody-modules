@@ -1,9 +1,9 @@
 -- XEP-0313: Message Archive Management for Prosody
--- Copyright (C) 2011-2012 Kim Alvefur
+-- Copyright (C) 2011-2014 Kim Alvefur
 --
 -- This file is MIT/X11 licensed.
 
-local xmlns_mam     = "urn:xmpp:mam:tmp";
+local xmlns_mam     = "urn:xmpp:mam:0" or ":1";
 local xmlns_delay   = "urn:xmpp:delay";
 local xmlns_forward = "urn:xmpp:forward:0";
 
@@ -16,6 +16,7 @@ local prefs_to_stanza, prefs_from_stanza = prefsxml.tostanza, prefsxml.fromstanz
 local jid_bare = require "util.jid".bare;
 local jid_split = require "util.jid".split;
 local jid_prep = require "util.jid".prep;
+local dataform = require "util.dataforms".new;
 local host = module.host;
 
 local rm_load_roster = require "core.rostermanager".load_roster;
@@ -61,18 +62,37 @@ module:hook("iq/self/"..xmlns_mam..":prefs", function(event)
 	end
 end);
 
--- Handle archive queries
+local query_form = dataform {
+	{ name = "FORM_TYPE"; type = "hidden"; value = "urn:xmpp:mam:0"; };
+	{ name = "with"; type = "jid-single"; };
+	{ name = "start"; type = "text-single" };
+	{ name = "end"; type = "text-single"; };
+};
+
+-- Serve form
 module:hook("iq-get/self/"..xmlns_mam..":query", function(event)
+	local origin, stanza = event.origin, event.stanza;
+	return origin.send(st.reply(stanza):add_child(query_form:form()));
+end);
+
+-- Handle archive queries
+module:hook("iq-set/self/"..xmlns_mam..":query", function(event)
 	local origin, stanza = event.origin, event.stanza;
 	local query = stanza.tags[1];
 	local qid = query.attr.queryid;
 
 	-- Search query parameters
-	local qwith = query:get_child_text("with");
-	local qstart = query:get_child_text("start");
-	local qend = query:get_child_text("end");
-	module:log("debug", "Archive query, id %s with %s from %s until %s)",
-		tostring(qid), qwith or "anyone", qstart or "the dawn of time", qend or "now");
+	local qwith, qstart, qend;
+	local form = query:get_child("x", "jabber:x:data");
+	if form then
+		local err;
+		form, err = query_form:data(form);
+		if err then
+			return origin.send(st.error_reply(stanza, "modify", "bad-request", select(2, next(err))))
+		end
+		qwith, qstart, qend = form["with"], form["start"], form["end"];
+		qwith = qwith and jid_bare(qwith);
+	end
 
 	if qstart or qend then -- Validate timestamps
 		local vstart, vend = (qstart and timestamp_parse(qstart)), (qend and timestamp_parse(qend))
@@ -83,14 +103,8 @@ module:hook("iq-get/self/"..xmlns_mam..":query", function(event)
 		qstart, qend = vstart, vend;
 	end
 
-	if qwith then -- Validate the 'with' jid
-		local pwith = qwith and jid_prep(qwith);
-		if pwith and not qwith then -- it failed prepping
-			origin.send(st.error_reply(stanza, "modify", "bad-request", "Invalid JID"))
-			return true
-		end
-		qwith = jid_bare(pwith);
-	end
+	module:log("debug", "Archive query, id %s with %s from %s until %s)",
+		tostring(qid), qwith or "anyone", qstart or "the dawn of time", qend or "now");
 
 	-- RSM stuff
 	local qset = rsm.get(query);
@@ -116,7 +130,7 @@ module:hook("iq-get/self/"..xmlns_mam..":query", function(event)
 	local count = err;
 
 	-- Wrap it in stuff and deliver
-	local first, last;
+	local first_id, last_id, first_time, last_time;
 	for id, item, when in data do
 		local fwd_st = st.message{ to = origin.full_jid }
 			:tag("result", { xmlns = xmlns_mam, queryid = qid, id = id })
@@ -129,18 +143,27 @@ module:hook("iq-get/self/"..xmlns_mam..":query", function(event)
 		item.attr.xmlns = "jabber:client";
 		fwd_st:add_child(item);
 
-		if not first then first = id; end
-		last = id;
+		if not first_id then
+			first_id = id;
+			first_time = when;
+		end
+		last_id = id;
+		last_time = when;
 
 		origin.send(fwd_st);
 	end
 	-- That's all folks!
 	module:log("debug", "Archive query %s completed", tostring(qid));
 
-	if reverse then first, last = last, first; end
+	if reverse then
+		first_id, last_id, first_time, last_time =
+		last_id, first_id, last_time, first_time;
+	end
 	return origin.send(st.reply(stanza)
-		:query(xmlns_mam):add_child(rsm.generate {
-			first = first, last = last, count = count }));
+		:query(xmlns_mam)
+			:add_child(query_form:form({ start = timestamp(first_time), ["end"] = timestamp(last_time), with = qwith  }))
+			:add_child(rsm.generate {
+				first = first_id, last = last_id, count = count }));
 end);
 
 local function has_in_roster(user, who)

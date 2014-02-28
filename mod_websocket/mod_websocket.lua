@@ -242,6 +242,7 @@ function handle_request(event, path)
 	c2s_listener.onconnect(conn);
 
 	local session = sessions[conn];
+	session._http_request_headers = request.headers;
 
 	session.secure = consider_websocket_secure or session.secure;
 
@@ -285,4 +286,11 @@ function module.add_host(module)
 			["GET /"] = handle_request;
 		};
 	});
+
+	module:add_item("alt-conn-method", {
+		rel = "urn:xmpp:altconnect:websocket";
+		href = module:http_url(nil, "xmpp-websocket"):gsub("^http", "ws");
+	});
 end
+
+
