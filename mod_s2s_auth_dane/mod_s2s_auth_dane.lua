@@ -104,6 +104,23 @@ module:hook("s2s-check-certificate", function(event)
 	end
 end);
 
+function module.add_host(module)
+	module:hook("s2s-authenticated", function(event)
+		local session = event.session;
+		local srv_hosts = session.srv_hosts;
+		local srv_choice = session.srv_choice;
+		if srv_hosts[srv_choice].dane and not session.secure then
+			-- TLSA record but no TLS, not ok.
+			session:close({
+				condition = "policy-violation",
+				text = "Encrypted server-to-server communication is required but was not "
+					..((session.direction == "outgoing" and "offered") or "used")
+			});
+			return false;
+		end
+	end);
+end
+
 function module.unload()
 	s2sout.try_connect = _try_connect;
 end
