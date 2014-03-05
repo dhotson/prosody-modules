@@ -25,6 +25,7 @@ end
 -- TODO Things to test/handle:
 -- Negative or bogus answers
 -- No SRV records
+-- No encryption offered
 
 function s2sout.try_connect(host_session, connect_host, connect_port, err)
 	local srv_hosts = host_session.srv_hosts;
@@ -42,6 +43,7 @@ function s2sout.try_connect(host_session, connect_host, connect_port, err)
 	return _try_connect(host_session, connect_host, connect_port, err);
 end
 
+-- This and the TLSA reply are in a race condition :(
 module:hook("s2s-check-certificate", function(event)
 	local session, cert = event.session, event.cert;
 	local srv_hosts = session.srv_hosts;
@@ -54,6 +56,7 @@ module:hook("s2s-check-certificate", function(event)
 			module:log("debug", "TLSA %s", tostring(tlsa));
 			use, select, match, certdata = tlsa.use, tlsa.select, tlsa.match;
 
+			-- PKIX-EE or DANE-EE
 			if use == 1 or use == 3 then
 
 				if select == 0 then
@@ -63,6 +66,7 @@ module:hook("s2s-check-certificate", function(event)
 				else
 					module:log("warn", "DANE selector %d is unsupported", select);
 				end
+
 				if match == 1 then
 					certdata = hashes.sha256(certdata);
 				elseif match == 2 then
@@ -76,16 +80,16 @@ module:hook("s2s-check-certificate", function(event)
 				if certdata and certdata == tlsa.data then
 					(session.log or module._log)("info", "DANE validation successful");
 					session.cert_identity_status = "valid";
-					if use == 3 then
+					if use == 3 then -- DANE-EE, chain status equals DNSSEC chain status
 						session.cert_chain_status = "valid";
-						-- for usage 1 the chain has to be valid already
+						-- for usage 1, PKIX-EE, the chain has to be valid already
 					end
 					match_found = true;
 					break;
 				end
 			else
 				module:log("warn", "DANE %s is unsupported", tlsa:getUsage() or ("usage "..tostring(use)));
-				-- TODO Ca checks needs to loop over the chain and stuff
+				-- TODO CA checks needs to loop over the chain and stuff
 			end
 		end
 		if not match_found then
