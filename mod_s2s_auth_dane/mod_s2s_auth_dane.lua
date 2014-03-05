@@ -65,7 +65,7 @@ module:hook("s2s-check-certificate", function(event)
 
 				if select == 0 then
 					certdata = pem2der(cert:pem());
-				elseif select == 1 then
+				elseif select == 1 and cert.pubkey then
 					certdata = pem2der(cert:pubkey());
 				else
 					module:log("warn", "DANE selector %d is unsupported", select);
