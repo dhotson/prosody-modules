@@ -31,19 +31,23 @@ function s2sout.try_connect(host_session, connect_host, connect_port, err)
 	local srv_hosts = host_session.srv_hosts;
 	local srv_choice = host_session.srv_choice;
 	if srv_hosts and srv_hosts.answer.secure and not srv_hosts[srv_choice].dane then
-		dns_lookup(function(answer)
+		srv_hosts[srv_choice].dane = dns_lookup(function(answer)
 			if answer and ( #answer > 0 or answer.bogus ) then
 				srv_hosts[srv_choice].dane = answer;
 				for i, tlsa in ipairs(answer) do
 					module:log("debug", "TLSA %s", tostring(tlsa));
 				end
+			else
+				srv_hosts[srv_choice].dane = false;
 			end
+			-- "blocking" until TLSA reply, but no race condition
+			return _try_connect(host_session, connect_host, connect_port, err);
 		end, ("_%d._tcp.%s"):format(connect_port, connect_host), "TLSA");
+		return true
 	end
 	return _try_connect(host_session, connect_host, connect_port, err);
 end
 
--- This and the TLSA reply are in a race condition :(
 module:hook("s2s-check-certificate", function(event)
 	local session, cert = event.session, event.cert;
 	local srv_hosts = session.srv_hosts;
