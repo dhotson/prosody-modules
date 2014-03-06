@@ -20,15 +20,10 @@ function is_blocked(username)
         end
 end
 
-module:hook("stanza/iq/jabber:iq:register:query", function(event)
-        local session, stanza = event.origin, event.stanza;
-
-        if stanza.attr.type == "set" then
-                local query = stanza.tags[1];
-                local username = nodeprep(query:get_child_text("username"));
-                if username and is_blocked(username) then
-                        session.send(st.error_reply(stanza, "modify", "policy-violation", "Username is blocked"));
-                        return true;
-                end
+module:hook("user-registering", function(event)
+        local username = event.username;
+        if is_blocked(username) then
+                event.allowed = false;
+                return true;
         end
 end, 10);
