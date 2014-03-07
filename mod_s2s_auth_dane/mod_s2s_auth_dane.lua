@@ -1,7 +1,9 @@
 -- mod_s2s_auth_dane
+-- Copyright (C) 2013-2014 Kim Alvefur
 --
--- Between the DNS lookup and the certificate validation, there is a race condition.
--- Solving that probably requires changes to mod_s2s, like using util.async
+-- This file is MIT/X11 licensed.
+--
+-- Could be done much cleaner if mod_s2s was using util.async
 
 
 module:set_global();
@@ -11,7 +13,6 @@ local hashes = require"util.hashes";
 local base64 = require"util.encodings".base64;
 
 local s2sout = module:depends"s2s".route_to_new_session.s2sout;
-local _try_connect = s2sout.try_connect;
 
 local pat = "%-%-%-%-%-BEGIN ([A-Z ]+)%-%-%-%-%-\r?\n"..
 "([0-9A-Za-z=+/\r\n]*)\r?\n%-%-%-%-%-END %1%-%-%-%-%-";
@@ -27,6 +28,9 @@ end
 -- No SRV records
 -- No encryption offered
 
+-- This function is called when a new SRV target has been picked
+-- the original function does A/AAAA resolution before continuing
+local _try_connect = s2sout.try_connect;
 function s2sout.try_connect(host_session, connect_host, connect_port, err)
 	local srv_hosts = host_session.srv_hosts;
 	local srv_choice = host_session.srv_choice;
@@ -97,6 +101,7 @@ module:hook("s2s-check-certificate", function(event)
 			end
 		end
 		if not match_found then
+			-- No TLSA matched or response was bogus
 			(session.log or module._log)("warn", "DANE validation failed");
 			session.cert_identity_status = "invalid";
 			session.cert_chain_status = "invalid";
@@ -111,6 +116,7 @@ function module.add_host(module)
 		local srv_choice = session.srv_choice;
 		if srv_hosts[srv_choice].dane and not session.secure then
 			-- TLSA record but no TLS, not ok.
+			-- TODO Optional?
 			session:close({
 				condition = "policy-violation",
 				text = "Encrypted server-to-server communication is required but was not "
@@ -122,6 +128,7 @@ function module.add_host(module)
 end
 
 function module.unload()
+	-- Restore the original try_connect function
 	s2sout.try_connect = _try_connect;
 end
 
