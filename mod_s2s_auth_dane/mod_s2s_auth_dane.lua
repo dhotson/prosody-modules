@@ -56,8 +56,8 @@ module:hook("s2s-check-certificate", function(event)
 	local session, cert = event.session, event.cert;
 	local srv_hosts = session.srv_hosts;
 	local srv_choice = session.srv_choice;
-	local choosen = srv_hosts and srv_hosts[srv_choice];
-	if choosen and choosen.dane then
+	local choosen = srv_hosts and srv_hosts[srv_choice] or session;
+	if choosen.dane then
 		local use, select, match, tlsa, certdata, match_found;
 		for i, rr in ipairs(choosen.dane) do
 			tlsa = rr.tlsa;
@@ -114,7 +114,7 @@ function module.add_host(module)
 		local session = event.session;
 		local srv_hosts = session.srv_hosts;
 		local srv_choice = session.srv_choice;
-		if srv_hosts[srv_choice].dane and not session.secure then
+		if (session.dane or srv_hosts and srv_hosts[srv_choice].dane) and not session.secure then
 			-- TLSA record but no TLS, not ok.
 			-- TODO Optional?
 			session:close({
@@ -125,6 +125,25 @@ function module.add_host(module)
 			return false;
 		end
 	end);
+
+	-- DANE for s2sin
+	-- Looks for TLSA at the same QNAME as the SRV record
+	module:hook("stanza/urn:ietf:params:xml:ns:xmpp-tls:starttls", function(event)
+		local origin = event.origin;
+		if not origin.from_host then return end
+
+		origin.dane = dns_lookup(function(answer)
+			if answer and ( #answer > 0 or answer.bogus ) then
+				origin.dane = answer;
+				for i, tlsa in ipairs(answer) do
+					module:log("debug", "TLSA %s", tostring(tlsa));
+				end
+			else
+				origin.dane = false;
+			end
+			-- "blocking" until TLSA reply, but no race condition
+		end, ("_xmpp-server._tcp.%s"):format(origin.from_host), "TLSA");
+	end, 1);
 end
 
 function module.unload()
