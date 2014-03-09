@@ -27,6 +27,7 @@ end
 -- Negative or bogus answers
 -- No SRV records
 -- No encryption offered
+-- Different hostname before and after STARTTLS - mod_s2s should complain
 
 -- This function is called when a new SRV target has been picked
 -- the original function does A/AAAA resolution before continuing
@@ -70,7 +71,7 @@ module:hook("s2s-check-certificate", function(event)
 				if select == 0 then
 					certdata = pem2der(cert:pem());
 				elseif select == 1 and cert.pubkey then
-					certdata = pem2der(cert:pubkey());
+					certdata = pem2der(cert:pubkey()); -- Not supported in stock LuaSec
 				else
 					module:log("warn", "DANE selector %d is unsupported", select);
 				end
@@ -97,7 +98,8 @@ module:hook("s2s-check-certificate", function(event)
 				end
 			else
 				module:log("warn", "DANE %s is unsupported", tlsa:getUsage() or ("usage "..tostring(use)));
-				-- TODO CA checks needs to loop over the chain and stuff
+				-- PKIX-TA checks needs to loop over the chain and stuff
+				-- LuaSec does not expose anything for validating a random chain, so DANE-TA is not possible atm
 			end
 		end
 		if not match_found then
@@ -117,6 +119,7 @@ function module.add_host(module)
 		if (session.dane or srv_hosts and srv_hosts[srv_choice].dane) and not session.secure then
 			-- TLSA record but no TLS, not ok.
 			-- TODO Optional?
+			-- Bogus replies will trigger this path
 			session:close({
 				condition = "policy-violation",
 				text = "Encrypted server-to-server communication is required but was not "
