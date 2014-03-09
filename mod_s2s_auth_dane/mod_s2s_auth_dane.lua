@@ -130,7 +130,7 @@ function module.add_host(module)
 	-- Looks for TLSA at the same QNAME as the SRV record
 	module:hook("s2s-stream-features", function(event)
 		local origin = event.origin;
-		if not origin.from_host or origin.dane == nil then return end
+		if not origin.from_host or origin.dane ~= nil then return end
 
 		origin.dane = dns_lookup(function(answer)
 			if answer and ( #answer > 0 or answer.bogus ) then
