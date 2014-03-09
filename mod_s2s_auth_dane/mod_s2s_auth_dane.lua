@@ -14,6 +14,8 @@ local base64 = require"util.encodings".base64;
 
 local s2sout = module:depends"s2s".route_to_new_session.s2sout;
 
+local bogus = {};
+
 local pat = "%-%-%-%-%-BEGIN ([A-Z ]+)%-%-%-%-%-\r?\n"..
 "([0-9A-Za-z=+/\r\n]*)\r?\n%-%-%-%-%-END %1%-%-%-%-%-";
 local function pem2der(pem)
@@ -37,8 +39,10 @@ function s2sout.try_connect(host_session, connect_host, connect_port, err)
 	local srv_choice = host_session.srv_choice;
 	if srv_hosts and srv_hosts.answer.secure and srv_hosts[srv_choice].dane == nil then
 		srv_hosts[srv_choice].dane = dns_lookup(function(answer)
-			if answer and ( #answer > 0 or answer.bogus ) then
+			if answer and #answer > 0 and answer.secure then
 				srv_hosts[srv_choice].dane = answer;
+			elseif answer.bogus then
+				srv_hosts[srv_choice].dane = bogus;
 			else
 				srv_hosts[srv_choice].dane = false;
 			end
@@ -134,8 +138,10 @@ function module.add_host(module)
 		if not origin.from_host or origin.dane ~= nil then return end
 
 		origin.dane = dns_lookup(function(answer)
-			if answer and ( #answer > 0 or answer.bogus ) then
-				origin.dane = answer;
+			if answer and #answer > 0 and answer.secure then
+				srv_hosts[srv_choice].dane = answer;
+			elseif answer.bogus then
+				srv_hosts[srv_choice].dane = bogus;
 			else
 				origin.dane = false;
 			end
