@@ -128,9 +128,9 @@ function module.add_host(module)
 
 	-- DANE for s2sin
 	-- Looks for TLSA at the same QNAME as the SRV record
-	module:hook("stanza/urn:ietf:params:xml:ns:xmpp-tls:starttls", function(event)
+	module:hook("s2s-stream-features", function(event)
 		local origin = event.origin;
-		if not origin.from_host then return end
+		if not origin.from_host or origin.dane == nil then return end
 
 		origin.dane = dns_lookup(function(answer)
 			if answer and ( #answer > 0 or answer.bogus ) then
