@@ -39,9 +39,6 @@ function s2sout.try_connect(host_session, connect_host, connect_port, err)
 		srv_hosts[srv_choice].dane = dns_lookup(function(answer)
 			if answer and ( #answer > 0 or answer.bogus ) then
 				srv_hosts[srv_choice].dane = answer;
-				for i, tlsa in ipairs(answer) do
-					module:log("debug", "TLSA %s", tostring(tlsa));
-				end
 			else
 				srv_hosts[srv_choice].dane = false;
 			end
@@ -62,7 +59,7 @@ module:hook("s2s-check-certificate", function(event)
 		local use, select, match, tlsa, certdata, match_found;
 		for i, rr in ipairs(choosen.dane) do
 			tlsa = rr.tlsa;
-			module:log("debug", "TLSA %s", tostring(tlsa));
+			module:log("debug", "TLSA %s %s %s %d bytes of data", tlsa:getUsage(), tlsa:getSelector(), tlsa:getMatchType(), #tlsa.data);
 			use, select, match, certdata = tlsa.use, tlsa.select, tlsa.match;
 
 			-- PKIX-EE or DANE-EE
@@ -73,7 +70,7 @@ module:hook("s2s-check-certificate", function(event)
 				elseif select == 1 and cert.pubkey then
 					certdata = pem2der(cert:pubkey()); -- Not supported in stock LuaSec
 				else
-					module:log("warn", "DANE selector %d is unsupported", select);
+					module:log("warn", "DANE selector %s is unsupported", tlsa:getSelector() or select);
 				end
 
 				if match == 1 then
@@ -81,7 +78,7 @@ module:hook("s2s-check-certificate", function(event)
 				elseif match == 2 then
 					certdata = hashes.sha512(certdata);
 				elseif match ~= 0 then
-					module:log("warn", "DANE match rule %d is unsupported", match);
+					module:log("warn", "DANE match rule %s is unsupported", tlsa:getMatchType() or match);
 					certdata = nil;
 				end
 
@@ -97,7 +94,7 @@ module:hook("s2s-check-certificate", function(event)
 					break;
 				end
 			else
-				module:log("warn", "DANE %s is unsupported", tlsa:getUsage() or ("usage "..tostring(use)));
+				module:log("warn", "DANE usage %s is unsupported", tlsa:getUsage() or use);
 				-- PKIX-TA checks needs to loop over the chain and stuff
 				-- LuaSec does not expose anything for validating a random chain, so DANE-TA is not possible atm
 			end
@@ -138,9 +135,6 @@ function module.add_host(module)
 		origin.dane = dns_lookup(function(answer)
 			if answer and ( #answer > 0 or answer.bogus ) then
 				origin.dane = answer;
-				for i, tlsa in ipairs(answer) do
-					module:log("debug", "TLSA %s", tostring(tlsa));
-				end
 			else
 				origin.dane = false;
 			end
