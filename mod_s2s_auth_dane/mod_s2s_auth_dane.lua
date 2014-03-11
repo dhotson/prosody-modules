@@ -60,7 +60,7 @@ module:hook("s2s-check-certificate", function(event)
 	local srv_choice = session.srv_choice;
 	local choosen = srv_hosts and srv_hosts[srv_choice] or session;
 	if choosen.dane then
-		local use, select, match, tlsa, certdata, match_found;
+		local use, select, match, tlsa, certdata, match_found, supported_found;
 		for i, rr in ipairs(choosen.dane) do
 			tlsa = rr.tlsa;
 			module:log("debug", "TLSA %s %s %s %d bytes of data", tlsa:getUsage(), tlsa:getSelector(), tlsa:getMatchType(), #tlsa.data);
@@ -68,6 +68,7 @@ module:hook("s2s-check-certificate", function(event)
 
 			-- PKIX-EE or DANE-EE
 			if use == 1 or use == 3 then
+				supported_found = true
 
 				if select == 0 then
 					certdata = pem2der(cert:pem());
@@ -103,7 +104,7 @@ module:hook("s2s-check-certificate", function(event)
 				-- LuaSec does not expose anything for validating a random chain, so DANE-TA is not possible atm
 			end
 		end
-		if not match_found then
+		if supported_found and not match_found then
 			-- No TLSA matched or response was bogus
 			(session.log or module._log)("warn", "DANE validation failed");
 			session.cert_identity_status = "invalid";
