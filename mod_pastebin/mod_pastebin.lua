@@ -59,15 +59,15 @@ function handle_request(event, pasteid)
 		event.response.headers = default_headers;
 		return event.response:send("Invalid paste id, perhaps it expired?");
 	end
-	
+
 	--module:log("debug", "Received request, replying: %s", pastes[pasteid].text);
-	
+
 	return pastes[pasteid];
 end
 
 function check_message(data)
 	local origin, stanza = data.origin, data.stanza;
-	
+
 	local body, bodyindex, htmlindex;
 	for k,v in ipairs(stanza) do
 		if v.name == "body" then
@@ -76,12 +76,12 @@ function check_message(data)
 			htmlindex = k;
 		end
 	end
-	
+
 	if not body then return; end
 	body = body:get_text();
-	
+
 	--module:log("debug", "Body(%s) length: %d", type(body), #(body or ""));
-	
+
 	if body and (
 		((#body > length_threshold)
 		 and (utf8_length(body) > length_threshold)) or
@@ -92,13 +92,13 @@ function check_message(data)
 			body = body:gsub("^" .. trigger_string, "", 1);
 		end
 		local url = pastebin_text(body);
-		module:log("debug", "Pasted message as %s", url);		
+		module:log("debug", "Pasted message as %s", url);
 		--module:log("debug", " stanza[bodyindex] = %q", tostring( stanza[bodyindex]));
 		local summary = (body:sub(1, max_summary_length):gsub(utf8_pattern, drop_invalid_utf8) or ""):match("[^\n]+") or "";
 		summary = summary:match("^%s*(.-)%s*$");
 		local summary_prefixed = summary:match("[,:]$");
 		stanza[bodyindex][1] = (summary_prefixed and (summary.." ") or "")..url;
-		
+
 		if html_preview then
 			local line_count = select(2, body:gsub("\n", "%0")) + 1;
 			local link_text = ("[view %spaste (%d line%s)]"):format(summary_prefixed and "" or "rest of ", line_count, line_count == 1 and "" or "s");

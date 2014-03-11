@@ -12,7 +12,7 @@ function handle_POST(event)
 	if not data then
 		return "Invalid JSON. From you of all people...";
 	end
-	
+
 	for _, commit in ipairs(data.commits) do
 		local ok, err = pubsub_service:publish(node, true, data.repository.name,
 			st.stanza("item", { id = data.repository.name, xmlns = "http://jabber.org/protocol/pubsub" })
@@ -27,7 +27,7 @@ function handle_POST(event)
 					:up()
 		);
 	end
-	
+
 	module:log("debug", "Handled POST: \n%s\n", tostring(event.request.body));
 	return "Thank you Github!";
 end

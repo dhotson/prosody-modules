@@ -11,7 +11,7 @@ Strophe.addConnectionPlugin('jsonstreams', {
         var parseXMLString = function(xmlStr) {
 			var xmlDoc = null;
 			if (window.ActiveXObject) {
-				xmlDoc = new ActiveXObject("Microsoft.XMLDOM"); 
+				xmlDoc = new ActiveXObject("Microsoft.XMLDOM");
 				xmlDoc.async=false;
 				xmlDoc.loadXML(xmlStr);
 			} else {

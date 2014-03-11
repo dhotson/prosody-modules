@@ -30,7 +30,7 @@ end
 
 function proxy_component(origin, stanza)
 	local ibb_tag = stanza.tags[1];
-	if (not (stanza.name == "iq" and stanza.attr.type == "set") 
+	if (not (stanza.name == "iq" and stanza.attr.type == "set")
 		and stanza.name ~= "message")
 		or
 		(not (ibb_tag)
@@ -40,7 +40,7 @@ function proxy_component(origin, stanza)
 		end
 		return;
 	end
-	
+
 	if ibb_tag.name == "open" then
 		-- Starting a new stream
 		local to_host, to_port = ibb_tag.attr[host_attr], ibb_tag.attr[port_attr];
@@ -57,12 +57,12 @@ function proxy_component(origin, stanza)
 			return origin.send(st.error_reply(stanza, "wait", "resource-constraint", err));
 		end
 		conn:settimeout(0);
-		
+
 		local success, err = conn:connect(to_host, to_port);
 		if not success and err ~= "timeout" then
 			return origin.send(st.error_reply(stanza, "wait", "remote-server-not-found", err));
 		end
-		
+
 		local listener,seq = {}, 0;
 		function listener.onconnect(conn)
 			origin.send(st.reply(stanza));
@@ -78,7 +78,7 @@ function proxy_component(origin, stanza)
 				:tag("close", {xmlns=xmlns_ibb,sid=sid}));
 			close_session(jid, sid);
 		end
-		
+
 		conn = server.wrapclient(conn, to_host, to_port, listener, "*a" );
 		new_session(jid, sid, conn);
 	elseif ibb_tag.name == "data" then

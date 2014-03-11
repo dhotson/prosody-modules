@@ -202,7 +202,7 @@ function new(base)
 
 	base.listwin = curses.newwin(curses.lines()-(#status_lines+2)-5, 0, #status_lines+1, 0);
 	base.listwin:syncok();
-	
+
 	base.infowin = curses.newwin(5, 0, curses.lines()-5, 0);
 	base.infowin:mvaddstr(1, 1, "Hello world");
 	base.infowin:border(0,0,0,0);
@@ -210,7 +210,7 @@ function new(base)
 	base.infowin:refresh();
 
 	base:resized();
-	
+
 	return base;
 end
 

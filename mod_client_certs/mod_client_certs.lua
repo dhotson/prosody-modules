@@ -140,7 +140,7 @@ module:hook("iq/self/"..xmlns_saslcert..":append", function(event)
 			origin.send(st.error_reply(stanza, "cancel", "bad-request", "Missing fields.")); -- cancel? not modify?
 			return true
 		end
-		
+
 		local can_manage = append:get_child("no-cert-management", xmlns_saslcert) ~= nil;
 		x509cert = x509cert:gsub("^%s*(.-)%s*$", "%1");
 

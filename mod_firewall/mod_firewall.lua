@@ -138,23 +138,23 @@ end
 
 local function compile_firewall_rules(filename)
 	local line_no = 0;
-	
+
 	local function errmsg(err)
 		return "Error compiling "..filename.." on line "..line_no..": "..err;
 	end
-	
+
 	local ruleset = {
 		deliver = {};
 	};
 
 	local chain = "deliver"; -- Default chain
 	local rule;
-	
+
 	local file, err = io.open(filename);
 	if not file then return nil, err; end
-	
+
 	local state; -- nil -> "rules" -> "actions" -> nil -> ...
-	
+
 	local line_hold;
 	for line in file:lines() do
 		line = line:match("^%s*(.-)%s*$");
@@ -165,7 +165,7 @@ local function compile_firewall_rules(filename)
 			line_hold = (line_hold or "")..line:sub(1,-2);
 		end
 		line_no = line_no + 1;
-		
+
 		if line_hold or line:match("^[#;]") then
 			-- No action; comment or partial line
 		elseif line == "" then
@@ -268,9 +268,9 @@ local function compile_firewall_rules(filename)
 			end
 		end
 	end
-	
+
 	-- Compile ruleset and return complete code
-	
+
 	local chain_handlers = {};
 
 	-- Loop through the chains in the parsed ruleset (e.g. incoming, outgoing)
@@ -338,7 +338,7 @@ local function compile_firewall_rules(filename)
 
 		chain_handlers[chain_name] = code_string;
 	end
-		
+
 	return chain_handlers;
 end
 
@@ -362,7 +362,7 @@ function module.load()
 	for script in firewall_scripts do
 		script = resolve_relative_path(prosody.paths.config, script);
 		local chain_functions, err = compile_firewall_rules(script)
-		
+
 		if not chain_functions then
 			module:log("error", "Error compiling %s: %s", script, err or "unknown error");
 		else

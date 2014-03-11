@@ -17,7 +17,7 @@ local associations = {}
 local function genkey(length)
     -- FIXME not cryptographically secure
     str = {}
-    
+
     for i = 1,length do
         local rand = math.random(33, 126)
         table.insert(str, string.char(rand))
@@ -29,7 +29,7 @@ end
 local function tokvstring(dict)
     -- key-value encoding for a dictionary [#4.1.3]
     local str = ""
-    
+
     for k,v in pairs(dict) do
         str = str..k..":"..v.."\n"
     end
@@ -90,7 +90,7 @@ local function nonce()
     for i=0,10 do
         random = random..string.char(math.random(33,126))
     end
-    
+
     local timestamp = os.date("%Y-%m-%dT%H:%M:%SZ", utctime())
 
     return timestamp..random
@@ -142,7 +142,7 @@ end
 
 local function handle_endpoint(method, body, request)
     module:log("debug", "Request at OpenID provider endpoint")
-    
+
     local params = nil
 
     if method == "GET" then
@@ -153,7 +153,7 @@ local function handle_endpoint(method, body, request)
         -- TODO error
         return response_404
     end
-    
+
     module:log("debug", "Request Parameters:\n"..humane(params))
 
     if params["openid.ns"] == openidns then
@@ -202,7 +202,7 @@ local function handle_endpoint(method, body, request)
                 -- Verify the return url [#9.2.1]
                 -- TODO implement return url verification
             end
-            
+
             if params["openid.claimed_id"] and params["openid.identity"] then
                 -- asserting an identifier [#9.1]
 
@@ -264,10 +264,10 @@ local function handle_endpoint(method, body, request)
                 end
 
                 module:log("debug", "Signature is: "..is_valid)
-                
+
                 openidresponse = {
                     ns = openidns,
-                    is_valid = is_valid, 
+                    is_valid = is_valid,
                 }
 
                 -- Delete this association
@@ -305,7 +305,7 @@ local function handle_endpoint(method, body, request)
                 else
                     endpointurl = string.format("http://%s:%s/%s", host, port, base)
                 end
-                
+
                 local nonce = nonce()
                 local key = genkey(32)
                 local assoc_handle = newassoc(key)
@@ -380,11 +380,11 @@ local function handle_identifier(method, body, request, id)
     user, domain = jidutil.split(id)
 
     local exists = usermanager.user_exists(user_name, user_domain)
-    
+
     if not exists then
-        return response_404 
+        return response_404
     end
-    
+
     local endpointurl = ""
     if port == '' then
         endpointurl = string.format("http://%s/%s", host, base)
@@ -395,7 +395,7 @@ local function handle_identifier(method, body, request, id)
     local head = string.format("<title>Prosody OpenID : %s@%s</title>", user_name, user_domain)
     -- OpenID HTML discovery [#7.3]
     head = head .. string.format('<link rel="openid2.provider" href="%s" />', endpointurl)
-    
+
     local content = 'request.url.path: ' .. request.url.path .. '<br/>'
     content = content .. 'host+port: ' .. request.headers.host .. '<br/>'
     content = content .. 'host: ' .. tostring(host) .. '<br/>'
@@ -403,9 +403,9 @@ local function handle_identifier(method, body, request, id)
     content = content .. 'user_name: ' .. user_name .. '<br/>'
     content = content .. 'user_domain: ' .. user_domain .. '<br/>'
     content = content .. 'exists: ' .. tostring(exists) .. '<br/>'
-    
+
     local body = string.format('<p>%s</p>', content)
-	
+
     local data = string.format([[
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">

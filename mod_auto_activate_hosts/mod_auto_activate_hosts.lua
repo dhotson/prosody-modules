@@ -19,13 +19,13 @@ function handle_reload()
 	local enabled_hosts = set.new(array.collect(it.keys(new_config)):filter(host_is_enabled):filter(host_not_global));
 	local need_to_activate = enabled_hosts - active_hosts;
 	local need_to_deactivate = active_hosts - enabled_hosts;
-	
+
 	module:log("debug", "Config reloaded... %d hosts need activating, and %d hosts need deactivating", it.count(need_to_activate), it.count(need_to_deactivate));
-	module:log("debug", "There are %d enabled and %d active hosts", it.count(enabled_hosts), it.count(active_hosts));	
+	module:log("debug", "There are %d enabled and %d active hosts", it.count(enabled_hosts), it.count(active_hosts));
 	for host in need_to_deactivate do
 		hostmanager.deactivate(host);
 	end
-	
+
 	-- If the lazy loader is loaded, hosts will get activated when they are needed
 	if not(getmetatable(prosody.hosts) and getmetatable(prosody.hosts).lazy_loader) then
 		for host in need_to_activate do

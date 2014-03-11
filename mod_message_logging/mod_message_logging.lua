@@ -53,14 +53,14 @@ module:hook_global("logging-reloaded", close_open_files);
 local function handle_incoming_message(event)
 	local origin, stanza = event.origin, event.stanza;
 	local message_type = stanza.attr.type;
-	
+
 	if message_type == "error" then return; end
-	
+
 	local from, to = jid_bare(stanza.attr.from), jid_bare(stanza.attr.to);
 	local body = stanza:get_child("body");
 	if not body then return; end
 	body = body:get_text();
-	
+
 	local f = open_files[to];
 	if not f then return; end
 	if message_type == "groupchat" then
@@ -75,14 +75,14 @@ end
 local function handle_outgoing_message(event)
 	local origin, stanza = event.origin, event.stanza;
 	local message_type = stanza.attr.type;
-	
+
 	if message_type == "error" or message_type == "groupchat" then return; end
-	
+
 	local from, to = jid_bare(stanza.attr.from), jid_bare(stanza.attr.to);
 	local body = stanza:get_child("body");
 	if not body then return; end
 	body = body:get_text();
-	
+
 	local f = open_files[from];
 	if not f then return; end
 	body = body:gsub("\n", "\n    "); -- Indent newlines
@@ -100,11 +100,11 @@ function module.add_host(module)
 
 	module:hook("message/bare", handle_incoming_message, 1);
 	module:hook("message/full", handle_incoming_message, 1);
-	
+
 	module:hook("pre-message/bare", handle_outgoing_message, 1);
 	module:hook("pre-message/full", handle_outgoing_message, 1);
 	module:hook("pre-message/host", handle_outgoing_message, 1);
-	
+
 end
 
 function module.command(arg)

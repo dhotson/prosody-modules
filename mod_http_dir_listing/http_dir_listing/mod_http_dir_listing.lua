@@ -1,6 +1,6 @@
 -- Prosody IM
 -- Copyright (C) 2012 Kim Alvefur
--- 
+--
 -- This project is MIT/X11 licensed. Please see the
 -- COPYING file in the source package for more information.
 --

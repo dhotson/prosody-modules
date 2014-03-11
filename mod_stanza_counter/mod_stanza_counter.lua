@@ -6,7 +6,7 @@ local jid_bare = require "util.jid".bare
 -- Setup, Init functions.
 -- initialize function counter table on the global object on start
 local function init_counter()
-	prosody.stanza_counter = { 
+	prosody.stanza_counter = {
 		iq = { incoming=0, outgoing=0 },
 		message = { incoming=0, outgoing=0 },
 		presence = { incoming=0, outgoing=0 }

@@ -103,7 +103,7 @@ local function connect(host, port, ssl_params)
 			local mech = cap:match("AUTH=(.*)");
 			if mech then
 				log("debug", "Supported SASL mechanism: %s", mech);
-				supported_mechs[mech] = mitm[mech] and true or nil; 
+				supported_mechs[mech] = mitm[mech] and true or nil;
 			end
 		end
 	end

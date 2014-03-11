@@ -9,7 +9,7 @@
 --   prosody = "prosody xmpp";
 -- }
 -- twitter_pull_interval = 20 -- minutes
--- 
+--
 
 local pubsub = module:depends"pubsub";
 
@@ -40,11 +40,11 @@ local active_searches = {};
 local function publish_result(search_name, result)
 	local node, id = search_name, result.id_str;
 	--"Tue, 02 Apr 2013 15:40:54 +0000"
-	local timestamp_date, timestamp_month, timestamp_year, timestamp_time = 
+	local timestamp_date, timestamp_month, timestamp_year, timestamp_time =
 		result.created_at:match(" (%d+) (%a+) (%d+) (%d%d:%d%d:%d%d)");
-	
+
 	local timestamp = ("%s-%s-%sT%sZ"):format(timestamp_year, month_number[timestamp_month], timestamp_date, timestamp_time);
-	
+
 	local item = st.stanza("item", { xmlns = "http://jabber.org/protocol/pubsub", id = id })
 		:tag("entry", { xmlns = xmlns_atom })
 			:tag("id"):text(id):up()
@@ -55,9 +55,9 @@ local function publish_result(search_name, result)
 			:tag("published"):text(timestamp):up()
 			:tag("title"):text(result.text):up()
 			:tag("link", { rel = "alternate" , href = "https://twitter.com/"..result.from_user.."/status/"..id}):up();
-	
+
 	module:log("debug", "Publishing Twitter result: %s", tostring(item));
-	
+
 	local ok, err = pubsub.service:publish(node, true, id, item);
 	if not ok then
 		if err == "item-not-found" then -- try again
@@ -106,10 +106,10 @@ end
 function module.load()
 	local config_searches = set.new(array.collect(it.keys(twitter_searches)));
 	local current_searches = set.new(array.collect(it.keys(active_searches)));
-	
+
 	local disable_searches = current_searches - config_searches;
 	local new_searches = config_searches - current_searches;
-	
+
 	for search_name in disable_searches do
 		module:log("debug", "Disabled old Twitter search '%s'", search_name);
 		active_searches[search_name] = nil;

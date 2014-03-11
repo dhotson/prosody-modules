@@ -56,28 +56,28 @@ module:hook("iq/self/urn:xmpp:sift:1:sift", function(event)
 	local origin, stanza = event.origin, event.stanza;
 	if stanza.attr.type == "set" then
 		local sifttag = stanza.tags[1]; -- <sift/>
-		
+
 		-- first, get the elements we are interested in
 		local message = sifttag:get_child("message");
 		local presence = sifttag:get_child("presence");
 		local iq = sifttag:get_child("iq");
-		
+
 		-- for quick lookup, convert the elements into hashtables
 		message = to_hashtable(message);
 		presence = to_hashtable(presence);
 		iq = to_hashtable(iq);
-		
+
 		-- make sure elements were valid
 		if message == false or presence == false or iq == false then
 			origin.send(st.error_reply(stanza, "modify", "bad-request"));
 			return true;
 		end
-		
+
 		local existing = data[origin.full_jid] or {}; -- get existing data, if any
 		data[origin.full_jid] = { presence = presence, message = message, iq = iq }; -- store new data
-		
+
 		origin.send(st.reply(stanza)); -- send back IQ result
-		
+
 		if not existing.presence and not origin.presence and presence then
 			-- TODO send probes
 		end

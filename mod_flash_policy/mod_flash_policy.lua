@@ -23,7 +23,7 @@ function filter_policy(data, session)
 	else
 		return data; -- Pass data through, it wasn't a policy request
 	end
-	
+
 end
 
 function filter_session(session)

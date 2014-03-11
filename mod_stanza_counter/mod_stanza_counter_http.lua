@@ -13,7 +13,7 @@ local r_err = "\n<html>\n<head>\n<title>Prosody's Stanza Counter - Error %s</tit
 
 local function res(event, code, body, extras)
 	local response = event.response
-	
+
         if extras then
 		for header, data in pairs(extras) do response.headers[header] = data end
 	end

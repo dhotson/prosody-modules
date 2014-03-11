@@ -1,6 +1,6 @@
 -- XEP-0215 implementation for time-limited turn credentials
 -- Copyright (C) 2012-2013 Philipp Hancke
--- This file is MIT/X11 licensed. 
+-- This file is MIT/X11 licensed.
 
 local st = require "util.stanza";
 local hmac_sha1 = require "util.hashes".hmac_sha1;

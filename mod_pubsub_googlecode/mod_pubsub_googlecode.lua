@@ -21,7 +21,7 @@ end
 function handle_POST(event)
 	local request = event.request;
 	local body = request.body;
-	
+
 	if auth_key then
 		local digest_header = request.headers["google-code-project-hosting-hook-hmac"];
 		local digest = hmac_md5(auth_key, body, true);
@@ -30,9 +30,9 @@ function handle_POST(event)
 			return "No thanks.";
 		end
 	end
-	
+
 	local data = json.decode(body);
-	
+
 	local project = data.project_name or "somewhere";
 	for _, rev in ipairs(data.revisions) do
 		if rev.url:match("^http://wiki.") then
@@ -49,7 +49,7 @@ function handle_POST(event)
 			end
 			rev.message = "wiki ("..(what or "unknown page").."): "..rev.message;
 		end
-		
+
 		local name = rev.author;
 		local email = name:match("<([^>]+)>$");
 		if email then

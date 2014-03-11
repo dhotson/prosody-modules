@@ -1,4 +1,4 @@
--- Implement a Adhoc command which will show a user 
+-- Implement a Adhoc command which will show a user
 -- the status of carbons generation in regard to his clients
 --
 -- Copyright (C) 2012 Michael Holzt
@@ -21,7 +21,7 @@ local function adhoc_status(self, data, state)
 	local user_sessions = bare_sessions[bare_jid];
 
 	local result = "";
-	
+
 	user_sessions = user_sessions and user_sessions.sessions;
 	for _, session in pairs(user_sessions) do
 		if session.full_jid then
@@ -36,7 +36,7 @@ local function adhoc_status(self, data, state)
 	return { info = result, status = "completed" };
 end
 
-local status_desc = adhoc_new("Carbons: Get Status", 
+local status_desc = adhoc_new("Carbons: Get Status",
 	"mod_carbons_adhoc#status", adhoc_status);
 
 module:add_item("adhoc", status_desc);

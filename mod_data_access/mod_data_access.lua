@@ -78,7 +78,7 @@ local function handle_request(event, path, authed_user)
 	end
 
 	local p_host, p_user, p_store, p_type = unpack(path_items);
-	
+
 	if not p_store or not p_store:match("^[%a_]+$") then
 		return 404;
 	end
@@ -99,7 +99,7 @@ local function handle_request(event, path, authed_user)
 
 		--TODO Use the Accept header
 		local content_type = p_type or "json";
-		if data and encoders[content_type] then 
+		if data and encoders[content_type] then
 			response.headers.content_type = content_type_map[content_type].."; charset=utf-8";
 			return encoders[content_type](data);
 		else

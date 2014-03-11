@@ -54,7 +54,7 @@ local active_sessions = stats.active_sessions;
 -- Handle statistics provided by other modules
 local function item_handlers(host)
 	host = host and (host.."/") or "";
-	
+
 	return function (event) -- Added
 		local stats = event.item.statistics;
 		local group = host..(stats.name and (stats.name.."::") or "");
@@ -117,7 +117,7 @@ function module.load()
 		end
 		return 1;
 	end);
-	
+
 end
 function module.unload()
 	filters.remove_filter_hook(stats.filter_hook);

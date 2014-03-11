@@ -47,13 +47,13 @@ end
 
 do -- process options to get a db connection
 	params = params or { driver = "SQLite3" };
-	
+
 	if params.driver == "SQLite3" then
 		params.database = resolve_relative_path(prosody.paths.data or ".", params.database or "prosody.sqlite");
 	end
-	
+
 	assert(params.driver and params.database, "Both the SQL driver and the database need to be specified");
-	
+
 	assert(connect());
 end
 
@@ -70,7 +70,7 @@ local function getsql(sql, ...)
 	local ok, err = stmt:execute(...);
 	if not ok and not test_connection() then error("connection failed"); end
 	if not ok then return nil, err; end
-	
+
 	return stmt;
 end
 local function setsql(sql, ...)

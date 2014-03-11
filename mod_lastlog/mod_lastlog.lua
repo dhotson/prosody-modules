@@ -1,4 +1,4 @@
-local datamanager = require "util.datamanager";	
+local datamanager = require "util.datamanager";
 local jid = require "util.jid";
 local time = os.time;
 local log_ip = module:get_option_boolean("lastlog_ip_address", false);

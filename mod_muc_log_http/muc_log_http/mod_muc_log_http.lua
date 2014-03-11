@@ -620,12 +620,12 @@ function handle_request(event)
 
 	node = urldecode(node);
 
-	if not html.doc then 
+	if not html.doc then
 		response.status_code = 500;
 		return response:send(handle_error(response.status_code, "Muc Theme is not loaded."));
 	end
 
-	
+
 	if node then room = hosts[my_host].modules.muc.rooms[node.."@"..my_host]; end
 	if node and not room then
 		response.status_code = 404;
@@ -638,7 +638,7 @@ function handle_request(event)
 
 
 	if not node then -- room list for component
-		return response:send(create_doc(generate_room_list(my_host))); 
+		return response:send(create_doc(generate_room_list(my_host)));
 	elseif not day then -- room's listing
 		return response:send(create_doc(generate_day_room_content(node.."@"..my_host)));
 	else

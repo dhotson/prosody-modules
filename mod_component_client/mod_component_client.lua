@@ -169,19 +169,19 @@ function listener.onconnect(conn)
 	local conn_name = "jcp"..tostring(session):match("[a-f0-9]+$");
 	session.log = logger.init(conn_name);
 	session.close = session_close;
-	
+
 	session.log("info", "Outgoing Jabber component connection");
-	
+
 	local stream = new_xmpp_stream(session, stream_callbacks);
 	session.stream = stream;
-	
+
 	function session.data(conn, data)
 		local ok, err = stream:feed(data);
 		if ok then return; end
 		module:log("debug", "Received invalid XML (%s) %d bytes: %s", tostring(err), #data, data:sub(1, 300):gsub("[\r\n]+", " "):gsub("[%z\1-\31]", "_"));
 		session:close("not-well-formed");
 	end
-	
+
 	session.dispatch_stanza = stream_callbacks.handlestanza;
 
 	session.notopen = true;

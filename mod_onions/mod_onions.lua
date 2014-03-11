@@ -31,7 +31,7 @@ local sessions = module:shared("sessions");
 local socks5listener = { default_port = proxy_port, default_mode = "*a", default_interface = "*" };
 
 local function socks5_connect_sent(conn, data)
-	
+
 	local session = sessions[conn];
 
 	if #data < 5 then
@@ -48,7 +48,7 @@ local function socks5_connect_sent(conn, data)
 	end
 
 	module:log("debug", "Succesfully connected to SOCKS5 proxy.");
-	
+
 	local response = byte(data, 4);
 
 	if response == 0x01 then
@@ -96,14 +96,14 @@ local function socks5_connect_sent(conn, data)
 				end
 			end
 		end
-		
+
 		session.open_stream = function ()
 			session.sends2s(st.stanza("stream:stream", {
 				xmlns='jabber:server', ["xmlns:db"]='jabber:server:dialback',
 				["xmlns:stream"]='http://etherx.jabber.org/streams',
 				from=session.from_host, to=session.to_host, version='1.0', ["xml:lang"]='en'}):top_tag());
 		end
-	
+
 		conn.setlistener(conn, listener);
 
 		listener.register_outgoing(conn, session);
@@ -147,7 +147,7 @@ function socks5listener.onconnect(conn)
 
 	-- Socks version 5, 1 method, no auth
 	conn:write(c(5) .. c(1) .. c(0));
-	
+
 	sessions[conn].socks5_handler = socks5_handshake_sent;
 end
 
@@ -173,7 +173,7 @@ function socks5listener.onincoming(conn, data)
 end
 
 local function connect_socks5(host_session, connect_host, connect_port)
-	
+
 	local conn, handler = socket.tcp();
 
 	module:log("debug", "Connecting to " .. connect_host .. ":" .. connect_port);

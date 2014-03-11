@@ -13,7 +13,7 @@ local my_host = nil
 -- // Util and Functions //
 
 local function ft_str()
-	local d = os_date("%FT%T%z"):gsub("^(.*)(%+%d+)", function(dt, z) 
+	local d = os_date("%FT%T%z"):gsub("^(.*)(%+%d+)", function(dt, z)
 		if z == "+0000" then return dt.."Z" else return dt..z end
 	end)
 	return d
@@ -24,7 +24,7 @@ local function get_incident_layout(i_type)
 		title = (i_type == "report" and "Incident report form") or (i_type == "request" and "Request for assistance with incident form"),
 		instructions = "Started/Ended Time, Contacts, Sources and Targets of the attack are mandatory. See RFC 5070 for further format instructions.",
 		{ name = "FORM_TYPE", type = "hidden", value = "http://jabber.org/protocol/commands" },
-		
+
 		{ name = "name", type = "hidden", value = my_host },
 		{ name = "entity", type ="text-single", label = "Remote entity to query" },
 		{ name = "started", type = "text-single", label = "Incident Start Time" },
@@ -34,18 +34,18 @@ local function get_incident_layout(i_type)
 		  desc = "Description syntax is: <lang (in xml:lang format)> <short description>" },
 		{ name = "contacts", type = "text-multi", label = "Contacts",
 		  desc = "Contacts entries format is: <address> <type> <role> - separated by new lines" },
-		{ name = "related", type = "text-multi", label = "Related Incidents", 
+		{ name = "related", type = "text-multi", label = "Related Incidents",
 		  desc = "Related incidents entries format is: <CSIRT's FQDN> <Incident ID> - separated by new lines" },
-		{ name = "impact", type = "text-single", label = "Impact Assessment", 
+		{ name = "impact", type = "text-single", label = "Impact Assessment",
 		  desc = "Impact assessment format is: <severity> <completion> <type>" },
-		{ name = "sources", type = "text-multi", label = "Attack Sources", 
+		{ name = "sources", type = "text-multi", label = "Attack Sources",
 		  desc = "Attack sources format is: <address> <category> <count> <count-type>" },
-		{ name = "targets", type = "text-multi", label = "Attack Targets", 
+		{ name = "targets", type = "text-multi", label = "Attack Targets",
 		  desc = "Attack target format is: <address> <category> <noderole>" }
 	}
 
 	if i_type == "request" then
-		table.insert(layout, { 
+		table.insert(layout, {
 			name = "expectation",
 			type = "list-single",
 			label = "Expected action from remote entity",
@@ -67,7 +67,7 @@ local function render_list(incidents)
 		title = "Stored Incidents List",
 		instructions = "You can select and view incident reports here, if a followup/response is possible it'll be noted in the step after selection.",
 		{ name = "FORM_TYPE", type = "hidden", value = "http://jabber.org/protocol/commands" },
-		{ 
+		{
 			name = "ids",
 			type = "list-single",
 			label = "Stored Incidents",
@@ -106,7 +106,7 @@ local function render_single(incident)
 		if contact.postaladdr then insert_fixed(layout, "--> Postal Address: "..contact.postaladdr) end
 	end
 
-	insert_fixed(layout, "Related Activity --")	
+	insert_fixed(layout, "Related Activity --")
 	for _, related in ipairs(incident.data.related) do
 		insert_fixed(layout, string.format("Name: %s ID: %s", related.name, related.text))
 	end
@@ -205,7 +205,7 @@ local function do_tag_mapping(tag, object)
 				postaladdr = postaladdr
 			}
 		else
-			object.contacts[#object.contacts + 1] = { 
+			object.contacts[#object.contacts + 1] = {
 				role = tag.attr.role,
 				ext_role = (tag.attr["ext-role"] and true) or nil,
 				type = tag.attr.type,
@@ -226,7 +226,7 @@ local function do_tag_mapping(tag, object)
 		end
 	elseif tag.name == "Assessment" then
 		local impact = tag:get_child("Impact")
-		object.assessment = { lang = impact.attr.lang, severity = impact.attr.severity, completion = impact.attr.completion, type = impact.attr.type } 
+		object.assessment = { lang = impact.attr.lang, severity = impact.attr.severity, completion = impact.attr.completion, type = impact.attr.type }
 	elseif tag.name == "EventData" then
 		local source = tag:get_child("Flow").tags[1]
 		local target = tag:get_child("Flow").tags[2]
@@ -244,15 +244,15 @@ local function do_tag_mapping(tag, object)
 			local noderole = { cat = entry:get_child("NodeRole").attr.category, ext = entry:get_child("NodeRole").attr["ext-category"] }
 			local current = #object.event_data.targets + 1
 			object.event_data.targets[current] = { addresses = {}, noderole = noderole }
-			for _, tag in ipairs(entry.tags) do				
+			for _, tag in ipairs(entry.tags) do
 				object.event_data.targets[current].addresses[#object.event_data.targets[current].addresses + 1] = { text = tag:get_text(), cat = tag.attr.category, ext = tag.attr["ext-category"] }
 			end
 		end
-		if expectation then 
-			object.event_data.expectation = { 
+		if expectation then
+			object.event_data.expectation = {
 				action = expectation.attr.action,
 				desc = expectation:get_child("Description") and expectation:get_child("Description"):get_text()
-			} 
+			}
 		end
 	elseif tag.name == "History" then
 		object.history = {}
@@ -268,7 +268,7 @@ end
 
 local function stanza_parser(stanza)
 	local object = {}
-	
+
 	if stanza:get_child("report", xmlns_inc) then
 		local report = st.clone(stanza):get_child("report", xmlns_inc):get_child("Incident", xmlns_iodef)
 		for _, tag in ipairs(report.tags) do do_tag_mapping(tag, object) end
@@ -295,8 +295,8 @@ local function stanza_construct(id)
 			:tag("EndTime"):text(object.end_time):up()
 			:tag("ReportTime"):text(object.report_time):up()
 			:tag("Description", { ["xml:lang"] = object.desc.lang }):text(object.desc.text):up():up();
-		
-		local incident = stanza:get_child(s_type, xmlns_inc):get_child("Incident", xmlns_iodef)		
+
+		local incident = stanza:get_child(s_type, xmlns_inc):get_child("Incident", xmlns_iodef)
 
 		for _, contact in ipairs(object.contacts) do
 			incident:tag("Contact", { role = (contact.ext_role and "ext-role") or contact.role,
@@ -308,18 +308,18 @@ local function stanza_construct(id)
 				:tag("PostalAddress"):text(contact.postaladdr):up()
 				:tag("AdditionalData")
 					:tag("jid", { xmlns = contact.xmlns }):text(contact.jid):up():up():up()
-	
+
 		end
 
 		incident:tag("RelatedActivity"):up();
 
 		for _, related in ipairs(object.related) do
-			incident:get_child("RelatedActivity")			
+			incident:get_child("RelatedActivity")
 				:tag("IncidentID", { name = related.name }):text(related.text):up();
 		end
 
 		incident:tag("Assessment")
-			:tag("Impact", { 
+			:tag("Impact", {
 				lang = object.assessment.lang,
 				severity = object.assessment.severity,
 				completion = object.assessment.completion,
@@ -362,12 +362,12 @@ local function stanza_construct(id)
 
 		if object.history then
 			local history = incident:tag("History"):up();
-			
+
 			for _, item in ipairs(object.history) do
 				history:tag("HistoryItem", { action = item.action })
 					:tag("DateTime"):text(item.date):up()
 					:tag("Description"):text(item.desc):up():up();
-			end	
+			end
 		end
 
 		-- Sanitize contact empty tags
@@ -376,19 +376,19 @@ local function stanza_construct(id)
 				for i, check in ipairs(tag) do
 					if (check.name == "Email" or check.name == "PostalAddress" or check.name == "Telephone") and
 					   not check:get_text() then
-						table.remove(tag, i) 
+						table.remove(tag, i)
 					end
-				end	
+				end
 			end
 		end
 
 		if s_type == "request" then stanza.attr.type = "get"
 		elseif s_type == "response" then stanza.attr.type = "set"
-		else stanza.attr.type = "set" end 
+		else stanza.attr.type = "set" end
 
 		return stanza
 	end
-end 
+end
 
 
 _M = {} -- wraps methods into the library.

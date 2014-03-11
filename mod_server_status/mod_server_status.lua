@@ -25,7 +25,7 @@ response_table.doc_header = '<document>'
 response_table.doc_closure = '</document>'
 response_table.stanzas = {
 		elem_header = '  <stanzas>', elem_closure = '  </stanzas>',
-		incoming = '    <incoming iq="%d" message="%d" presence="%d" />', 
+		incoming = '    <incoming iq="%d" message="%d" presence="%d" />',
 		outgoing = '    <outgoing iq="%d" message="%d" presence="%d" />'
 }
 response_table.hosts = {
@@ -44,7 +44,7 @@ local function forge_response_xml()
 
 	if show_hosts then t_builder(show_hosts, hosts_s) end
 	if show_comps then t_builder(show_comps, components) end
-	
+
 	-- build stanza stats if there
 	if prosody.stanza_counter then
 		stats[1] = response_table.stanzas.elem_header
@@ -60,7 +60,7 @@ local function forge_response_xml()
 	-- build hosts stats if there
 	if hosts_s[1] then
 		hosts_stats[1] = response_table.hosts.elem_header
-		for _, name in ipairs(hosts_s) do 
+		for _, name in ipairs(hosts_s) do
 			hosts_stats[#hosts_stats+1] = response_table.hosts.status:format(
 				name, hosts[name] and "online" or "offline")
 		end
@@ -70,9 +70,9 @@ local function forge_response_xml()
 	-- build components stats if there
 	if components[1] then
 		comps_stats[1] = response_table.comps.elem_header
-		for _, name in ipairs(components) do 
+		for _, name in ipairs(components) do
 			comps_stats[#comps_stats+1] = response_table.comps.status:format(
-				name, hosts[name] and hosts[name].modules.component and hosts[name].modules.component.connected and "online" or 
+				name, hosts[name] and hosts[name].modules.component and hosts[name].modules.component.connected and "online" or
 				hosts[name] and hosts[name].modules.component == nil and "online" or "offline")
 		end
 		comps_stats[#comps_stats+1] = response_table.comps.elem_closure
@@ -97,7 +97,7 @@ local function forge_response_json()
 	end
 	if show_comps then
 		result.components = {}
-		for _,n in ipairs(show_comps) do 
+		for _,n in ipairs(show_comps) do
 			result.components[n] = hosts[n] and hosts[n].modules.component and hosts[n].modules.component.connected and "online" or
 			hosts[n] and hosts[n].modules.component == nil and "online" or "offline"
 		end
@@ -112,7 +112,7 @@ local function request(event)
 	local response = event.response
 	if not json_output then
 		response.headers.content_type = "text/xml"
-		response:send(forge_response_xml()) 
+		response:send(forge_response_xml())
 	else
 		response.headers.content_type = "application/json"
 		response:send(forge_response_json())

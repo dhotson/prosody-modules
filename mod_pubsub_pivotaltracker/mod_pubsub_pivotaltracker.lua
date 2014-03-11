@@ -32,23 +32,23 @@ end
 
 function handle_POST(event)
 	local data = lom.parse(event.request.body);
-	
+
 	if not data then
 		return "Invalid XML. From you of all people...";
 	end
-	
+
 	data = stanza_from_lom(data);
-	
+
 	if data.name ~= "activity" then
 		return "Unrecognised XML element: "..data.name;
 	end
-	
+
 	local activity_id = data:get_child("id"):get_text();
 	local description = data:get_child("description"):get_text();
 	local author_name = data:get_child("author"):get_text();
 	local story = data:get_child("stories"):get_child("story");
 	local story_link = story:get_child("url"):get_text();
-	
+
 	local ok, err = pubsub_service:publish(node, true, "activity", st.stanza("item", { id = "activity", xmlns = "http://jabber.org/protocol/pubsub" })
 		:tag("entry", { xmlns = "http://www.w3.org/2005/Atom" })
 			:tag("id"):text(activity_id):up()
@@ -59,7 +59,7 @@ function handle_POST(event)
 				:tag("name"):text(author_name):up()
 				:up()
 	);
-	
+
 	module:log("debug", "Handled POST: \n%s\n", tostring(event.request.body));
 	return "Thank you Pivotal!";
 end

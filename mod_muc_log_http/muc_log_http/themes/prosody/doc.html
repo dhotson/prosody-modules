@@ -22,7 +22,7 @@ function changeTimeDisplay() {
                 tmp[0] = Number(tmp[0]) + timezoneOffset;
             d = new Date(0, 0, 0, 0, 0, Number(tmp[0]));
         }
-        
+
         eles[i].innerHTML = (d.getHours() <= 9 ? "0" + d.getHours() : d.getHours()) + ":";
         eles[i].innerHTML += (d.getMinutes() <= 9 ? "0" + d.getMinutes() : d.getMinutes()) + ":";
         eles[i].innerHTML += (d.getSeconds() <= 9 ? "0" + d.getSeconds() : d.getSeconds());

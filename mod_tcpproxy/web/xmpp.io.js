@@ -6,7 +6,7 @@ function XMPPIO(xmppconn, xmpptcp_host)
 	this.xmppconn = xmppconn;
 	this.xmpphost = xmpptcp_host;
 	this.sid = "FIXME";
-	
+
 	this.listeners = [];
 	return this;
 }

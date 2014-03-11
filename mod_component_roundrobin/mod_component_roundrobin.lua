@@ -1,7 +1,7 @@
 -- Prosody IM
 -- Copyright (C) 2008-2010 Matthew Wild
 -- Copyright (C) 2008-2010 Waqas Hussain
--- 
+--
 -- This project is MIT/X11 licensed. Please see the
 -- COPYING file in the source package for more information.
 --
@@ -58,7 +58,7 @@ module:hook("presence/host", handle_stanza, -0.5);
 --- Handle authentication attempts by components
 function handle_component_auth(event)
 	local session, stanza = event.origin, event.stanza;
-	
+
 	if session.type ~= "component_unauthed" then return; end
 	if sessions[session] then return; end
 
@@ -67,14 +67,14 @@ function handle_component_auth(event)
 		session:close("not-authorized");
 		return true;
 	end
-	
+
 	local secret = module:get_option("component_secret");
 	if not secret then
 		(session.log or log)("warn", "Component attempted to identify as %s, but component_secret is not set", session.host);
 		session:close("not-authorized");
 		return true;
 	end
-	
+
 	local supplied_token = t_concat(stanza);
 	local calculated_token = sha1(session.streamid..secret, true);
 	if supplied_token:lower() ~= calculated_token:lower() then
@@ -82,7 +82,7 @@ function handle_component_auth(event)
 		session:close{ condition = "not-authorized", text = "Given token does not match calculated token" };
 		return true;
 	end
-	
+
 	-- Add session to sessions table
 	sessions[session] = true;
 	session.on_destroy = on_destroy;
@@ -90,7 +90,7 @@ function handle_component_auth(event)
 	session.type = "component";
 	log("info", "Component successfully authenticated: %s", session.host);
 	session.send(st.stanza("handshake"));
-	
+
 	return true;
 end
 

@@ -18,7 +18,7 @@ local log_presences = module:get_option_boolean("muc_log_presences", true);
 
 function log_if_needed(event)
 	local stanza = event.stanza;
-	
+
 	if	(stanza.name == "presence") or
 		(stanza.name == "iq") or
 	   	(stanza.name == "message" and tostring(stanza.attr.type) == "groupchat")
@@ -34,19 +34,19 @@ function log_if_needed(event)
 				local muc_to = nil
 				local muc_from = nil;
 				local already_joined = false;
-				
+
 				if room._data.hidden then -- do not log any data of private rooms
 					return;
 				end
 				if not room._data.logging then -- do not log where logging is not enabled
 					return;
 				end
-				
+
 				if stanza.name == "presence" and stanza.attr.type == nil then
 					muc_from = stanza.attr.to;
 					if room._occupants and room._occupants[stanza.attr.to] then
 						already_joined = true;
-						stanza:tag("alreadyJoined"):text("true"); 
+						stanza:tag("alreadyJoined"):text("true");
 					end
 				elseif stanza.name == "iq" and stanza.attr.type == "set" then -- kick, to is the room, from is the admin, nick who is kicked is attr of iq->query->item
 					if stanza.tags[1] and stanza.tags[1].name == "query" then
@@ -74,11 +74,11 @@ function log_if_needed(event)
 					local data = data_load(node, host, datastore .. "/" .. today);
 					local realFrom = stanza.attr.from;
 					local realTo = stanza.attr.to;
-					
+
 					if data == nil then
 						data = {};
 					end
-					
+
 					stanza.attr.from = muc_from;
 					stanza.attr.to = muc_to;
 					data[#data + 1] = "<stanza time=\"".. now .. "\">" .. tostring(stanza) .. "</stanza>\n";
@@ -131,7 +131,7 @@ end);
 module:hook("message/bare", log_if_needed, 1);
 if log_presences then
 	module:hook("iq/bare", log_if_needed, 1);
-	module:hook("presence/full", log_if_needed, 1); 
+	module:hook("presence/full", log_if_needed, 1);
 end
 
 module:log("debug", "module mod_muc_log loaded!");

@@ -34,7 +34,7 @@ local function handle_inbound_subscription_request(origin, stanza)
 				return true;
 			end
 		end
-	end	
+	end
 	module:log("warn", "Failed to auto-accept subscription request from %s to %s", from_bare, to_bare);
 end
 

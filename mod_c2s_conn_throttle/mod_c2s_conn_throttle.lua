@@ -13,7 +13,7 @@ local function handle_sessions(event)
 		in_count[session.ip] = { t = time(), c = 1 }
 	elseif in_count[session.ip] and session.type == "c2s_unauthed" then
 		if in_count[session.ip].starttls_c then in_count[session.ip].c = in_count[session.ip].starttls_c else in_count[session.ip].c = in_count[session.ip].c + 1 end
-		
+
 		if in_count[session.ip].c > logins_count and time() - in_count[session.ip].t < throttle_time then
 			module:log("error", "Exceeded login count for %s, closing connection", session.ip)
 			session:close{ condition = "policy-violation", text = "You exceeded the number of connections/logins allowed in "..throttle_time.." seconds, good bye." }
@@ -21,7 +21,7 @@ local function handle_sessions(event)
 		elseif time() - in_count[session.ip].t > throttle_time then
 			in_count[session.ip] = nil ; return
 		end
-	end	
+	end
 end
 
 local function check_starttls(event)

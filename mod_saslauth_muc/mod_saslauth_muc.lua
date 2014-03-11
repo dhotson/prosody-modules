@@ -58,7 +58,7 @@ end
 -- Stanza handlers
 module:hook("presence/full", function(event)
 	local origin, stanza = event.origin, event.stanza;
-	
+
 	if not stanza.attr.type then -- available presence
 		local room_jid = jid_bare(stanza.attr.to);
 		local room = hosts[module.host].modules.muc.rooms[room_jid];

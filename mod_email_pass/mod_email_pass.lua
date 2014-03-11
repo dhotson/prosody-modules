@@ -26,7 +26,7 @@ local url_path = module:get_option_string("url_path", "/resetpass");
 tokens_mails = {};
 tokens_expiration = {};
 
--- URL 
+-- URL
 local https_host = module:get_option_string("https_host");
 local http_host = module:get_option_string("http_host");
 local https_port = module:get_option("https_ports", { 443 });
@@ -162,7 +162,7 @@ function generateToken(address)
 	end
 end
 
-function isExpired(token) 
+function isExpired(token)
 	if not tokens_expiration[token] then
 		return nil;
 	end
@@ -172,10 +172,10 @@ function isExpired(token)
 	else
 		-- token invalid, we can create a fresh one.
 		return true;
-	end 
+	end
 end
 
--- Expire tokens 
+-- Expire tokens
 expireTokens = function()
 	for token,value in pairs(tokens_mails) do
 		if isExpired(token) then
@@ -199,21 +199,21 @@ end
 
 function generateUrl(token)
 	local url;
-	
+
 	if https_host then
 		url = "https://" .. https_host;
 	else
 		url = "http://" .. http_host;
 	end
-	
+
 	if https_port then
 		url = url .. ":" .. https_port[1];
 	else
 		url = url .. ":" .. http_port[1];
 	end
-	
+
 	url = url .. url_path .. "token.html?" .. token;
-	
+
 	return url;
 end
 
@@ -229,7 +229,7 @@ function send_token_mail(form, origin)
 	local prepped_username = nodeprep(user);
 	local prepped_mail = form.email;
 	local jid = prepped_username .. "@" .. host;
-	
+
     if not prepped_username then
     	return nil, "El usuario contiene caracteres incorrectos";
     end
@@ -239,13 +239,13 @@ function send_token_mail(form, origin)
     if not usermanager.user_exists(prepped_username, module.host) then
     	return nil, "El usuario NO existe";
     end
-	
+
 	if #prepped_mail == 0 then
     	return nil, "El campo email está vacio";
     end
 
 	local vcarduser = get_user_vcard(prepped_username, module.host);
-	
+
 	if not vcarduser then
 		return nil, "User has not vCard";
 	else
@@ -258,17 +258,17 @@ function send_token_mail(form, origin)
 		if email ~= string.lower(prepped_mail) then
 			return nil, "Dirección eMail incorrecta";
 		end
-		
+
 		-- Check if has already a valid token, not used yet.
 		if hasTokenActive(jid) then
 			local valid_until = tokens_expiration[hasTokenActive(jid)] + 86400;
 			return nil, "Ya tienes una petición de restablecimiento de clave válida hasta: " .. datetime.date(valid_until) .. " " .. datetime.time(valid_until);
 		end
-		
+
 		local url_token = generateToken(jid);
 		local url = generateUrl(url_token);
 		local email_body =  render(get_template("sendtoken",".mail"), {jid = jid, url = url} );
-		
+
 		module:log("info", "Sending password reset mail to user %s", jid);
 		send_email(email, smtp_address, email_body, mail_subject);
 		return "ok";
@@ -279,7 +279,7 @@ end
 function reset_password_with_token(form, origin)
 	local token = form.token;
 	local password = form.newpassword;
-	
+
 	if not token then
 		return nil, "El Token es inválido";
 	end
@@ -294,7 +294,7 @@ function reset_password_with_token(form, origin)
 	end
 	local jid = tokens_mails[token];
 	local user, host, resource = jidutil.split(jid);
-	
+
 	usermanager.set_password(user, password, host);
 	module:log("info", "Password changed with token for user %s", jid);
 	tokens_mails[token] = nil;

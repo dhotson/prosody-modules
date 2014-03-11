@@ -1,5 +1,5 @@
 -- Copyright (C) 2011-2012 Kim Alvefur
--- 
+--
 -- This project is MIT/X11 licensed. Please see the
 -- COPYING file in the source package for more information.
 --
@@ -255,7 +255,7 @@ local function from_xep54_item(item)
 				end
 			end
 		end
-		
+
 		if prop_def.props_verbatim then
 			for k,v in pairs(prop_def.props_verbatim) do
 				prop[k] = v;
@@ -342,12 +342,12 @@ vCard_dtd = {
 	ADR = {
 		types = {
 			"HOME",
-			"WORK", 
-			"POSTAL", 
-			"PARCEL", 
+			"WORK",
+			"POSTAL",
+			"PARCEL",
 			"DOM",
 			"INTL",
-			"PREF", 
+			"PREF",
 		},
 		values = {
 			"POBOX",
@@ -361,41 +361,41 @@ vCard_dtd = {
 	},
 	LABEL = {
 		types = {
-			"HOME", 
-			"WORK", 
-			"POSTAL", 
-			"PARCEL", 
+			"HOME",
+			"WORK",
+			"POSTAL",
+			"PARCEL",
 			"DOM",
-			"INTL", 
-			"PREF", 
+			"INTL",
+			"PREF",
 		},
 		value = "LINE",
 	},
 	TEL = {
 		types = {
-			"HOME", 
-			"WORK", 
-			"VOICE", 
-			"FAX", 
-			"PAGER", 
-			"MSG", 
-			"CELL", 
-			"VIDEO", 
-			"BBS", 
-			"MODEM", 
-			"ISDN", 
-			"PCS", 
-			"PREF", 
+			"HOME",
+			"WORK",
+			"VOICE",
+			"FAX",
+			"PAGER",
+			"MSG",
+			"CELL",
+			"VIDEO",
+			"BBS",
+			"MODEM",
+			"ISDN",
+			"PCS",
+			"PREF",
 		},
 		value = "NUMBER",
 	},
 	EMAIL = {
 		types = {
-			"HOME", 
-			"WORK", 
-			"INTERNET", 
-			"PREF", 
-			"X400", 
+			"HOME",
+			"WORK",
+			"INTERNET",
+			"PREF",
+			"X400",
 		},
 		value = "USERID",
 	},

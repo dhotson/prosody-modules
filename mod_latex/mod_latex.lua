@@ -9,15 +9,15 @@ local function replace_latex(data)
 	local origin, stanza = data.origin, data.stanza;
 	local body = stanza:child_with_name("body");
 	if not body then return; end
-	
+
 	body = body:get_text();
 	if not body:match("%$%$") then
 		return;
 	end
-	
+
 	local html = st.stanza("html", { xmlns = xmlns_xhtmlim })
 		:tag("body", { xmlns = xmlns_xhtml });
-		
+
 	local in_latex, last_char;
 	for snippet, up_to in body:gmatch("(.-)%$%$()") do
 		last_char = up_to;
@@ -29,13 +29,13 @@ local function replace_latex(data)
 			-- Add text to HTML, next snippet is latex
 			in_latex = true;
 			html:tag("span"):text(snippet):up();
-			
+
 		end
 	end
 	if last_char < #body then
 		html:tag("span"):text(body:sub(last_char, #body)):up();
 	end
-	
+
 	for n, tag in ipairs(stanza.tags) do
 		module:log("debug", "Tag: %s|%s", tag.attr.xmlns or "", tag.name or "");
 		if tag.name == "html" and tag.attr.xmlns == xmlns_xhtmlim then
@@ -48,7 +48,7 @@ local function replace_latex(data)
 			return;
 		end
 	end
-	
+
 	stanza[#stanza+1] = html;
 	stanza.tags[#stanza.tags+1] = html;
 end

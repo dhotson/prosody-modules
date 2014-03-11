@@ -31,7 +31,7 @@ local function message_handler(event, c2s)
 	local orig_type = stanza.attr.type;
 	local orig_from = stanza.attr.from;
 	local orig_to = stanza.attr.to;
-	
+
 	if not (orig_type == nil
 			or orig_type == "normal"
 			or orig_type == "chat") then

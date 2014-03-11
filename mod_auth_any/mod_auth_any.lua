@@ -45,7 +45,7 @@ function new_default_provider(host)
 	function provider.create_user(username, password)
 		return datamanager.store(username, host, "accounts", {password = password});
 	end
-	
+
 	function provider.delete_user(username)
 		return datamanager.store(username, host, "accounts", nil);
 	end
@@ -58,7 +58,7 @@ function new_default_provider(host)
 		};
 		return new_sasl(module.host, getpass_authentication_profile);
 	end
-	
+
 	return provider;
 end
 

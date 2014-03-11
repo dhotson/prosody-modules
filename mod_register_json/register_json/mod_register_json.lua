@@ -66,7 +66,7 @@ function hashes_mt:save()
 end
 
 local function check_mail(address)
-	for _, pattern in ipairs(fm_patterns) do 
+	for _, pattern in ipairs(fm_patterns) do
 		if address:match(pattern) then return false end
 	end
 	return true
@@ -93,7 +93,7 @@ local function handle_req(event)
 	if request.method ~= "POST" then
 		return http_response(event, 405, "Bad method.", {["Allow"] = "POST"})
 	end
-	
+
 	local req_body
 	-- We check that what we have is valid JSON wise else we throw an error...
 	if not pcall(function() req_body = json_decode(b64_decode(request.body)) end) then
@@ -113,11 +113,11 @@ local function handle_req(event)
 		if token ~= auth_token then
 			module:log("warn", "%s tried to retrieve a registration token for %s@%s", request.ip, username, module.host)
 			return http_response(event, 401, "Auth token is invalid! The attempt has been logged.")
-		else	
+		else
 			-- Blacklist can be checked here.
-			if blacklist:contains(ip) then 
+			if blacklist:contains(ip) then
 				module:log("warn", "Attempt of reg. submission to the JSON servlet from blacklisted address: %s", ip)
-				return http_response(event, 403, "The specified address is blacklisted, sorry.") 
+				return http_response(event, 403, "The specified address is blacklisted, sorry.")
 			end
 
 			if not check_mail(mail) then
@@ -142,7 +142,7 @@ local function handle_req(event)
 					if throttle_time and not whitelist:contains(ip) then
 						if not recent_ips[ip] then
 							recent_ips[ip] = os_time()
-						else 
+						else
 							if os_time() - recent_ips[ip] < throttle_time then
 								recent_ips[ip] = os_time()
 								module:log("warn", "JSON Registration request from %s has been throttled.", req_body["ip"])
@@ -208,7 +208,7 @@ local function handle_verify(event, path)
 	if request.method == "GET" then
 		if path == "" then
 			return r_template(event, "form")
-		end		
+		end
 
 		if valid_files[path] then
 			local data = open_file(valid_files[path])
@@ -223,25 +223,25 @@ local function handle_verify(event, path)
 			if not pending[uuid] then
 				return r_template(event, "fail")
 			else
-				local username, password, ip = 
+				local username, password, ip =
 				      pending[uuid].node, pending[uuid].password, pending[uuid].ip
 
 				local ok, error = usermanager.create_user(username, password, module.host)
-				if ok then 
+				if ok then
 					module:fire_event(
-						"user-registered", 
+						"user-registered",
 						{ username = username, host = module.host, source = "mod_register_json", session = { ip = ip } }
 					)
 					module:log("info", "Account %s@%s is successfully verified and activated", username, module.host)
 					-- we shall not clean the user from the pending lists as long as registration doesn't succeed.
 					pending[uuid] = nil ; pending_node[username] = nil
-					return r_template(event, "success")				
+					return r_template(event, "success")
 				else
 					module:log("error", "User creation failed: "..error)
 					return http_response(event, 500, "Encountered server error while creating the user: "..error)
 				end
 			end
-		end	
+		end
 	else
 		return http_response(event, 405, "Invalid method.")
 	end

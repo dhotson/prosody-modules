@@ -1,7 +1,7 @@
 -- mod_sms_clickatell
 --
 -- A Prosody module for sending SMS text messages from XMPP using the
--- Clickatell gateway's HTTP API 
+-- Clickatell gateway's HTTP API
 --
 -- Hacked from mod_twitter by Phil Stewart, March 2011. Anything from
 -- mod_twitter copyright The Guy Who Wrote mod_twitter. Everything else
@@ -212,7 +212,7 @@ function clickatell_send_sms(user, number, message)
 	if message == nil or message == "" then
 		return false;
 	end
-	
+
 	local sms_message = sms_message_prefix..message;
 	local clickatell_base_url = "https://api.clickatell.com/http/sendmsg";
 	local params = {user=user.data.username, password=user.data.password, api_id=user.data.api_id, from=user.data.source_number, to=number, text=sms_message};
@@ -290,7 +290,7 @@ end
 
 -- XMPP Register callback
 -- The client must register with the gateway. In this case, the gateway is
--- Clickatell's http api, so we 
+-- Clickatell's http api, so we
 function iq_register(origin, stanza)
 	module:log("info", "Register event triggered");
 	if stanza.attr.type == "get" then
@@ -452,7 +452,7 @@ function presence_stanza_handler(origin, stanza)
 		end
 	end
 
-	
+
 	return true;
 end
 
@@ -513,7 +513,7 @@ end
 function sms_event_handler(origin, stanza)
 	module:log("debug", "Received stanza: "..stanza:pretty_print());
 	local to_node, to_host, to_resource = jid_split(stanza.attr.to);
-	
+
 	-- Handle component internals (stanzas directed to component host, mainly iq stanzas)
 	if to_node == nil then
 		local type = stanza.attr.type;
@@ -545,12 +545,12 @@ function sms_event_handler(origin, stanza)
 			end
 		end
 	end
-	
+
 	-- Handle presence (both component and SMS users)
 	if stanza.name == "presence" then
 		presence_stanza_handler(origin, stanza);
 	end
-	
+
 	-- Handle messages (both component and SMS users)
 	if stanza.name == "message" then
 		message_stanza_handler(origin, stanza);
@@ -582,7 +582,7 @@ end);
 --]]
 
 -- Component registration hooks: these hook in with the Prosody component
--- manager 
+-- manager
 module:hook("iq/bare", sms_event_handler);
 module:hook("message/bare", sms_event_handler);
 module:hook("presence/bare", sms_event_handler);

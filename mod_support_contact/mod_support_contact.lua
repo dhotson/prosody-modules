@@ -35,7 +35,7 @@ module:hook("user-registered", function(event)
 	rostermanager.save_roster(node, host, roster);
 
 	node, host = jid_split(support_contact);
-	
+
 	if hosts[host] then
 		roster = rostermanager.load_roster(node, host);
 		roster[jid] = {subscription = "both", groups = groups};

@@ -1,7 +1,7 @@
 -- Prosody IM
 -- Copyright (C) 2008-2010 Matthew Wild
 -- Copyright (C) 2008-2010 Waqas Hussain
--- 
+--
 -- This project is MIT/X11 licensed. Please see the
 -- COPYING file in the source package for more information.
 --
@@ -84,7 +84,7 @@ function module.load()
 		module:log("error", "Please specify group_bookmarks_file in your configuration");
 		return;
 	end
-	
+
 	local curr_room;
 	for line in io.lines(bookmarks_file) do
 		if line:match("^%s*%[.-%]%s*$") then

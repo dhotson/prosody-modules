@@ -7,7 +7,7 @@ local libev = module:get_option_boolean("use_libevent")
 
 local function disable_tls_for_baddies_in(event)
 	local session = event.origin
-	if bad_servers:contains(session.from_host) or bad_servers_ip:contains(session.conn:ip()) then 
+	if bad_servers:contains(session.from_host) or bad_servers_ip:contains(session.conn:ip()) then
 		module:log("debug", "disabling tls on incoming stream from %s...", tostring(session.from_host));
 		if libev then session.conn.starttls = false; else session.conn.starttls = nil; end
 	end

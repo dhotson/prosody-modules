@@ -66,7 +66,7 @@ function packet_handlers.subscribe(session, packet)
 		session.subscriptions[topic] = true;
 		node_subs[session] = true;
 	end
-	
+
 end
 
 function packet_handlers.pingreq(session, packet)

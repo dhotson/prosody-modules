@@ -50,7 +50,7 @@ local function handle_activation (host, u)
 			hosts[host].events.add_handler("s2sin-established", s2s_hook, 500)
 			hosts[host].events.add_handler("route/remote", rr_hook, 500)
 			hosts[host].events.add_handler("stanza/jabber:server:dialback:result", s2s_hook, 500)
-                	if not u then 
+                	if not u then
 				module:log ("debug", "adding host protection for: "..host)
 			else
 				module:log ("debug", "updating or adding host protection for: "..host)

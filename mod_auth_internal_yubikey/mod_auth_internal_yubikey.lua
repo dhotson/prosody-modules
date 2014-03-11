@@ -110,7 +110,7 @@ function provider.get_sasl_handler()
 	};
 	return new_sasl(realm, getpass_authentication_profile);
 end
-	
+
 module:provides("auth", provider);
 
 function module.command(arg)
@@ -122,15 +122,15 @@ function module.command(arg)
 			prosodyctl.show_usage([[mod_auth_internal_yubikey associate JID]], [[Set the Yubikey details for a user]]);
 			return 1;
 		end
-		
+
 		local username, host = jid.prepped_split(user_jid);
 		if not username or not host then
 			print("Invalid JID: "..user_jid);
 			return 1;
 		end
-		
+
 		local password, public_id, private_id, key;
-		
+
 		for i=2,#arg do
 			local k, v = arg[i]:match("^%-%-(%w+)=(.*)$");
 			if not k then
@@ -146,7 +146,7 @@ function module.command(arg)
 				key = v;
 			end
 		end
-		
+
 		if not password then
 			print(":: Password ::");
 			print("This is an optional password that should be always");
@@ -160,8 +160,8 @@ function module.command(arg)
 				return 1;
 			end
 		end
-		
-		if not public_id then	
+
+		if not public_id then
 			print(":: Public Yubikey ID ::");
 			print("This is a fixed string of characters between 0 and 16");
 			print("bytes long that the Yubikey prefixes to every token.");
@@ -181,7 +181,7 @@ function module.command(arg)
 				end
 			end
 		end
-		
+
 		if not private_id then
 			print(":: Private Yubikey ID ::");
 			print("This is a fixed secret UID programmed into the yubikey");
@@ -200,8 +200,8 @@ function module.command(arg)
 					break;
 				end
 			end
-		end			
-		
+		end
+
 		if not key then
 			print(":: AES Encryption Key ::");
 			print("This is the secret key that the Yubikey uses to encrypt the");
@@ -219,7 +219,7 @@ function module.command(arg)
 				end
 			end
 		end
-		
+
 		local hash = hashes.sha1(public_id..private_id..password, true);
 		local account = {
 			yubikey_hash = hash;

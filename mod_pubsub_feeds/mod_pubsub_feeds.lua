@@ -112,7 +112,7 @@ function update_entry(item)
 			end
 		end
 	end
-	
+
 	if use_pubsubhubub and not item.subscription then
 		--module:log("debug", "check if %s has a hub", item.node);
 		local hub = feed.links and feed.links.hub;
@@ -129,7 +129,7 @@ function fetch(item, callback) -- HTTP Pull
 	if item.data and item.last_update then
 		headers["If-Modified-Since"] = date("!%a, %d %b %Y %H:%M:%S %Z", item.last_update);
 	end
-	http.request(item.url, { headers = headers }, function(data, code) 
+	http.request(item.url, { headers = headers }, function(data, code)
 		if code == 200 then
 			item.data = data;
 			if callback then callback(item) end
@@ -146,7 +146,7 @@ function refresh_feeds(force)
 	for node, item in pairs(feed_list) do
 		--FIXME Don't fetch feeds which have a subscription
 		-- Otoho, what if the subscription expires or breaks?
-		if force or item.last_update + refresh_interval < now then 
+		if force or item.last_update + refresh_interval < now then
 			--module:log("debug", "checking %s", item.node);
 			fetch(item, update_entry);
 		end
@@ -156,7 +156,7 @@ end
 
 local function format_url(node)
 	return module:http_url(nil, "/callback") .. "?node=" .. urlencode(node);
-end	
+end
 
 function subscribe(feed, want)
 	want = want or "subscribe";

@@ -17,15 +17,15 @@
 
 local jid_split = require "util.jid".split;
 local dm_load = require "util.datamanager".load;
-local dm_store = require "util.datamanager".store;  
+local dm_store = require "util.datamanager".store;
 local adhoc_new = module:require "adhoc".new;
 local xmlns_carbons_v0 = "urn:xmpp:carbons:0";
 local storename = "mod_carbons_copies";
 
 local function toggle_copies(data, on)
-	local username, hostname, resource = jid_split(data.from);		
+	local username, hostname, resource = jid_split(data.from);
 	dm_store(username, hostname, storename, { enabled = on });
-end	
+end
 
 local function adhoc_enable_copies(self, data, state)
 	toggle_copies(data, true);
@@ -40,24 +40,24 @@ end
 module:hook("resource-bind", function(event)
 	local session = event.session;
 	local username, hostname, resource = jid_split(session.full_jid);
-	
-	local store = dm_load(username, hostname, storename) or 
-		{ enabled = 
+
+	local store = dm_load(username, hostname, storename) or
+		{ enabled =
 		module:get_option_boolean("carbons_copies_default") };
-		
+
 	if store.enabled then
 		session.want_carbons = xmlns_carbons_v0;
 		module:log("debug", "%s enabling copies", session.full_jid);
 	end
 end);
-	
+
 -- Adhoc-Support
 if module:get_option_boolean("carbons_copies_adhoc") then
 	local enable_desc = adhoc_new("Carbons: Enable Copies",
 		"mod_carbons_copies#enable", adhoc_enable_copies);
 	local disable_desc = adhoc_new("Carbons: Disable Copies",
 		"mod_carbons_copies#disable", adhoc_disable_copies);
-		 
+
 	module:add_item("adhoc", enable_desc);
 	module:add_item("adhoc", disable_desc);
 end

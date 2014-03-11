@@ -41,7 +41,7 @@ function handle_catalog_request(request)
 			name = catalog_name,
 			desc = catalog_desc
 		});
-	
+
 	local function add_labels(catalog, labels, selector)
 		local function add_item(item, name)
 			local name = name or item.name;

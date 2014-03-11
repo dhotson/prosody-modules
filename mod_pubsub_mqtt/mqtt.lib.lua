@@ -44,7 +44,7 @@ function stream_mt:read_packet()
 	packet.dup = bit.band(header, 0x08) == 0x08;
 	packet.qos = bit.rshift(bit.band(header, 0x06), 1);
 	packet.retain = bit.band(header, 0x01) == 0x01;
-	
+
 	-- Get length
 	local length, multiplier = 0, 1;
 	repeat
@@ -129,7 +129,7 @@ local function serialize_packet(packet)
 		end
 	end
 	local header = string.char(bit.lshift(type_num, 4));
-	
+
 	if packet.type == "publish" then
 		local topic = packet.topic or "";
 		packet.data = string.char(bit.band(#topic, 0xff00), bit.band(#topic, 0x00ff))..topic..packet.data;
@@ -140,7 +140,7 @@ local function serialize_packet(packet)
 		end
 		packet.data = table.concat(t);
 	end
-	
+
 	-- Get length
 	local length = #(packet.data or "");
 	repeat
@@ -151,7 +151,7 @@ local function serialize_packet(packet)
 		end
 		header = header..string.char(digit); -- FIXME: ...
 	until length <= 0;
-	
+
 	return header..(packet.data or "");
 end
 

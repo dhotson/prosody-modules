@@ -14,7 +14,7 @@ function main()
 		prosody = { up_since = os.time() };
 		conn_list = {};
 	});
-	
+
 	timer.add_task(0.01, function ()
 		local ch = stdscr:getch();
 		if ch then
@@ -26,19 +26,19 @@ function main()
 		end
 		return 0.2;
 	end);
-	
+
 	timer.add_task(0, function ()
 		view:draw();
 		return 1;
 	end);
-	
+
 	--[[
 	posix.signal(28, function ()
 		table.insert(view.conn_list, { jid = "WINCH" });
 		--view:draw();
 	end);
 	]]
-	
+
 	-- Fake socket object around stdin
 	local stdin = {
         	getfd = function () return 0; end;
@@ -65,7 +65,7 @@ function main()
 	stdin = server.wrapclient(stdin, "stdin", 0, {
 		onincoming = on_incoming, ondisconnect = function () end
 	}, "*a");
-	
+
 	local function handle_line(line)
 		local e = {
 			STAT = function (name) return function (value)
@@ -79,13 +79,13 @@ function main()
 		setfenv(chunk, e);
 		chunk();
 	end
-	
+
 	local stats_listener = {};
-	
+
 	function stats_listener.onconnect(conn)
 		--stdscr:mvaddstr(6, 0, "CONNECTED");
 	end
-	
+
 	local partial;
 	function stats_listener.onincoming(conn, data)
 		--print("DATA", data)
@@ -107,11 +107,11 @@ function main()
 			partial = data:sub(lastpos);
 		end
 	end
-	
+
 	function stats_listener.ondisconnect(conn, err)
 		stdscr:mvaddstr(6, 0, "DISCONNECTED: "..(err or "unknown"));
 	end
-	
+
 	local conn = require "socket".tcp();
 	assert(conn:connect("localhost", 5782));
 	handler = server.wrapclient(conn, "localhost", 5279, stats_listener, "*a");

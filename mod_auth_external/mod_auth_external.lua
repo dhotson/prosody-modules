@@ -85,11 +85,11 @@ end
 
 function do_query(kind, username, password)
 	if not username then return nil, "not-acceptable"; end
-	
+
 	local query = (password and "%s:%s:%s:%s" or "%s:%s:%s"):format(kind, username, host, password);
 	local len = #query
 	if len > 1000 then return nil, "policy-violation"; end
-	
+
 	if script_type == "ejabberd" then
 		local lo = len % 256;
 		local hi = (len - lo) / 256;
@@ -97,7 +97,7 @@ function do_query(kind, username, password)
 	elseif script_type == "generic" then
 		query = query..'\n';
 	end
-	
+
 	local response, err = send_query(query);
 	if not response then
 		log("warn", "Error while waiting for result from auth process: %s", err or "unknown error");

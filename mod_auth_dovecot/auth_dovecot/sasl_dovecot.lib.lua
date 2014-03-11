@@ -256,7 +256,7 @@ function method:process(message)
 		else
 			self.username = nodeprep(data.user);
 		end
-		if not self.username then 
+		if not self.username then
 			return "failure", "not-authorized", "Username failed NODEprep"
 		end
 	end
@@ -272,7 +272,7 @@ function method:process(message)
 	elseif resp == "CONT" then
 		return "challenge", unb64(data[1]);
 	elseif resp == "OK" then
-		return "success", data.resp and unb64(data.resp) or nil; 
+		return "success", data.resp and unb64(data.resp) or nil;
 	end
 end
 

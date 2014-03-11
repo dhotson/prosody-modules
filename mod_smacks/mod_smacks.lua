@@ -28,7 +28,7 @@ local session_registry = {};
 
 local function can_do_smacks(session, advertise_only)
 	if session.smacks then return false, "unexpected-request", "Stream management is already enabled"; end
-	
+
 	local session_type = session.type;
 	if session_type == "c2s" then
 		if not(advertise_only) and not(session.resource) then -- Fail unless we're only advertising sm
@@ -79,17 +79,17 @@ local function wrap_session(session, resume, xmlns_sm)
 	else
 		queue = session.outgoing_stanza_queue;
 	end
-	
+
 	local _send = session.sends2s or session.send;
 	local function new_send(stanza)
 		local attr = stanza.attr;
 		if attr and not attr.xmlns then -- Stanza in default stream namespace
 			local cached_stanza = st.clone(stanza);
-			
+
 			if cached_stanza and cached_stanza:get_child("delay", xmlns_delay) == nil then
 				cached_stanza = cached_stanza:tag("delay", { xmlns = xmlns_delay, from = session.host, stamp = datetime.datetime()});
 			end
-			
+
 			queue[#queue+1] = cached_stanza;
 		end
 		if session.hibernating then
@@ -104,7 +104,7 @@ local function wrap_session(session, resume, xmlns_sm)
 		end
 		return ok, err;
 	end
-	
+
 	if session.sends2s then
 		session.sends2s = new_send;
 	else
@@ -119,7 +119,7 @@ local function wrap_session(session, resume, xmlns_sm)
 		end
 		return session_close(...);
 	end
-	
+
 	if not resume then
 		session.handled_stanza_count = 0;
 		add_filter(session, "stanzas/in", function (stanza)
@@ -144,9 +144,9 @@ function handle_enable(session, stanza, xmlns_sm)
 
 	module:log("debug", "Enabling stream management");
 	session.smacks = true;
-	
+
 	wrap_session(session, false, xmlns_sm);
-	
+
 	local resume_token;
 	local resume = stanza.attr.resume;
 	if resume == "true" or resume == "1" then
@@ -163,11 +163,11 @@ module:hook_stanza(xmlns_sm3, "enable", function (session, stanza) return handle
 function handle_enabled(session, stanza, xmlns_sm)
 	module:log("debug", "Enabling stream management");
 	session.smacks = true;
-	
+
 	wrap_session(session, false, xmlns_sm);
 
 	-- FIXME Resume?
-	
+
 	return true;
 end
 module:hook_stanza(xmlns_sm2, "enabled", function (session, stanza) return handle_enabled(session, stanza, xmlns_sm2); end, 100);
@@ -269,7 +269,7 @@ module:hook("pre-resource-unbind", function (event)
 			end);
 			return true; -- Postpone destruction for now
 		end
-		
+
 	end
 end);
 
@@ -325,11 +325,11 @@ function handle_resume(session, stanza, xmlns_sm)
 
 		session.send(st.stanza("resumed", { xmlns = xmlns_sm,
 			h = original_session.handled_stanza_count, previd = id }));
-		
+
 		-- Fake an <a> with the h of the <resume/> from the client
 		original_session:dispatch_stanza(st.stanza("a", { xmlns = xmlns_sm,
 			h = stanza.attr.h }));
-		
+
 		-- Ok, we need to re-send any stanzas that the client didn't see
 		-- ...they are what is now left in the outgoing stanza queue
 		local queue = original_session.outgoing_stanza_queue;

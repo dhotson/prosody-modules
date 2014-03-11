@@ -91,18 +91,18 @@ do -- process options to get a db connection
 	end
 
 	params = params or { driver = "SQLite3" };
-	
+
 	if params.driver == "SQLite3" then
 		params.database = resolve_relative_path(prosody.paths.data or ".", params.database or "prosody.sqlite");
 	end
-	
+
 	assert(params.driver and params.database, "Both the SQL driver and the database need to be specified");
 
 	dburi = db2uri(params);
 	connection = connections[dburi];
-	
+
 	assert(connect());
-	
+
 end
 
 function getsql(sql, ...)
@@ -117,7 +117,7 @@ function getsql(sql, ...)
 	local ok, err = stmt:execute(...);
 	if not ok and not test_connection() then error("connection failed"); end
 	if not ok then return nil, err; end
-	
+
 	return stmt;
 end
 function setsql(sql, ...)
@@ -290,7 +290,7 @@ local function message_handler(event)
 			sql.rollback();
 		end
 	--[[ This was dropped from the spec
-	if ok then 
+	if ok then
 		stanza:tag("archived", { xmlns = xmlns_mam, by = host, id = id }):up();
 	end
 	--]]

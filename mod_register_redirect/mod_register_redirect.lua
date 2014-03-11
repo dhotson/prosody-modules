@@ -2,7 +2,7 @@
 -- (C) 2011 Kim Alvefur
 --
 -- Registration Redirect module for Prosody
--- 
+--
 -- Redirects IP addresses not in the whitelist to a web page or another method to complete the registration.
 
 local st = require "util.stanza"
@@ -77,7 +77,7 @@ function reg_redirect(event)
 		reply:query("jabber:iq:register")
 			:tag("instructions"):text(inst_text):up()
 	end
-	
+
 	if stanza.attr.type == "get" then
 		return origin.send(reply)
 	else

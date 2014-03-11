@@ -126,7 +126,7 @@ local function route_modify(make_new, to, drop)
 	return ([[local newstanza = st.%s; %s;%s]])
 		:format(make_new, reroute, drop and " return true;" or ""), deps;
 end
-	
+
 function action_handlers.BOUNCE(with)
 	local error = with and with:match("^%S+") or "service-unavailable";
 	local error_type = error:match(":(%S+)");

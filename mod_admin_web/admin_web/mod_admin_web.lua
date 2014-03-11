@@ -205,14 +205,14 @@ function module.add_host(module)
 		service[module.host]:set_affiliation(xmlns_s2s_session, true, module.host, "owner")
 	end
 
-	-- Add outgoing s2s sessions 
+	-- Add outgoing s2s sessions
 	for remotehost, session in pairs(hosts[module.host].s2sout) do
 		if session.type ~= "s2sout_unauthed" then
 			add_host(session, "out", module.host);
 		end
 	end
 
-	-- Add incomming s2s sessions 
+	-- Add incomming s2s sessions
 	for session in pairs(incoming_s2s) do
 		if session.to_host == module.host then
 			add_host(session, "in", module.host);

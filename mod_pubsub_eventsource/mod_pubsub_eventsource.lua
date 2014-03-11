@@ -28,7 +28,7 @@ function serve_stream(event, node)
 		"Access-Control-Allow-Methods: GET";
 		"Access-Control-Max-Age: 7200";
 		"";
-		"";	
+		"";
 	}, "\r\n"));
 
 	local clientlist = streams[node];

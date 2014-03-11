@@ -1,7 +1,7 @@
 -- Copyright (C) 2013 Kim Alvefur
 -- This file is MIT/X11 licensed.
 --
--- Implements Secure Delegation using DNS SRV as described in 
+-- Implements Secure Delegation using DNS SRV as described in
 -- http://tools.ietf.org/html/draft-miller-xmpp-dnssec-prooftype
 --
 -- Dependecies:

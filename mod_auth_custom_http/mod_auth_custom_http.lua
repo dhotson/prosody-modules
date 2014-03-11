@@ -49,7 +49,7 @@ function provider.get_sasl_handler()
 	};
 	return new_sasl(module.host, getpass_authentication_profile);
 end
-	
+
 
 module:provides("auth", provider);
 

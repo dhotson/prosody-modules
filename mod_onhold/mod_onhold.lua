@@ -2,7 +2,7 @@
 -- Copyright (C) 2008-2009 Matthew Wild
 -- Copyright (C) 2008-2009 Waqas Hussain
 -- Copyright (C) 2009 Jeff Mitchell
--- 
+--
 -- This project is MIT/X11 licensed. Please see the
 -- COPYING file in the source package for more information.
 --
@@ -48,7 +48,7 @@ module:hook("presence/bare", function(event)
 	local node, host = session.username, session.host;
 	local from;
 	local de_stanza;
-	
+
 	local data = datamanager.list_load(node, host, "onhold");
 	local newdata = {};
 	if not data then return nil; end

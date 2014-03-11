@@ -27,7 +27,7 @@ local expire_time = module:get_option_number("incidents_expire_time", 0)
 local _inc_mt = {} ; _inc_mt.__index = _inc_mt
 
 function _inc_mt:init()
-	self:clean() ; self:save()			
+	self:clean() ; self:save()
 end
 
 function _inc_mt:clean()
@@ -68,7 +68,7 @@ function _inc_mt:new_object(fields, formtype)
 	if not _lang or not _dtext then return false end
 	local desc = { text = _dtext, lang = _lang }
 
-	local contacts = {}	
+	local contacts = {}
 	for contact in _contacts:gmatch("[%w%p]+%s[%w%p]+%s[%w%p]+") do
 		local address, atype, role = contact:match("^([%w%p]+)%s([%w%p]+)%s([%w%p]+)$")
 		if not address or not atype or not role then fail = true ; break end
@@ -117,7 +117,7 @@ function _inc_mt:new_object(fields, formtype)
 		noderole_ext = ih_lib.get_type(cat, "noderole")
 
 		if not _preprocess[noderole] then _preprocess[noderole] = { addresses = {}, ext = noderole_ext } end
-		
+
 		_preprocess[noderole].addresses[#_preprocess[noderole].addresses + 1] = {
 			text = address, cat = cat, ext = cat_ext
 		}
@@ -144,7 +144,7 @@ function _inc_mt:new_object(fields, formtype)
 			assessment = assessment,
 			event_data = { sources = sources, targets = targets }
 		}
-		
+
 		self[new_object.data.id.text] = new_object
 		self:clean() ; self:save()
 		return new_object.data.id.text
@@ -177,7 +177,7 @@ local function inquiry_handler(event)
 	else
 		module:log("error", "Server %s queried for incident %s but we don't know about it", stanza.attr.from, inc_id)
 		origin.send(st.error_reply(stanza, "cancel", "item-not-found")) ; return true
-	end	
+	end
 end
 
 local function request_handler(event)
@@ -213,7 +213,7 @@ local function list_incidents_command_handler(self, data, state)
 
 	if state then
 		if state.step == 1 then
-			if data.action == "cancel" then 
+			if data.action == "cancel" then
 				return { status = "canceled" }
 			elseif data.action == "prev" then
 				return { status = "executing", actions = { "next", default = "next" }, form = list_incidents_layout }, {}
@@ -287,7 +287,7 @@ local function rr_command_handler(self, data, state, formtype)
 	if state then
 		if data.action == "cancel" then return { status = "canceled" } end
 		local fields = send_layout:data(data.form)
-			
+
 		if fields.started and fields.ended and fields.reported and fields.description and fields.contacts and
 		   fields.impact and fields.sources and fields.targets and fields.entity then
 			if formtype == "request" and not fields.expectation then return err_no_fields end
@@ -303,7 +303,7 @@ local function rr_command_handler(self, data, state, formtype)
 			return { status = "completed", info = string.format("Incident %s sent to %s.", formtype, fields.entity) }
 		else
 			return err_no_fields
-		end	   
+		end
 	else
 		return { status = "executing", form = send_layout }, "executing"
 	end
@@ -348,5 +348,5 @@ end
 
 module.restore = function(data)
 	incidents = data.incidents or {}
-	setmetatable(incidents, _inc_mt) ; incidents:init()		
+	setmetatable(incidents, _inc_mt) ; incidents:init()
 end
