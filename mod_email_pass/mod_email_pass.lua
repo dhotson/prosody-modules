@@ -225,10 +225,9 @@ function sendMessage(jid, subject, message)
 end
 
 function send_token_mail(form, origin)
-	local user, host, resource = jidutil.split(form.username);
-	local prepped_username = nodeprep(user);
+	local prepped_username = nodeprep(form.username);
 	local prepped_mail = form.email;
-	local jid = prepped_username .. "@" .. host;
+	local jid = prepped_username .. "@" .. module.host;
 
     if not prepped_username then
     	return nil, "El usuario contiene caracteres incorrectos";
