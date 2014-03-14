@@ -11,6 +11,7 @@ module:set_global();
 local dns_lookup = require"net.adns".lookup;
 local hashes = require"util.hashes";
 local base64 = require"util.encodings".base64;
+local idna_to_ascii = require "util.encodings".idna.to_ascii;
 
 local s2sout = module:depends"s2s".route_to_new_session.s2sout;
 
@@ -31,38 +32,62 @@ end
 -- No encryption offered
 -- Different hostname before and after STARTTLS - mod_s2s should complain
 
--- This function is called when a new SRV target has been picked
--- the original function does A/AAAA resolution before continuing
-local _try_connect = s2sout.try_connect;
-function s2sout.try_connect(host_session, connect_host, connect_port, err)
-	local srv_hosts = host_session.srv_hosts;
-	local srv_choice = host_session.srv_choice;
-	if srv_hosts and srv_hosts.answer.secure and srv_hosts[srv_choice].dane == nil then
-		srv_hosts[srv_choice].dane = dns_lookup(function(answer)
-			if answer and #answer > 0 and answer.secure then
-				srv_hosts[srv_choice].dane = answer;
-			elseif answer.bogus then
-				srv_hosts[srv_choice].dane = bogus;
-			else
-				srv_hosts[srv_choice].dane = false;
-			end
-			-- "blocking" until TLSA reply, but no race condition
-			return _try_connect(host_session, connect_host, connect_port, err);
-		end, ("_%d._tcp.%s"):format(connect_port, connect_host), "TLSA");
-		return true
+local function dane_lookup(host_session, name, cb, a,b,c)
+	if host_session.dane ~= nil then return false; end
+	local ascii_host = name and idna_to_ascii(name);
+	if not ascii_host then return false; end
+	host_session.dane = dns_lookup(function(answer)
+		if answer and (answer.secure and #answer > 0) then
+			host_session.dane = answer;
+		elseif answer.bogus then
+			host_session.dane = bogus;
+		else
+			host_session.dane = false;
+		end
+		if cb then return cb(a,b,c); end
+	end, ("_xmpp-server.%s."):format(ascii_host), "TLSA");
+	host_session.connecting = true;
+	return true;
+end
+
+local _attempt_connection = s2sout.attempt_connection;
+function s2sout.attempt_connection(host_session, err)
+	if not err and dane_lookup(host_session, host_session.to_host, _attempt_connection, host_session, err) then
+		return true;
 	end
-	return _try_connect(host_session, connect_host, connect_port, err);
+	return _attempt_connection(host_session, err);
+end
+
+function module.add_host(module)
+	module:hook("s2s-stream-features", function(event)
+		local origin = event.origin;
+		dane_lookup(origin, origin.from_host);
+	end, 1);
+
+	module:hook("s2s-authenticated", function(event)
+		local session = event.session;
+		if session.dane and not session.secure then
+			-- TLSA record but no TLS, not ok.
+			-- TODO Optional?
+			-- Bogus replies should trigger this path
+			-- How does this interact with Dialback?
+			session:close({
+				condition = "policy-violation",
+				text = "Encrypted server-to-server communication is required but was not "
+					..((session.direction == "outgoing" and "offered") or "used")
+			});
+			return false;
+		end
+	end);
 end
 
 module:hook("s2s-check-certificate", function(event)
 	local session, cert = event.session, event.cert;
-	local srv_hosts = session.srv_hosts;
-	local srv_choice = session.srv_choice;
-	local choosen = srv_hosts and srv_hosts[srv_choice] or session;
-	if choosen.dane then
+	local dane = session.dane;
+	if type(dane) == "table" then
 		local use, select, match, tlsa, certdata, match_found, supported_found;
-		for i, rr in ipairs(choosen.dane) do
-			tlsa = rr.tlsa;
+		for i = 1, #dane do
+			tlsa = dane[i].tlsa;
 			module:log("debug", "TLSA %s %s %s %d bytes of data", tlsa:getUsage(), tlsa:getSelector(), tlsa:getMatchType(), #tlsa.data);
 			use, select, match, certdata = tlsa.use, tlsa.select, tlsa.match;
 
@@ -98,13 +123,9 @@ module:hook("s2s-check-certificate", function(event)
 					match_found = true;
 					break;
 				end
-			else
-				module:log("warn", "DANE usage %s is unsupported", tlsa:getUsage() or use);
-				-- PKIX-TA checks needs to loop over the chain and stuff
-				-- LuaSec does not expose anything for validating a random chain, so DANE-TA is not possible atm
 			end
 		end
-		if supported_found and not match_found then
+		if supported_found and not match_found or dane.bogus then
 			-- No TLSA matched or response was bogus
 			(session.log or module._log)("warn", "DANE validation failed");
 			session.cert_identity_status = "invalid";
@@ -113,45 +134,8 @@ module:hook("s2s-check-certificate", function(event)
 	end
 end);
 
-function module.add_host(module)
-	module:hook("s2s-authenticated", function(event)
-		local session = event.session;
-		local srv_hosts = session.srv_hosts;
-		local srv_choice = session.srv_choice;
-		if (session.dane or srv_hosts and srv_hosts[srv_choice].dane) and not session.secure then
-			-- TLSA record but no TLS, not ok.
-			-- TODO Optional?
-			-- Bogus replies will trigger this path
-			session:close({
-				condition = "policy-violation",
-				text = "Encrypted server-to-server communication is required but was not "
-					..((session.direction == "outgoing" and "offered") or "used")
-			});
-			return false;
-		end
-	end);
-
-	-- DANE for s2sin
-	-- Looks for TLSA at the same QNAME as the SRV record
-	-- FIXME This has a race condition
-	module:hook("s2s-stream-features", function(event)
-		local origin = event.origin;
-		if not origin.from_host or origin.dane ~= nil then return end
-
-		origin.dane = dns_lookup(function(answer)
-			if answer and #answer > 0 and answer.secure then
-				srv_hosts[srv_choice].dane = answer;
-			elseif answer.bogus then
-				srv_hosts[srv_choice].dane = bogus;
-			else
-				origin.dane = false;
-			end
-		end, ("_xmpp-server._tcp.%s."):format(origin.from_host), "TLSA");
-	end, 1);
-end
-
 function module.unload()
-	-- Restore the original try_connect function
-	s2sout.try_connect = _try_connect;
+	-- Restore the original attempt_connection function
+	s2sout.attempt_connection = _attempt_connection;
 end
 
