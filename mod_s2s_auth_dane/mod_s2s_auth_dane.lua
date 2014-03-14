@@ -3,8 +3,18 @@
 --
 -- This file is MIT/X11 licensed.
 --
+-- In your DNS, put
+-- _xmpp-server.example.com. IN TLSA 3 0 1 <sha256 hash of certificate>
+--
+-- Known issues:
+-- Race condition
 -- Could be done much cleaner if mod_s2s was using util.async
-
+--
+-- TODO Things to test/handle:
+-- Negative or bogus answers
+-- No encryption offered
+-- Different hostname before and after STARTTLS - mod_s2s should complain
+-- Interaction with Dialback
 
 module:set_global();
 
@@ -32,12 +42,6 @@ local use_map = { ["DANE-EE"] = 3; ["DANE-TA"] = 2; ["PKIX-EE"] = 1; ["PKIX-CA"]
 local implemented_uses = set.new { "DANE-EE", "PKIX-EE" };
 local configured_uses = module:get_option_set("dane_uses", { "DANE-EE" });
 local enabled_uses = set.intersection(implemented_uses, configured_uses) / function(use) return use_map[use] end;
-
--- TODO Things to test/handle:
--- Negative or bogus answers
--- No SRV records
--- No encryption offered
--- Different hostname before and after STARTTLS - mod_s2s should complain
 
 local function dane_lookup(host_session, name, cb, a,b,c)
 	if host_session.dane ~= nil then return false; end
