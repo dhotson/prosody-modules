@@ -8,6 +8,8 @@
 
 module:set_global();
 
+local type = type;
+local set = require"util.set";
 local dns_lookup = require"net.adns".lookup;
 local hashes = require"util.hashes";
 local base64 = require"util.encodings".base64;
@@ -25,6 +27,11 @@ local function pem2der(pem)
 		return base64.decode(data), typ;
 	end
 end
+local use_map = { ["DANE-EE"] = 3; ["DANE-TA"] = 2; ["PKIX-EE"] = 1; ["PKIX-CA"] = 0 }
+
+local implemented_uses = set.new { "DANE-EE", "PKIX-EE" };
+local configured_uses = module:get_option_set("dane_uses", { "DANE-EE" });
+local enabled_uses = set.intersection(implemented_uses, configured_uses) / function(use) return use_map[use] end;
 
 -- TODO Things to test/handle:
 -- Negative or bogus answers
@@ -91,37 +98,39 @@ module:hook("s2s-check-certificate", function(event)
 			module:log("debug", "TLSA %s %s %s %d bytes of data", tlsa:getUsage(), tlsa:getSelector(), tlsa:getMatchType(), #tlsa.data);
 			use, select, match, certdata = tlsa.use, tlsa.select, tlsa.match;
 
-			-- PKIX-EE or DANE-EE
-			if use == 1 or use == 3 then
-				supported_found = true
+			if enabled_uses:contains(use) then
+				-- PKIX-EE or DANE-EE
+				if use == 1 or use == 3 then
+					supported_found = true
 
-				if select == 0 then
-					certdata = pem2der(cert:pem());
-				elseif select == 1 and cert.pubkey then
-					certdata = pem2der(cert:pubkey()); -- Not supported in stock LuaSec
-				else
-					module:log("warn", "DANE selector %s is unsupported", tlsa:getSelector() or select);
-				end
-
-				if match == 1 then
-					certdata = hashes.sha256(certdata);
-				elseif match == 2 then
-					certdata = hashes.sha512(certdata);
-				elseif match ~= 0 then
-					module:log("warn", "DANE match rule %s is unsupported", tlsa:getMatchType() or match);
-					certdata = nil;
-				end
-
-				-- Should we check if the cert subject matches?
-				if certdata and certdata == tlsa.data then
-					(session.log or module._log)("info", "DANE validation successful");
-					session.cert_identity_status = "valid";
-					if use == 3 then -- DANE-EE, chain status equals DNSSEC chain status
-						session.cert_chain_status = "valid";
-						-- for usage 1, PKIX-EE, the chain has to be valid already
+					if select == 0 then
+						certdata = pem2der(cert:pem());
+					elseif select == 1 and cert.pubkey then
+						certdata = pem2der(cert:pubkey()); -- Not supported in stock LuaSec
+					else
+						module:log("warn", "DANE selector %s is unsupported", tlsa:getSelector() or select);
 					end
-					match_found = true;
-					break;
+
+					if match == 1 then
+						certdata = hashes.sha256(certdata);
+					elseif match == 2 then
+						certdata = hashes.sha512(certdata);
+					elseif match ~= 0 then
+						module:log("warn", "DANE match rule %s is unsupported", tlsa:getMatchType() or match);
+						certdata = nil;
+					end
+
+					-- Should we check if the cert subject matches?
+					if certdata and certdata == tlsa.data then
+						(session.log or module._log)("info", "DANE validation successful");
+						session.cert_identity_status = "valid";
+						if use == 3 then -- DANE-EE, chain status equals DNSSEC chain status
+							session.cert_chain_status = "valid";
+							-- for usage 1, PKIX-EE, the chain has to be valid already
+						end
+						match_found = true;
+						break;
+					end
 				end
 			end
 		end
