@@ -27,8 +27,6 @@ local idna_to_ascii = require "util.encodings".idna.to_ascii;
 
 local s2sout = module:depends"s2s".route_to_new_session.s2sout;
 
-local bogus = {};
-
 local pat = "%-%-%-%-%-BEGIN ([A-Z ]+)%-%-%-%-%-\r?\n"..
 "([0-9A-Za-z=+/\r\n]*)\r?\n%-%-%-%-%-END %1%-%-%-%-%-";
 local function pem2der(pem)
@@ -48,10 +46,8 @@ local function dane_lookup(host_session, name, cb, a,b,c)
 	local ascii_host = name and idna_to_ascii(name);
 	if not ascii_host then return false; end
 	host_session.dane = dns_lookup(function(answer)
-		if answer and (answer.secure and #answer > 0) then
+		if answer and (answer.secure and #answer > 0) or answer.bogus then
 			host_session.dane = answer;
-		elseif answer.bogus then
-			host_session.dane = bogus;
 		else
 			host_session.dane = false;
 		end
