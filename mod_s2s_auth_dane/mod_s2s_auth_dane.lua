@@ -47,17 +47,18 @@ local function dane_lookup(host_session, cb, a,b,c,e)
 	if host_session.direction == "incoming" then
 		local name = idna_to_ascii(host_session.from_host);
 		if not name then return end
-		local handle = dns_lookup(function (answer)
+		host_session.dane = dns_lookup(function (answer)
 			if not answer.secure then
 				if cb then return cb(a,b,c,e); end
 				return;
 			end
-			if #answer == 1 and answer[1].srv.target == '.' then return end
+			local n = #answer
+			if n == 0 then if cb then return cb(a,b,c,e); end return end
+			if n == 1 and answer[1].srv.target == '.' then return end
 			local srv_hosts = { answer = answer };
 			local dane = {};
 			host_session.dane = dane;
 			host_session.srv_hosts = srv_hosts;
-			local n = #answer
 			for _, record in ipairs(answer) do
 				t_insert(srv_hosts, record.srv);
 				dns_lookup(function(dane_answer)
@@ -75,8 +76,7 @@ local function dane_lookup(host_session, cb, a,b,c,e)
 		end, "_xmpp-server._tcp."..name..".", "SRV");
 		return true;
 	elseif host_session.direction == "outgoing" then
-		local srv_hosts = host_session.srv_hosts;
-		if not (srv_choice and srv_choice.answer and srv_choice.answer.secure) then
+		if not host_session.srv_hosts then return end
 		local srv_choice = host_session.srv_hosts[host_session.srv_choice];
 		host_session.dane = dns_lookup(function(answer)
 			if answer and (answer.secure and #answer > 0) or answer.bogus then
@@ -93,10 +93,6 @@ end
 
 local _try_connect = s2sout.try_connect;
 function s2sout.try_connect(host_session, connect_host, connect_port, err)
-	if not host_session.srv_hosts then
-		host_session.srv_hosts = { answer = { secure = true }, { target = connect_host, port = connect_port } };
-		host_session.srv_choice = 1;
-	end
 	if not err and dane_lookup(host_session, _try_connect, host_session, connect_host, connect_port, err) then
 		return true;
 	end
