@@ -75,6 +75,8 @@ local function dane_lookup(host_session, cb, a,b,c,e)
 		end, "_xmpp-server._tcp."..name..".", "SRV");
 		return true;
 	elseif host_session.direction == "outgoing" then
+		local srv_hosts = host_session.srv_hosts;
+		if not (srv_choice and srv_choice.answer and srv_choice.answer.secure) then
 		local srv_choice = host_session.srv_hosts[host_session.srv_choice];
 		host_session.dane = dns_lookup(function(answer)
 			if answer and (answer.secure and #answer > 0) or answer.bogus then
@@ -92,7 +94,7 @@ end
 local _try_connect = s2sout.try_connect;
 function s2sout.try_connect(host_session, connect_host, connect_port, err)
 	if not host_session.srv_hosts then
-		host_session.srv_hosts = { target = connect_host, port = connect_port };
+		host_session.srv_hosts = { answer = { secure = true }, { target = connect_host, port = connect_port } };
 		host_session.srv_choice = 1;
 	end
 	if not err and dane_lookup(host_session, _try_connect, host_session, connect_host, connect_port, err) then
