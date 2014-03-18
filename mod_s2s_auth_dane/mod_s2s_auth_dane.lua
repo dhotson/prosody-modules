@@ -88,6 +88,10 @@ end
 
 local _try_connect = s2sout.try_connect;
 function s2sout.try_connect(host_session, connect_host, connect_port, err)
+	if not host_session.srv_hosts then
+		host_session.srv_hosts = { target = connect_host, port = connect_port };
+		host_session.srv_choice = 1;
+	end
 	if not err and dane_lookup(host_session, _try_connect, host_session, connect_host, connect_port, err) then
 		return true;
 	end
