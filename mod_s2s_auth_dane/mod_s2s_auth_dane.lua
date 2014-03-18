@@ -48,7 +48,10 @@ local function dane_lookup(host_session, cb, a,b,c,e)
 		local name = idna_to_ascii(host_session.from_host);
 		if not name then return end
 		local handle = dns_lookup(function (answer)
-			if not answer.secure then return end
+			if not answer.secure then
+				if cb then return cb(a,b,c,e); end
+				return;
+			end
 			if #answer == 1 and answer[1].srv.target == '.' then return end
 			local srv_hosts = { answer = answer };
 			local dane = {};
