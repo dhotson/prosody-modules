@@ -141,9 +141,9 @@ module:hook("s2s-check-certificate", function(event)
 					end
 
 					if match == 1 then
-						certdata = hashes.sha256(certdata);
+						certdata = certdata and hashes.sha256(certdata);
 					elseif match == 2 then
-						certdata = hashes.sha512(certdata);
+						certdata = certdata and hashes.sha512(certdata);
 					elseif match ~= 0 then
 						module:log("warn", "DANE match rule %s is unsupported", tlsa:getMatchType() or match);
 						certdata = nil;
