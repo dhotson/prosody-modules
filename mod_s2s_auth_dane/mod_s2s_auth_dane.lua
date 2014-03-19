@@ -50,7 +50,7 @@ local enabled_uses = set.intersection(implemented_uses, configured_uses) / funct
 local function dane_lookup(host_session, cb, a,b,c,e)
 	if host_session.dane ~= nil then return end
 	if host_session.direction == "incoming" then
-		local name = idna_to_ascii(host_session.from_host);
+		local name = host_session.from_host and idna_to_ascii(host_session.from_host);
 		if not name then return end
 		host_session.dane = dns_lookup(function (answer)
 			if not answer.secure then
