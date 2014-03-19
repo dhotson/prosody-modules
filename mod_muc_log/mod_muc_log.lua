@@ -96,6 +96,7 @@ function log_if_needed(event)
 							end
 						end
 					end
+					datamanager.getpath(node, host, datastore, nil, true); -- create the datastore dir
 					data_store(node, host, datastore .. "/" .. today, data);
 				end
 			end
