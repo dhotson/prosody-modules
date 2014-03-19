@@ -81,8 +81,9 @@ local function dane_lookup(host_session, cb, a,b,c,e)
 		end, "_xmpp-server._tcp."..name..".", "SRV");
 		return true;
 	elseif host_session.direction == "outgoing" then
-		if not host_session.srv_hosts then return end
-		local srv_choice = host_session.srv_hosts[host_session.srv_choice];
+		local srv_hosts = host_session.srv_hosts;
+		if not ( srv_hosts and srv_hosts.answer and srv_hosts.answer.secure )  then return end
+		local srv_choice = srv_hosts[host_session.srv_choice];
 		host_session.dane = dns_lookup(function(answer)
 			if answer and (answer.secure and #answer > 0) or answer.bogus then
 				srv_choice.dane = answer;
