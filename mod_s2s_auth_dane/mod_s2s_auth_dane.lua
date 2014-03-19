@@ -26,6 +26,11 @@ local hashes = require"util.hashes";
 local base64 = require"util.encodings".base64;
 local idna_to_ascii = require "util.encodings".idna.to_ascii;
 
+if not dns_lookup.types or not dns_lookup.types.TLSA then
+	module:log("error", "No TLSA support available, DANE will not be supported");
+	return
+end
+
 local s2sout = module:depends"s2s".route_to_new_session.s2sout;
 
 local pat = "%-%-%-%-%-BEGIN ([A-Z ]+)%-%-%-%-%-\r?\n"..
