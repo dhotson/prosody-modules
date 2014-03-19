@@ -40,7 +40,7 @@ end);
 function module.add_host(module)
 	module:hook("s2s-stream-features", function(event)
 		local host_session = event.origin;
-		local name = to_ascii(host_session.from_host);
+		local name = host_session.from_host and to_ascii(host_session.from_host);
 		if not name then return end
 		dns_lookup(function (answer)
 			if host_session.dane ~= nil then return end
