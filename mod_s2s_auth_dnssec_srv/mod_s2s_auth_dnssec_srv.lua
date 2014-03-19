@@ -43,6 +43,7 @@ function module.add_host(module)
 		local name = to_ascii(host_session.from_host);
 		if not name then return end
 		dns_lookup(function (answer)
+			if host_session.dane ~= nil then return end
 			if not answer.secure or #answer == 1
 				and answer[1].srv.target == "." then return end
 			local srv_hosts = { answer = answer };
