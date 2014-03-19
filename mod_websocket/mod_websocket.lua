@@ -45,6 +45,7 @@ end
 local xmlns_framing = "urn:ietf:params:xml:ns:xmpp-framing";
 local xmlns_streams = "http://etherx.jabber.org/streams";
 local xmlns_client = "jabber:client";
+local stream_xmlns_attr = {xmlns='urn:ietf:params:xml:ns:xmpp-streams'};
 
 module:depends("c2s")
 local sessions = module:shared("c2s/sessions");
@@ -170,8 +171,7 @@ local function session_close(session, reason)
 					stream_error = reason;
 				end
 			end
-			stream_error = tostring(stream_error);
-			log("debug", "Disconnecting client, <stream:error> is: %s", stream_error);
+			log("debug", "Disconnecting client, <stream:error> is: %s", tostring(stream_error));
 			session.send(stream_error);
 		end
 
