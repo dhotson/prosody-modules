@@ -108,8 +108,17 @@ end
 function module.add_host(module)
 	module:hook("s2s-stream-features", function(event)
 		-- dane_lookup(origin, origin.from_host);
-		dane_lookup(event.origin);
-	end, 1);
+		local host_session = event.origin;
+		host_session.log("debug", "Pausing connection until DANE lookup is completed");
+		host_session.conn:pause()
+		local function resume()
+			module:log("eebug", "Resuming connection");
+			host_session.conn:resume()
+		end
+		if not dane_lookup(host_session, resume) then
+			resume();
+		end
+	end, 10);
 
 	module:hook("s2s-authenticated", function(event)
 		local session = event.session;
