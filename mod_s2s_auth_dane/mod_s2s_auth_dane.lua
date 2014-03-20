@@ -7,7 +7,6 @@
 -- _xmpp-server.example.com. IN TLSA 3 0 1 <sha256 hash of certificate>
 --
 -- Known issues:
--- Race condition
 -- Could be done much cleaner if mod_s2s was using util.async
 --
 -- TODO Things to test/handle:
@@ -112,7 +111,7 @@ function module.add_host(module)
 		host_session.log("debug", "Pausing connection until DANE lookup is completed");
 		host_session.conn:pause()
 		local function resume()
-			module:log("eebug", "Resuming connection");
+			module:log("debug", "Resuming connection");
 			host_session.conn:resume()
 		end
 		if not dane_lookup(host_session, resume) then
