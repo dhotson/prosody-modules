@@ -32,7 +32,7 @@ local advertise_archive = module:get_option_boolean("muc_log_advertise", true);
 
 local archive_store = "archive2";
 local archive = module:open_store(archive_store, "archive");
-if not archive then
+if not archive or archive.name == "null" then
         module:log("error", "Could not open archive storage");
         return
 elseif not archive.find then
