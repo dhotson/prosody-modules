@@ -3,8 +3,8 @@
 --
 -- This file is MIT/X11 licensed.
 --
--- In your DNS, put
--- _xmpp-server.example.com. IN TLSA 3 0 1 <sha256 hash of certificate>
+-- Implements DANE and Secure Delegation using DNS SRV as described in
+-- http://tools.ietf.org/html/draft-miller-xmpp-dnssec-prooftype
 --
 -- Known issues:
 -- Could be done much cleaner if mod_s2s was using util.async
@@ -24,6 +24,9 @@ local dns_lookup = require"net.adns".lookup;
 local hashes = require"util.hashes";
 local base64 = require"util.encodings".base64;
 local idna_to_ascii = require "util.encodings".idna.to_ascii;
+local idna_to_unicode = require"util.encodings".idna.to_unicode;
+local nameprep = require"util.encodings".stringprep.nameprep;
+local cert_verify_identity = require "util.x509".verify_identity;
 
 if not dns_lookup.types or not dns_lookup.types.TLSA then
 	module:log("error", "No TLSA support available, DANE will not be supported");
@@ -187,6 +190,20 @@ module:hook("s2s-check-certificate", function(event)
 			(session.log or module._log)("warn", "DANE validation failed");
 			session.cert_identity_status = "invalid";
 			session.cert_chain_status = "invalid";
+		end
+	else
+		if session.cert_chain_status == "valid" and session.cert_identity_status ~= "valid"
+		and session.srv_hosts.answer and session.srv_hosts.answer.secure then
+			local srv_hosts, srv_choice, srv_target = session.srv_hosts, session.srv_choice;
+			for i = srv_choice or 1, srv_choice or #srv_hosts do
+				srv_target = nameprep(idna_to_unicode(session.srv_hosts[i].target:gsub("%.?$","")));
+				(session.log or module._log)("debug", "Comparing certificate with Secure SRV target %s", srv_target);
+				if srv_target and cert_verify_identity(srv_target, "xmpp-server", cert) then
+					(session.log or module._log)("info", "Certificate matches Secure SRV target %s", srv_target);
+					session.cert_identity_status = "valid";
+					return;
+				end
+			end
 		end
 	end
 end);
