@@ -21,14 +21,14 @@ module.unload = function() ld:close(); end
 
 local function get_user(username)
 	module:log("debug", "get_user(%q)", username);
-	return ld:search({
+	for dn, attr in ld:search({
 		base = ldap_base;
 		scope = ldap_scope;
 		filter = ldap_filter:gsub("%$(%a+)", {
 			user = ldap_filter_escape(username);
 			host = host;
 		});
-	})();
+	}) do return dn, attr; end
 end
 
 local provider = {};
