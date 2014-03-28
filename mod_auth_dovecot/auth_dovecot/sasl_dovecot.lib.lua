@@ -32,6 +32,7 @@ local b64, unb64 = base64.encode, base64.decode;
 local jid_escape = require "util.jid".escape;
 local prepped_split = require "util.jid".prepped_split;
 local nodeprep = require "util.encodings".stringprep.nodeprep;
+local pposix = require "util.pposix";
 
 --module "sasl_dovecot"
 local _M = {};
@@ -67,7 +68,7 @@ local function connect(socket_info)
 	end
 
 	-- Send our handshake
-	pid = tonumber(tostring(conn):match("0x%x*$"));
+	pid = pposix.getpid();
 	log("debug", "sending handshake to dovecot. version 1.1, cpid '%d'", pid);
 	local success,err = conn:send("VERSION\t1\t1\n");
 	if not success then
