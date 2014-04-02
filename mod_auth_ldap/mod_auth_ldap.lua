@@ -24,6 +24,7 @@ local function get_user(username)
 	for dn, attr in ld:search({
 		base = ldap_base;
 		scope = ldap_scope;
+		sizelimit = 1;
 		filter = ldap_filter:gsub("%$(%a+)", {
 			user = ldap_filter_escape(username);
 			host = host;
