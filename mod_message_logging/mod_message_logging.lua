@@ -56,7 +56,7 @@ local function handle_incoming_message(event)
 
 	if message_type == "error" then return; end
 
-	local from, to = jid_bare(stanza.attr.from), jid_bare(stanza.attr.to);
+	local from, to = jid_bare(stanza.attr.from), jid_bare(stanza.attr.to or stanza.attr.from);
 	local body = stanza:get_child("body");
 	if not body then return; end
 	body = body:get_text();
@@ -78,7 +78,7 @@ local function handle_outgoing_message(event)
 
 	if message_type == "error" or message_type == "groupchat" then return; end
 
-	local from, to = jid_bare(stanza.attr.from), jid_bare(stanza.attr.to);
+	local from, to = jid_bare(stanza.attr.from), jid_bare(stanza.attr.to or origin.full_jid);
 	local body = stanza:get_child("body");
 	if not body then return; end
 	body = body:get_text();
