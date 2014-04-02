@@ -12,7 +12,7 @@ local ldap_tls = module:get_option_boolean("ldap_tls");
 local ldap_scope = module:get_option_string("ldap_scope", "onelevel");
 local ldap_filter = module:get_option_string("ldap_filter", "(uid=$user)"):gsub("%%s", "$user", 1);
 local ldap_base = assert(module:get_option_string("ldap_base"), "ldap_base is a required option for ldap");
-local ldap_mode = module:get_option_string("ldap_mode", "getpasswd");
+local ldap_mode = module:get_option_string("ldap_mode", ldap_rootdn == "" and "bind" or "getpasswd");
 local host = ldap_filter_escape(module:get_option_string("realm", module.host));
 
 -- Initiate connection
