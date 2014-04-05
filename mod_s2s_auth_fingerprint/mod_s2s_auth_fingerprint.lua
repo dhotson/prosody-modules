@@ -1,10 +1,9 @@
--- Copyright (C) 2013 Kim Alvefur
+-- Copyright (C) 2013-2014 Kim Alvefur
 -- This file is MIT/X11 licensed.
 
 module:set_global();
 
 local digest_algo = module:get_option_string(module:get_name().."_digest", "sha1");
-local must_match = module:get_option_boolean("s2s_pin_fingerprints", false);
 
 local fingerprints = {};
 
@@ -34,7 +33,7 @@ module:hook("s2s-check-certificate", function(event)
 			session.cert_chain_status = "valid";
 			session.cert_identity_status = "valid";
 			return true;
-		elseif must_match then
+		else
 			session.cert_chain_status = "invalid";
 			session.cert_identity_status = "invalid";
 		end
