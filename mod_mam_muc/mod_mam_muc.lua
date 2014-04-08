@@ -116,13 +116,14 @@ module:hook("iq-get/bare/"..xmlns_mam..":query", function(event)
 	local origin, stanza = event.origin, event.stanza;
 	local room = stanza.attr.to;
 	local room_node = jid_split(room);
+	local orig_from = stanza.attr.from;
 	local query = stanza.tags[1];
 
 	local room_obj = rooms[room];
 	if not room_obj then
 		return origin.send(st.error_reply(stanza, "cancel", "item-not-found"))
 	end
-	local from = jid_bare(stanza.attr.from);
+	local from = jid_bare(orig_from);
 
 	-- Banned or not a member of a members-only room?
 	local from_affiliation = room_obj:get_affiliation(from);
@@ -173,7 +174,7 @@ module:hook("iq-get/bare/"..xmlns_mam..":query", function(event)
 	-- Wrap it in stuff and deliver
 	local first, last;
 	for id, item, when in data do
-		local fwd_st = st.message{ to = origin.full_jid }
+		local fwd_st = st.message{ to = orig_from, from = room }
 			:tag("result", { xmlns = xmlns_mam, queryid = qid, id = id })
 				:tag("forwarded", { xmlns = xmlns_forward })
 					:tag("delay", { xmlns = xmlns_delay, stamp = timestamp(when) }):up();
