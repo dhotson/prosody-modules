@@ -114,7 +114,7 @@ function module.add_host(module)
 		host_session.log("debug", "Pausing connection until DANE lookup is completed");
 		host_session.conn:pause()
 		local function resume()
-			module:log("debug", "Resuming connection");
+			host_session.log("debug", "DANE lookup completed, resuming connection");
 			host_session.conn:resume()
 		end
 		if not dane_lookup(host_session, resume) then
