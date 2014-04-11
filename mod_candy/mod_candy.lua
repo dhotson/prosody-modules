@@ -23,6 +23,10 @@ module:provides("http", {
 					}));
 		end;
 		["GET /*"] = serve(module:get_directory().."/www_files");
+		GET = function(event)
+			event.response.headers.location = event.request.path.."/";
+			return 301;
+		end;
 	}
 });
 
