@@ -222,6 +222,7 @@ function room_mt:send_history(to, stanza)
 		limit = m_min(maxstanzas or 20, max_history_length);
 		after = since;
 		reverse = true;
+		with = "message<groupchat";
 	});
 
 	if not data then
@@ -259,7 +260,11 @@ function room_mt:save_to_history(stanza)
 
 	module:log("debug", "We're logging this")
 	-- And stash it
-	local ok, id = archive:append(room, time_now(), "", stanza);
+	local with = stanza.name
+	if stanza.attr.type then
+		with = with .. "<" .. stanza.attr.type
+	end
+	local ok, id = archive:append(room, nil, time_now(), with, stanza);
 	if ok and advertise_archive then
 		stanza:tag("archived", { xmlns = xmlns_mam, by = jid_bare(orig_to), id = id }):up();
 	end
