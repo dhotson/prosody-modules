@@ -1,5 +1,7 @@
 -- Provides total CPU time, useful for DERIVE
 
+module:set_global();
+
 module:provides("statistics", {
 	statistics = {
 		cpu_total = { -- milliseconds of CPU time used
