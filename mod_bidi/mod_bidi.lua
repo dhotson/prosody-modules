@@ -13,6 +13,7 @@ local hosts = hosts;
 local xmlns_bidi_feature = "urn:xmpp:features:bidi"
 local xmlns_bidi = "urn:xmpp:bidi";
 local secure_only = module:get_option_boolean("secure_bidi_only", true);
+local disable_bidi_for = module:get_option_set("no_bidi_with", { });
 local bidi_sessions = module:shared"sessions-cache";
 
 local function handleerr(err) log("error", "Traceback[s2s]: %s: %s", tostring(err), traceback()); end
@@ -69,6 +70,7 @@ module:hook("s2s-stream-features", function(event)
 	local origin, features = event.origin, event.features;
 	if not origin.is_bidi and not origin.bidi_session and not origin.do_bidi
 	and not hosts[module.host].s2sout[origin.from_host]
+	and not disable_bidi_for:contains(origin.from_host)
 	and (not secure_only or (origin.cert_chain_status == "valid"
 	and origin.cert_identity_status == "valid")) then
 		module:log("debug", "Announcing support for bidirectional streams");
@@ -79,6 +81,7 @@ end);
 module:hook("stanza/urn:xmpp:bidi:bidi", function(event)
 	local origin = event.session or event.origin;
 	if not origin.is_bidi and not origin.bidi_session
+	and not disable_bidi_for:contains(origin.from_host)
 	and (not secure_only or origin.cert_chain_status == "valid"
 	and origin.cert_identity_status == "valid") then
 		module:log("debug", "%s requested bidirectional stream", origin.from_host);
@@ -91,6 +94,7 @@ end);
 module:hook("stanza/http://etherx.jabber.org/streams:features", function(event)
 	local origin = event.session or event.origin;
 	if not ( origin.bidi_session or origin.is_bidi or origin.do_bidi)
+	and not disable_bidi_for:contains(origin.to_host)
 	and event.stanza:get_child("bidi", xmlns_bidi_feature)
 	and (not secure_only or origin.cert_chain_status == "valid"
 	and origin.cert_identity_status == "valid") then
