@@ -308,7 +308,7 @@ module:hook("iq/self/"..xmlns_mam..":query", function(event)
 			--module:log("debug", "id is %s", id);
 
 			local fwd_st = st.message{ to = origin.full_jid }
-				:tag("result", { xmlns = xmlns_mam, queryid = qid, id = id }):up()
+				:tag("result", { xmlns = xmlns_mam, queryid = qid, id = id })
 				:tag("forwarded", { xmlns = xmlns_forward })
 					:tag("delay", { xmlns = xmlns_delay, stamp = timestamp(when) }):up();
 			orig_stanza = st.deserialize(deserialize(orig_stanza));
