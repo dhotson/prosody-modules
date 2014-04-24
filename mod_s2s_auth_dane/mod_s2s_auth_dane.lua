@@ -111,6 +111,7 @@ function module.add_host(module)
 	module:hook("s2s-stream-features", function(event)
 		-- dane_lookup(origin, origin.from_host);
 		local host_session = event.origin;
+		if host_session.type == "s2sin" then return end -- Already authenticated
 		host_session.log("debug", "Pausing connection until DANE lookup is completed");
 		host_session.conn:pause()
 		local function resume()
