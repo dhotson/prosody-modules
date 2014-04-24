@@ -71,7 +71,7 @@ local function dane_lookup(host_session, cb, a,b,c,e)
 				dns_lookup(function(dane_answer)
 					n = n - 1;
 					if dane_answer.bogus then
-						t_insert(dane, { bogus = dane_answer.bogus });
+						-- How to handle this?
 					elseif dane_answer.secure then
 						for _, record in ipairs(dane_answer) do
 							t_insert(dane, record);
