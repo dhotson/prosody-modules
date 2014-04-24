@@ -139,40 +139,49 @@ function module.add_host(module)
 	end);
 end
 
+local function one_dane_check(tlsa, cert)
+	local select, match, certdata = tlsa.select, tlsa.match;
+
+	if select == 0 then
+		certdata = pem2der(cert:pem());
+	elseif select == 1 and cert.pubkey then
+		certdata = pem2der(cert:pubkey());
+	else
+		module:log("warn", "DANE selector %s is unsupported", tlsa:getSelector() or select);
+		return;
+	end
+
+	if match == 1 then
+		certdata = hashes.sha256(certdata);
+	elseif match == 2 then
+		certdata = hashes.sha512(certdata);
+	elseif match ~= 0 then
+		module:log("warn", "DANE match rule %s is unsupported", tlsa:getMatchType() or match);
+		return;
+	end
+
+	return certdata == tlsa.data;
+end
+
 module:hook("s2s-check-certificate", function(event)
 	local session, cert = event.session, event.cert;
 	local dane = session.dane;
 	if type(dane) == "table" then
-		local use, select, match, tlsa, certdata, match_found, supported_found;
+		local use, tlsa, match_found, supported_found, is_match;
 		for i = 1, #dane do
 			tlsa = dane[i].tlsa;
 			module:log("debug", "TLSA %s %s %s %d bytes of data", tlsa:getUsage(), tlsa:getSelector(), tlsa:getMatchType(), #tlsa.data);
-			use, select, match, certdata = tlsa.use, tlsa.select, tlsa.match;
+			use = tlsa.use;
 
 			if enabled_uses:contains(use) then
 				-- PKIX-EE or DANE-EE
 				if use == 1 or use == 3 then
-					supported_found = true
-
-					if select == 0 then
-						certdata = pem2der(cert:pem());
-					elseif select == 1 and cert.pubkey then
-						certdata = pem2der(cert:pubkey()); -- Not supported in stock LuaSec
-					else
-						module:log("warn", "DANE selector %s is unsupported", tlsa:getSelector() or select);
-					end
-
-					if match == 1 then
-						certdata = certdata and hashes.sha256(certdata);
-					elseif match == 2 then
-						certdata = certdata and hashes.sha512(certdata);
-					elseif match ~= 0 then
-						module:log("warn", "DANE match rule %s is unsupported", tlsa:getMatchType() or match);
-						certdata = nil;
-					end
-
 					-- Should we check if the cert subject matches?
-					if certdata and certdata == tlsa.data then
+					is_match = one_dane_check(tlsa, cert);
+					if is_match ~= nil then
+						supported_found = true;
+					end
+					if is_match then
 						(session.log or module._log)("info", "DANE validation successful");
 						session.cert_identity_status = "valid";
 						if use == 3 then -- DANE-EE, chain status equals DNSSEC chain status
