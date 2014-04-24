@@ -137,6 +137,9 @@ function module.add_host(module)
 			});
 			return false;
 		end
+		-- Cleanup
+		session.dane = nil;
+		session.srv_hosts = nil;
 	end);
 end
 
