@@ -36,7 +36,14 @@ end
 local use_map = { ["DANE-EE"] = 3; ["DANE-TA"] = 2; ["PKIX-EE"] = 1; ["PKIX-CA"] = 0 }
 
 local implemented_uses = set.new { "DANE-EE", "PKIX-EE" };
-local configured_uses = module:get_option_set("dane_uses", { "DANE-EE" });
+if debug.getregistry()["SSL:Certificate"].__index.issued then
+	-- Need cert:issued() for these
+	implemented_uses:add("DANE-TA");
+	implemented_uses:add("PKIX-CA");
+else
+	module:log("warn", "Unable to support DANE-TA and PKIX-CA");
+end
+local configured_uses = module:get_option_set("dane_uses", { "DANE-EE", "DANE-TA" });
 local enabled_uses = set.intersection(implemented_uses, configured_uses) / function(use) return use_map[use] end;
 
 local function dane_lookup(host_session, cb, a,b,c,e)
@@ -159,7 +166,7 @@ module:hook("s2s-check-certificate", function(event)
 	local session, cert = event.session, event.cert;
 	local dane = session.dane;
 	if type(dane) == "table" then
-		local use, tlsa, match_found, supported_found, is_match;
+		local use, tlsa, match_found, supported_found, chain, leafcert, cacert, is_match;
 		for i = 1, #dane do
 			tlsa = dane[i].tlsa;
 			module:log("debug", "TLSA %s %s %s %d bytes of data", tlsa:getUsage(), tlsa:getSelector(), tlsa:getMatchType(), #tlsa.data);
@@ -183,6 +190,33 @@ module:hook("s2s-check-certificate", function(event)
 						match_found = true;
 						break;
 					end
+				elseif use == 0 or use == 2 then
+					supported_found = true;
+					if chain == nil then
+						chain = session.conn:socket():getpeerchain();
+					end
+					for i = 2, #chain do
+						cacert, leafcert = chain[i], chain[i-1];
+						is_match = one_dane_check(tlsa, cacert);
+						if is_match ~= nil then
+							supported_found = true;
+						end
+						if use == 2 and not cacert:issued(leafcert or cacert) then
+							module:log("debug", "Broken chain");
+							break;
+						end
+						if is_match then
+							(session.log or module._log)("info", "DANE validation successful");
+							if use == 2 then -- DANE-TA
+								session.cert_identity_status = "valid";
+								session.cert_chain_status = "valid";
+								-- for usage 0, PKIX-CA, identity and chain has to be valid already
+							end
+							match_found = true;
+							break;
+						end
+					end
+					if match_found then break end
 				end
 			end
 		end
