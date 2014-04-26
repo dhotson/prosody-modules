@@ -22,25 +22,17 @@ local t_insert = table.insert;
 local set = require"util.set";
 local dns_lookup = require"net.adns".lookup;
 local hashes = require"util.hashes";
-local base64 = require"util.encodings".base64;
 local idna_to_ascii = require "util.encodings".idna.to_ascii;
 local idna_to_unicode = require"util.encodings".idna.to_unicode;
 local nameprep = require"util.encodings".stringprep.nameprep;
 local cert_verify_identity = require "util.x509".verify_identity;
+local pem2der = require"util.x509".pem2der;
 
 if not dns_lookup.types or not dns_lookup.types.TLSA then
 	module:log("error", "No TLSA support available, DANE will not be supported");
 	return
 end
 
-local pat = "%-%-%-%-%-BEGIN ([A-Z ]+)%-%-%-%-%-\r?\n"..
-"([0-9A-Za-z=+/\r\n]*)\r?\n%-%-%-%-%-END %1%-%-%-%-%-";
-local function pem2der(pem)
-	local typ, data = pem:match(pat);
-	if typ and data then
-		return base64.decode(data), typ;
-	end
-end
 local use_map = { ["DANE-EE"] = 3; ["DANE-TA"] = 2; ["PKIX-EE"] = 1; ["PKIX-CA"] = 0 }
 
 local implemented_uses = set.new { "DANE-EE", "PKIX-EE" };
