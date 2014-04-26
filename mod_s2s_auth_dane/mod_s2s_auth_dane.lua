@@ -33,8 +33,6 @@ if not dns_lookup.types or not dns_lookup.types.TLSA then
 	return
 end
 
-local s2sout = module:depends"s2s".route_to_new_session.s2sout;
-
 local pat = "%-%-%-%-%-BEGIN ([A-Z ]+)%-%-%-%-%-\r?\n"..
 "([0-9A-Za-z=+/\r\n]*)\r?\n%-%-%-%-%-END %1%-%-%-%-%-";
 local function pem2der(pem)
@@ -99,19 +97,10 @@ local function dane_lookup(host_session, cb, a,b,c,e)
 	end
 end
 
-local _try_connect = s2sout.try_connect;
-function s2sout.try_connect(host_session, connect_host, connect_port, err)
-	if not err and dane_lookup(host_session, _try_connect, host_session, connect_host, connect_port, err) then
-		return true;
-	end
-	return _try_connect(host_session, connect_host, connect_port, err);
-end
-
 function module.add_host(module)
-	module:hook("s2s-stream-features", function(event)
-		-- dane_lookup(origin, origin.from_host);
+	local function on_new_s2s(event)
 		local host_session = event.origin;
-		if host_session.type == "s2sin" then return end -- Already authenticated
+		if host_session.type == "s2sout" or host_session.type == "s2sin" or host_session.dane ~= nil then return end -- Already authenticated
 		host_session.log("debug", "Pausing connection until DANE lookup is completed");
 		host_session.conn:pause()
 		local function resume()
@@ -121,7 +110,14 @@ function module.add_host(module)
 		if not dane_lookup(host_session, resume) then
 			resume();
 		end
-	end, 10);
+	end
+
+	-- New outgoing connections
+	module:hook("stanza/http://etherx.jabber.org/streams:features", on_new_s2s, 501);
+	module:hook("s2sout-authenticate-legacy", on_new_s2s, 200);
+
+	-- New incoming connections
+	module:hook("s2s-stream-features", on_new_s2s, 10);
 
 	module:hook("s2s-authenticated", function(event)
 		local session = event.session;
@@ -220,9 +216,4 @@ module:hook("s2s-check-certificate", function(event)
 		end
 	end
 end);
-
-function module.unload()
-	-- Restore the original try_connect function
-	s2sout.try_connect = _try_connect;
-end
 
