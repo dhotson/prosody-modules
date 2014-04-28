@@ -6,7 +6,7 @@
 			if ("WebSocket" in window) {
 				var ws = new WebSocket("ws://localhost:5280/xmpp-websocket/", "xmpp");
 				ws.onopen = function() {
-					ws.send("<stream:stream to='localhost' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams' version='1.0'>");
+					ws.send("<open to='localhost' xmlns='urn:ietf:params:xml:ns:xmpp-framing' version='1.0'/>");
 				};
 				ws.onmessage = function (evt) {
 					var message = evt.data;
