@@ -319,6 +319,9 @@ function handle_request(event, path)
 			frame.opcode = 0xA;
 			conn:write(build_frame(frame));
 			return "";
+		elseif opcode == 0xA then -- Pong frame
+			module:log("warn", "Received unexpected pong frame: " .. tostring(frame.data));
+			return "";
 		else
 			log("warn", "Received frame with unsupported opcode %i", opcode);
 			return "";
