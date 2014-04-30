@@ -55,9 +55,9 @@ local element_generators = setmetatable({
 });
 
 
-local function parse(stanza)
+local function parse(set)
 	local rs = {};
-	for tag in stanza:childtags() do
+	for tag in set:childtags() do
 		local name = tag.name;
 		local parser = name and element_parsers[name];
 		if parser then
