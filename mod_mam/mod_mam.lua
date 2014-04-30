@@ -9,10 +9,10 @@ local xmlns_forward = "urn:xmpp:forward:0";
 
 local st = require "util.stanza";
 local rsm = module:require "rsm";
-local prefs = module:require"mamprefs";
-local prefsxml = module:require"mamprefsxml";
-local set_prefs, get_prefs = prefs.set, prefs.get;
-local prefs_to_stanza, prefs_from_stanza = prefsxml.tostanza, prefsxml.fromstanza;
+local get_prefs = module:require"mamprefs".get;
+local set_prefs = module:require"mamprefs".set;
+local prefs_to_stanza = module:require"mamprefsxml".tostanza;
+local prefs_from_stanza = module:require"mamprefsxml".fromstanza;
 local jid_bare = require "util.jid".bare;
 local jid_split = require "util.jid".split;
 local jid_prep = require "util.jid".prep;
