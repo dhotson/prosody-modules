@@ -1,5 +1,5 @@
 -- XEP-0313: Message Archive Management for Prosody
--- Copyright (C) 2011-2012 Kim Alvefur
+-- Copyright (C) 2011-2014 Kim Alvefur
 --
 -- This file is MIT/X11 licensed.
 
