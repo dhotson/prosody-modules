@@ -115,10 +115,12 @@ module:hook("iq-get/self/"..xmlns_mam..":query", function(event)
 	end
 	local count = err;
 
+	local msg_reply_attr = { to = stanza.attr.from, from = stanza.attr.to };
+
 	-- Wrap it in stuff and deliver
-	local first, last;
+	local fwd_st, first, last;
 	for id, item, when in data do
-		local fwd_st = st.message{ to = origin.full_jid }
+		fwd_st = st.message(msg_reply_attr)
 			:tag("result", { xmlns = xmlns_mam, queryid = qid, id = id })
 				:tag("forwarded", { xmlns = xmlns_forward })
 					:tag("delay", { xmlns = xmlns_delay, stamp = timestamp(when) }):up();
