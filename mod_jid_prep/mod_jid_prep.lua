@@ -4,7 +4,9 @@
 local jid_prep = require "util.jid".prep;
 local st = require "util.stanza";
 
-local xmlns_prep = "urn:xmpp:jidprep:tmp";
+local xmlns_prep = "urn:xmpp:jidprep:0";
+
+module:add_feature(xmlns_prep);
 
 function prep_jid(event)
 	local stanza = event.stanza;
