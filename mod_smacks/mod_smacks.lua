@@ -193,7 +193,11 @@ function handle_a(origin, stanza)
 	origin.awaiting_ack = nil;
 	-- Remove handled stanzas from outgoing_stanza_queue
 	--log("debug", "ACK: h=%s, last=%s", stanza.attr.h or "", origin.last_acknowledged_stanza or "");
-	local handled_stanza_count = tonumber(stanza.attr.h)-origin.last_acknowledged_stanza;
+	local h = tonumber(stanza.attr.h);
+	if not h then
+		origin:close{ condition = "invalid-xml"; text = "Missing or invalid 'h' attribute"; };
+	end
+	local handled_stanza_count = h-origin.last_acknowledged_stanza;
 	local queue = origin.outgoing_stanza_queue;
 	if handled_stanza_count > #queue then
 		session.log("warn", "The client says it handled %d new stanzas, but we only sent %d :)",
