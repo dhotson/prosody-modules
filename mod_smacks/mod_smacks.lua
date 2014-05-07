@@ -194,11 +194,11 @@ function handle_a(origin, stanza)
 	local handled_stanza_count = tonumber(stanza.attr.h)-origin.last_acknowledged_stanza;
 	local queue = origin.outgoing_stanza_queue;
 	if handled_stanza_count > #queue then
-		module:log("warn", "The client says it handled %d new stanzas, but we only sent %d :)",
+		session.log("warn", "The client says it handled %d new stanzas, but we only sent %d :)",
 			handled_stanza_count, #queue);
-		module:log("debug", "Client h: %d, our h: %d", tonumber(stanza.attr.h), origin.last_acknowledged_stanza);
+		session.log("debug", "Client h: %d, our h: %d", tonumber(stanza.attr.h), origin.last_acknowledged_stanza);
 		for i=1,#queue do
-			module:log("debug", "Q item %d: %s", i, tostring(queue[i]));
+			session.log("debug", "Q item %d: %s", i, tostring(queue[i]));
 		end
 	end
 	for i=1,math_min(handled_stanza_count,#queue) do
@@ -238,7 +238,7 @@ module:hook("pre-resource-unbind", function (event)
 		if not session.resumption_token then
 			local queue = session.outgoing_stanza_queue;
 			if #queue > 0 then
-				module:log("warn", "Destroying session with %d unacked stanzas", #queue);
+				session.log("warn", "Destroying session with %d unacked stanzas", #queue);
 				handle_unacked_stanzas(session);
 			end
 		else
