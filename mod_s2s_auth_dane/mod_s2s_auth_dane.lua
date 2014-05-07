@@ -28,9 +28,12 @@ local nameprep = require"util.encodings".stringprep.nameprep;
 local cert_verify_identity = require "util.x509".verify_identity;
 local pem2der = require"util.x509".pem2der;
 
-if not dns_lookup.types or not dns_lookup.types.TLSA then
-	module:log("error", "No TLSA support available, DANE will not be supported");
-	return
+do
+	local net_dns = require"net.dns";
+	if not net_dns.types or not net_dns.types[52] then
+		module:log("error", "No TLSA support available, DANE will not be supported");
+		return
+	end
 end
 
 local use_map = { ["DANE-EE"] = 3; ["DANE-TA"] = 2; ["PKIX-EE"] = 1; ["PKIX-CA"] = 0 }
