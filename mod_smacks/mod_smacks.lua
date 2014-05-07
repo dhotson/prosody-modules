@@ -91,8 +91,10 @@ local function wrap_session(session, resume, xmlns_sm)
 			end
 
 			queue[#queue+1] = cached_stanza;
+			session.log("debug", "#queue = %d", #queue);
 		end
 		if session.hibernating then
+			session.log("debug", "hibernating, stanza queued")
 			-- The session is hibernating, no point in sending the stanza
 			-- over a dead connection.  It will be delivered upon resumption.
 			return true;
@@ -204,6 +206,7 @@ function handle_a(origin, stanza)
 	for i=1,math_min(handled_stanza_count,#queue) do
 		t_remove(origin.outgoing_stanza_queue, 1);
 	end
+	origin.log("debug", "#queue = %d", #queue);
 	origin.last_acknowledged_stanza = origin.last_acknowledged_stanza + handled_stanza_count;
 	return true;
 end
@@ -333,9 +336,11 @@ function handle_resume(session, stanza, xmlns_sm)
 		-- Ok, we need to re-send any stanzas that the client didn't see
 		-- ...they are what is now left in the outgoing stanza queue
 		local queue = original_session.outgoing_stanza_queue;
+		session.log("debug", "#queue = %d", #queue);
 		for i=1,#queue do
 			session.send(queue[i]);
 		end
+		session.log("debug", "#queue = %d -- after send", #queue);
 	else
 		module:log("warn", "Client %s@%s[%s] tried to resume stream for %s@%s[%s]",
 			session.username or "?", session.host or "?", session.type,
