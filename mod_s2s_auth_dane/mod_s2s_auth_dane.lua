@@ -231,7 +231,7 @@ module:hook("s2s-check-certificate", function(event)
 		end
 	else
 		if session.cert_chain_status == "valid" and session.cert_identity_status ~= "valid"
-		and session.srv_hosts.answer and session.srv_hosts.answer.secure then
+		and session.srv_hosts and session.srv_hosts.answer and session.srv_hosts.answer.secure then
 			local srv_hosts, srv_choice, srv_target = session.srv_hosts, session.srv_choice;
 			for i = srv_choice or 1, srv_choice or #srv_hosts do
 				srv_target = nameprep(idna_to_unicode(session.srv_hosts[i].target:gsub("%.?$","")));
