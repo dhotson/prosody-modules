@@ -63,6 +63,7 @@ local function dane_lookup(host_session, cb, a,b,c,e)
 		local name = host_session.from_host and idna_to_ascii(host_session.from_host);
 		if not name then return end
 		host_session.dane = dns_lookup(function (answer)
+			host_session.dane = false;
 			if not answer.secure then
 				if cb then return cb(a,b,c,e); end
 				return;
