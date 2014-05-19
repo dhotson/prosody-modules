@@ -243,8 +243,9 @@ module:hook("s2s-check-certificate", function(event)
 		and session.srv_hosts and session.srv_hosts.answer and session.srv_hosts.answer.secure then
 			local srv_hosts, srv_choice, srv_target = session.srv_hosts, session.srv_choice;
 			for i = srv_choice or 1, srv_choice or #srv_hosts do
-				srv_target = nameprep(idna_to_unicode(session.srv_hosts[i].target:gsub("%.?$","")));
+				srv_target = session.srv_hosts[i].target:gsub("%.?$","");
 				(session.log or module._log)("debug", "Comparing certificate with Secure SRV target %s", srv_target);
+				srv_target = nameprep(idna_to_unicode());
 				if srv_target and cert_verify_identity(srv_target, "xmpp-server", cert) then
 					(session.log or module._log)("info", "Certificate matches Secure SRV target %s", srv_target);
 					session.cert_identity_status = "valid";
