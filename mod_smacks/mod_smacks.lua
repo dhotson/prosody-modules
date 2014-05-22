@@ -205,11 +205,11 @@ function handle_a(origin, stanza)
 	local handled_stanza_count = h-origin.last_acknowledged_stanza;
 	local queue = origin.outgoing_stanza_queue;
 	if handled_stanza_count > #queue then
-		session.log("warn", "The client says it handled %d new stanzas, but we only sent %d :)",
+		origin.log("warn", "The client says it handled %d new stanzas, but we only sent %d :)",
 			handled_stanza_count, #queue);
-		session.log("debug", "Client h: %d, our h: %d", tonumber(stanza.attr.h), origin.last_acknowledged_stanza);
+		origin.log("debug", "Client h: %d, our h: %d", tonumber(stanza.attr.h), origin.last_acknowledged_stanza);
 		for i=1,#queue do
-			session.log("debug", "Q item %d: %s", i, tostring(queue[i]));
+			origin.log("debug", "Q item %d: %s", i, tostring(queue[i]));
 		end
 	end
 	for i=1,math_min(handled_stanza_count,#queue) do
