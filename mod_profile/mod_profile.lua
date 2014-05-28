@@ -8,7 +8,7 @@ local base64 = require"util.encodings".base64;
 local sha1 = require"util.hashes".sha1;
 
 local pep_plus;
-if module:get_host_type() == "local" and module:get_option_boolean("vcard_to_pep") then
+if module:get_host_type() == "local" and module:get_option_boolean("vcard_to_pep", true) then
 	pep_plus = module:depends"pep_plus";
 end
 
