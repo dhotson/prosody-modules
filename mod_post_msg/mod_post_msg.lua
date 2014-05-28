@@ -50,7 +50,7 @@ local function handle_post(event, path, authed_user)
 		message = msg({ to = post_body.to or to, from = authed_user,
 		                type = post_body.type or "chat"}, post_body.body);
 		if post_body.html then
-			local html, err = xml.parse(post_body.html);
+			local html, err = xml.parse([[<body xmlns="http://www.w3.org/1999/xhtml">]]..post_body.html..[[</body>]]);
 			if not html then
 				module:log("warn", "mod_post_msg: invalid XML: %s", err);
 				return 400;
