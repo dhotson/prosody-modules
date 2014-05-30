@@ -6,12 +6,20 @@ local st_msg = require "util.stanza".message;
 local jid = require "util.jid";
 local now = require "util.datetime".datetime;
 
+local function get_room_by_jid(mod_muc, jid)
+	if mod_muc.get_room_by_jid then
+		return mod_muc.get_room_by_jid(jid);
+	elseif mod_muc.rooms then
+		return mod_muc.rooms[jid]; -- COMPAT 0.9, 0.10
+	end
+end
+
 function check_message(data)
 	local origin, stanza = data.origin, data.stanza;
-	local muc_rooms = host_session.muc and host_session.muc.rooms;
-	if not muc_rooms then return; end
+	local mod_muc = host_session.muc;
+	if not mod_muc then return; end
 
-	local this_room = muc_rooms[stanza.attr.to];
+	local this_room = get_room_by_jid(mod_muc, stanza.attr.to);
 	if not this_room then return; end -- no such room
 
 	local from_room_jid = this_room._jid_nick[stanza.attr.from];
@@ -29,7 +37,8 @@ function check_message(data)
 	module:log("debug", "target room is %s", target_room);
 
 	local bare_room = jid.join(target_room, from_host);
-	if not muc_rooms[bare_room] then return; end -- TODO send a error
+	local dest_room = get_room_by_jid(mod_muc, bare_room);
+	if not dest_room then return; end -- TODO send a error
 	module:log("info", "message from %s in %s to %s", from_nick, from_room, target_room);
 
 	local sender = jid.join(target_room, module.host, from_room .. "/" .. from_nick);
@@ -37,7 +46,7 @@ function check_message(data)
 	forward_stanza:tag("delay", { xmlns = 'urn:xmpp:delay', from = from_room_jid, stamp = now() }):up();
 
 	module:log("debug", "broadcasting message to target room");
-	muc_rooms[bare_room]:broadcast_message(forward_stanza);
+	dest_room:broadcast_message(forward_stanza);
 end
 
 module:hook("message/bare", check_message, 10);
