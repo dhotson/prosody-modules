@@ -44,11 +44,13 @@ end
 local function update_pep(username, data)
 	local pep = pep_plus.get_pep_service(username.."@"..module.host);
 	if vcard.to_vcard4 then
+		pep:purge("urn:xmpp:vcard4", true);
 		pep:publish("urn:xmpp:vcard4", true, "", st.stanza("item"):add_child(vcard.to_vcard4(data)));
 	end
 
 	local nickname = get_item(data, "NICKNAME");
 	if nickname and nickname[1] then
+		pep:purge("http://jabber.org/protocol/nick", true);
 		pep:publish("http://jabber.org/protocol/nick", true, "", st.stanza("item")
 			:tag("nick", { xmlns="http://jabber.org/protocol/nick" }):text(nickname[1]));
 	end
@@ -58,6 +60,8 @@ local function update_pep(username, data)
 		local photo_raw = base64.decode(photo[1]);
 		local photo_hash = sha1(photo_raw, true);
 
+		pep:purge("urn:xmpp:avatar:metadata", true);
+		pep:purge("urn:xmpp:avatar:data", true);
 		pep:publish("urn:xmpp:avatar:metadata", true, "", st.stanza("item")
 			:tag("metadata", {
 				xmlns="urn:xmpp:avatar:metadata",
