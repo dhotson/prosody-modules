@@ -45,13 +45,14 @@ local function update_pep(username, data)
 	local pep = pep_plus.get_pep_service(username.."@"..module.host);
 	if vcard.to_vcard4 then
 		pep:purge("urn:xmpp:vcard4", true);
-		pep:publish("urn:xmpp:vcard4", true, "current", st.stanza("item"):add_child(vcard.to_vcard4(data)));
+		pep:publish("urn:xmpp:vcard4", true, "current", st.stanza("item", {id="current"})
+			:add_child(vcard.to_vcard4(data)));
 	end
 
 	local nickname = get_item(data, "NICKNAME");
 	if nickname and nickname[1] then
 		pep:purge("http://jabber.org/protocol/nick", true);
-		pep:publish("http://jabber.org/protocol/nick", true, "current", st.stanza("item")
+		pep:publish("http://jabber.org/protocol/nick", true, "current", st.stanza("item", {id="current"})
 			:tag("nick", { xmlns="http://jabber.org/protocol/nick" }):text(nickname[1]));
 	end
 
@@ -62,14 +63,14 @@ local function update_pep(username, data)
 
 		pep:purge("urn:xmpp:avatar:metadata", true);
 		pep:purge("urn:xmpp:avatar:data", true);
-		pep:publish("urn:xmpp:avatar:metadata", true, "current", st.stanza("item")
+		pep:publish("urn:xmpp:avatar:metadata", true, "current", st.stanza("item", {id="current"})
 			:tag("metadata", {
 				xmlns="urn:xmpp:avatar:metadata",
 				bytes = tostring(#photo_raw),
 				id = photo_hash,
 				type = identify(photo_raw),
 			}));
-		pep:publish("urn:xmpp:avatar:data", true, photo_hash, st.stanza("item")
+		pep:publish("urn:xmpp:avatar:data", true, photo_hash, st.stanza("item", {id="current"})
 			:tag("data", { xmlns="urn:xmpp:avatar:data" }):text(photo[1]));
 	end
 end
