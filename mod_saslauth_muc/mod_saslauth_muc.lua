@@ -24,6 +24,8 @@ local module = module;
 local pairs, next = pairs, next;
 local os_time = os.time;
 
+local muc_password = module:require("muc/password");
+
 -- SASL sessions management
 local _rooms = {}; -- SASL data
 local function get_handler_for(room, jid) return _rooms[room] and _rooms[room][jid]; end
@@ -32,8 +34,8 @@ local function create_handler_for(room_jid, jid)
 	_rooms[room_jid] = _rooms[room_jid] or {};
 	_rooms[room_jid][jid] = new_sasl(module.host, { plain = function(sasl, username, realm)
 		local muc = hosts[module.host].modules.muc;
-		local room = muc and muc.rooms[room_jid];
-		local password = room and room:get_password();
+		local room = muc and muc.get_room_by_jid(room_jid);
+		local password = room and muc_password.get(room);
 		local ret = password and true or nil;
 		return password or "", ret;
 	end });
@@ -56,31 +58,25 @@ function module.unload()
 end
 
 -- Stanza handlers
-module:hook("presence/full", function(event)
-	local origin, stanza = event.origin, event.stanza;
-
-	if not stanza.attr.type then -- available presence
-		local room_jid = jid_bare(stanza.attr.to);
-		local room = hosts[module.host].modules.muc.rooms[room_jid];
-
-		if room and not room:get_role(stanza.attr.from) then -- this is a room join
-			if room:get_password() then -- room has a password
-				local x = stanza:get_child("x", "http://jabber.org/protocol/muc");
-				local password = x and x:get_child("password");
-				if not password then -- no password sent
-					local sasl_handler = get_handler_for(jid_bare(stanza.attr.to), stanza.attr.from);
-					if x and sasl_handler and sasl_handler.authorized then -- if already passed SASL
-						x:reset():tag("password", { xmlns = "http://jabber.org/protocol/muc" }):text(room:get_password());
-					else
-						origin.send(st.error_reply(stanza, "auth", "not-authorized")
-							:tag("sasl-required", { xmlns = "urn:xmpp:errors" }));
-						return true;
-					end
-				end
+-- Don't allow anyone to join room unless they provide the password
+module:hook("muc-occupant-pre-join", function(event)
+	local room, stanza = event.room, event.stanza;
+	local room_password = muc_password.get(room);
+	if room_password then -- room has a password
+		local x = stanza:get_child("x", "http://jabber.org/protocol/muc");
+		local password = x and x:get_child_text("password", "http://jabber.org/protocol/muc");
+		if not password then -- no password sent
+			local sasl_handler = get_handler_for(jid_bare(stanza.attr.to), stanza.attr.from);
+			if x and sasl_handler and sasl_handler.authorized then -- if already passed SASL
+				x:reset():tag("password", { xmlns = "http://jabber.org/protocol/muc" }):text(room_password);
+			else
+				event.origin.send(st.error_reply(stanza, "auth", "not-authorized")
+					:tag("sasl-required", { xmlns = "urn:xmpp:errors" }));
+				return true;
 			end
 		end
 	end
-end, 10);
+end, -18);
 
 module:hook("iq-get/bare/urn:ietf:params:xml:ns:xmpp-sasl:mechanisms", function(event)
 	local origin, stanza = event.origin, event.stanza;
