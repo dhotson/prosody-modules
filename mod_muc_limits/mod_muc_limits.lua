@@ -1,5 +1,6 @@
 
-if not hosts[module.host].modules.muc then
+local rooms = module:shared "muc/rooms";
+if not rooms then
 	module:log("error", "This module only works on MUC components!");
 	return;
 end
@@ -8,7 +9,6 @@ local jid_split, jid_bare = require "util.jid".split, require "util.jid".bare;
 local st = require "util.stanza";
 local new_throttle = require "util.throttle".create;
 local t_insert, t_concat = table.insert, table.concat;
-local hosts = prosody.hosts;
 
 local xmlns_muc = "http://jabber.org/protocol/muc";
 
@@ -31,7 +31,7 @@ local function handle_stanza(event)
 		return;
 	end
 	local dest_room, dest_host, dest_nick = jid_split(stanza.attr.to);
-	local room = hosts[module.host].modules.muc.rooms[dest_room.."@"..dest_host];
+	local room = rooms[dest_room.."@"..dest_host];
 	if not room then return; end
 	local from_jid = stanza.attr.from;
 	local occupant = room._occupants[room._jid_nick[from_jid]];
@@ -77,7 +77,7 @@ local function handle_stanza(event)
 end
 
 function module.unload()
-	for room_jid, room in pairs(hosts[module.host].modules.muc.rooms) do
+	for room_jid, room in pairs(rooms) do
 		room.throttle = nil;
 	end
 end
