@@ -7,11 +7,8 @@ local xmlns_xhtml = "http://www.w3.org/1999/xhtml";
 local function replace_latex(data)
 	module:log("debug", "Replacing latex...");
 	local origin, stanza = data.origin, data.stanza;
-	local body = stanza:child_with_name("body");
-	if not body then return; end
-
-	body = body:get_text();
-	if not body:match("%$%$") then
+	local body = stanza:get_child_text("body");
+	if not body or not body:match("%$%$") then
 		return;
 	end
 
