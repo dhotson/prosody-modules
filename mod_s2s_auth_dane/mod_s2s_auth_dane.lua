@@ -176,6 +176,7 @@ end
 
 module:hook("s2s-check-certificate", function(event)
 	local session, cert = event.session, event.cert;
+	local log = session.log or module._log;
 	local dane = session.dane;
 	if type(dane) == "table" then
 		local use, tlsa, match_found, supported_found, chain, leafcert, cacert, is_match;
@@ -193,7 +194,7 @@ module:hook("s2s-check-certificate", function(event)
 						supported_found = true;
 					end
 					if is_match then
-						(session.log or module._log)("info", "DANE validation successful");
+						log("info", "DANE validation successful");
 						session.cert_identity_status = "valid";
 						if use == 3 then -- DANE-EE, chain status equals DNSSEC chain status
 							session.cert_chain_status = "valid";
@@ -218,7 +219,7 @@ module:hook("s2s-check-certificate", function(event)
 							break;
 						end
 						if is_match then
-							(session.log or module._log)("info", "DANE validation successful");
+							log("info", "DANE validation successful");
 							if use == 2 then -- DANE-TA
 								session.cert_identity_status = "valid";
 								session.cert_chain_status = "valid";
@@ -234,7 +235,7 @@ module:hook("s2s-check-certificate", function(event)
 		end
 		if supported_found and not match_found or dane.bogus then
 			-- No TLSA matched or response was bogus
-			(session.log or module._log)("warn", "DANE validation failed");
+			log("warn", "DANE validation failed");
 			session.cert_identity_status = "invalid";
 			session.cert_chain_status = "invalid";
 		end
@@ -244,10 +245,10 @@ module:hook("s2s-check-certificate", function(event)
 			local srv_hosts, srv_choice, srv_target = session.srv_hosts, session.srv_choice;
 			for i = srv_choice or 1, srv_choice or #srv_hosts do
 				srv_target = session.srv_hosts[i].target:gsub("%.?$","");
-				(session.log or module._log)("debug", "Comparing certificate with Secure SRV target %s", srv_target);
+				log("debug", "Comparing certificate with Secure SRV target %s", srv_target);
 				srv_target = nameprep(idna_to_unicode());
 				if srv_target and cert_verify_identity(srv_target, "xmpp-server", cert) then
-					(session.log or module._log)("info", "Certificate matches Secure SRV target %s", srv_target);
+					log("info", "Certificate matches Secure SRV target %s", srv_target);
 					session.cert_identity_status = "valid";
 					return;
 				end
