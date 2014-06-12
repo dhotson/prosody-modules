@@ -176,6 +176,7 @@ end
 
 module:hook("s2s-check-certificate", function(event)
 	local session, cert = event.session, event.cert;
+	if not cert then return end
 	local log = session.log or module._log;
 	local dane = session.dane;
 	if type(dane) == "table" then
