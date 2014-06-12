@@ -112,14 +112,13 @@ function module.add_host(module)
 	local function on_new_s2s(event)
 		local host_session = event.origin;
 		if host_session.type == "s2sout" or host_session.type == "s2sin" or host_session.dane ~= nil then return end -- Already authenticated
-		host_session.log("debug", "Pausing connection until DANE lookup is completed");
-		host_session.conn:pause()
 		local function resume()
 			host_session.log("debug", "DANE lookup completed, resuming connection");
 			host_session.conn:resume()
 		end
-		if not dane_lookup(host_session, resume) then
-			resume();
+		if dane_lookup(host_session, resume) then
+			host_session.log("debug", "Pausing connection until DANE lookup is completed");
+			host_session.conn:pause()
 		end
 	end
 
