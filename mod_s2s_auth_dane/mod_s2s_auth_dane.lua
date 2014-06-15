@@ -174,7 +174,7 @@ local function one_dane_check(tlsa, cert)
 end
 
 module:hook("s2s-check-certificate", function(event)
-	local session, cert = event.session, event.cert;
+	local session, cert, host = event.session, event.cert, event.host;
 	if not cert then return end
 	local log = session.log or module._log;
 	local dane = session.dane;
@@ -182,7 +182,7 @@ module:hook("s2s-check-certificate", function(event)
 		local use, tlsa, match_found, supported_found, chain, leafcert, cacert, is_match;
 		for i = 1, #dane do
 			tlsa = dane[i].tlsa;
-			module:log("debug", "TLSA #%d %s %s %s %d bytes of data", i, tlsa:getUsage(), tlsa:getSelector(), tlsa:getMatchType(), #tlsa.data);
+			module:log("debug", "TLSA #%d: %s", i, tostring(tlsa))
 			use = tlsa.use;
 
 			if enabled_uses:contains(use) then
@@ -194,7 +194,7 @@ module:hook("s2s-check-certificate", function(event)
 						supported_found = true;
 					end
 					if is_match then
-						log("info", "DANE validated ok using %s", tlsa:getUsage());
+						log("info", "DANE validated ok for %s using %s", host, tlsa:getUsage());
 						session.cert_identity_status = "valid";
 						if use == 3 then -- DANE-EE, chain status equals DNSSEC chain status
 							session.cert_chain_status = "valid";
@@ -219,7 +219,7 @@ module:hook("s2s-check-certificate", function(event)
 							break;
 						end
 						if is_match then
-							log("info", "DANE validated ok using %s", tlsa:getUsage());
+							log("info", "DANE validated ok for %s using %s", host, tlsa:getUsage());
 							if use == 2 then -- DANE-TA
 								session.cert_identity_status = "valid";
 								session.cert_chain_status = "valid";
@@ -252,7 +252,7 @@ module:hook("s2s-check-certificate", function(event)
 				log("debug", "Comparing certificate with Secure SRV target %s", srv_target);
 				srv_target = nameprep(idna_to_unicode());
 				if srv_target and cert_verify_identity(srv_target, "xmpp-server", cert) then
-					log("info", "Certificate matches Secure SRV target %s", srv_target);
+					log("info", "Certificate for %s matches Secure SRV target %s", host, srv_target);
 					session.cert_identity_status = "valid";
 					return;
 				end
