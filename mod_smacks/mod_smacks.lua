@@ -19,7 +19,6 @@ local sm3_attr = { xmlns = xmlns_sm3 };
 
 local resume_timeout = module:get_option_number("smacks_hibernation_time", 300);
 local s2s_smacks = module:get_option_boolean("smacks_enabled_s2s", false);
-local max_queue_size = module:get_option_number("smacks_max_queue_size", 500);
 local max_unacked_stanzas = module:get_option_number("smacks_max_unacked_stanzas", 0);
 local core_process_stanza = prosody.core_process_stanza;
 local sessionmanager = require"core.sessionmanager";
@@ -91,10 +90,6 @@ local function wrap_session(session, resume, xmlns_sm)
 				cached_stanza = cached_stanza:tag("delay", { xmlns = xmlns_delay, from = session.host, stamp = datetime.datetime()});
 			end
 
-			if max_queue_size > 0 and #queue > max_queue_size then
-				session.log("warn", "Too many unacked stanzas");
-				session:close{ condition = "policy-violation"; text = "Too many unacked stanzas"; };
-			end
 			queue[#queue+1] = cached_stanza;
 			session.log("debug", "#queue = %d", #queue);
 		end
