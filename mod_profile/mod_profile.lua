@@ -87,6 +87,9 @@ local function handle_get(event)
 	if not data then
 		data = legacy_storage:get(username);
 		data = data and st.deserialize(data);
+		if data then
+			return origin.send(st.reply(stanza):add_child(data));
+		end
 	end
 	if not data then
 		return origin.send(st.error_reply(stanza, "cancel", "item-not-found"));
