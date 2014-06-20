@@ -14,13 +14,13 @@ end
 
 module:provides("statistics", {
 	statistics = {
-		c2s_auth = { -- virtual memory
+		c2s_auth = {
 			get = function ()
 				return auth_ok;
 			end;
 			tostring = tostring;
 		};
-		c2s_authfail = { -- virtual memory
+		c2s_authfail = {
 			get = function ()
 				return auth_fail;
 			end;
