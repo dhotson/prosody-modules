@@ -12,6 +12,7 @@ if module:get_host_type() == "local" and module:get_option_boolean("vcard_to_pep
 	pep_plus = module:depends"pep_plus";
 end
 
+local loaded_pep_for = module:shared"loaded-pep-for";
 local storage = module:open_store();
 local legacy_storage = module:open_store("vcard");
 
@@ -115,6 +116,7 @@ local function handle_set(event)
 
 	if pep_plus and username then
 		update_pep(username, data);
+		loaded_pep_for[username] = true;
 	end
 
 	return origin.send(st.reply(stanza));
@@ -125,6 +127,17 @@ module:hook("iq-get/host/vcard-temp:vCard", handle_get);
 
 module:hook("iq-set/bare/vcard-temp:vCard", handle_set);
 module:hook("iq-set/host/vcard-temp:vCard", handle_set);
+
+module:hook("presence/initial", function (event)
+	local username = event.origin.username
+	if not loaded_pep_for[username] then
+		data = storage:get(username);
+		if data then
+			update_pep(username, data);
+		end
+		loaded_pep_for[username] = true;
+	end
+end);
 
 -- The vCard4 part
 if vcard.to_vcard4 then
