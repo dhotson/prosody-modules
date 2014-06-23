@@ -56,9 +56,20 @@ module:hook("muc-broadcast-message", function(event)
 	send(prefix..clean(room_node)..".broadcast-message:1|c")
 end)
 module:hook("muc-invite", function(event)
+	-- Total count
 	send(prefix.."invite:1|c")
 	local room_node = jid.split(event.room.jid)
+	-- Counts per room
 	send(prefix..clean(room_node)..".invite:1|c")
-	local to_node, to_host, to_resource = jid.split(event.stanza.attr.to)
-	send(prefix..clean(to_node)..".invites:1|c")
+	-- Counts per recipient
+	send(prefix..clean(event.stanza.attr.to)..".invited:1|c")
+end)
+module:hook("muc-decline", function(event)
+	-- Total count
+	send(prefix.."decline:1|c")
+	local room_node = jid.split(event.room.jid)
+	-- Counts per room
+	send(prefix..clean(room_node)..".decline:1|c")
+	-- Counts per sender
+	send(prefix..clean(event.incoming.attr.from)..".declined:1|c")
 end)
