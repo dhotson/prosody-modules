@@ -21,7 +21,10 @@ function clean(s) return (s:gsub("[%.:\n]", "_")) end
 function send(s) return sock:send(s) end
 
 -- prefix should end in "."
-local prefix = (options.prefix or ("prosody." .. clean(module.host))) .. "."
+local prefix = (options.prefix or "prosody") .. "."
+if not options.no_host then
+	prefix = prefix .. clean(module.host) .. "."
+end
 
 -- Track users as they bind/unbind
 -- count bare sessions every time, as we have no way to tell if it's a new bare session or not
