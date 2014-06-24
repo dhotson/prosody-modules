@@ -16,21 +16,39 @@ local log_presences = module:get_option_boolean("muc_log_presences", true);
 
 -- Module Definitions
 
+local function get_room_from_jid(jid)
+	local node, host = split_jid(jid);
+	local component = hosts[host];
+	if component then
+		local muc = component.modules.muc
+		if muc and rawget(muc,"rooms") then
+			-- We're running 0.9.x or 0.10 (old MUC API)
+			return muc.rooms[jid];
+		elseif muc and rawget(muc,"get_room_from_jid") then
+			-- We're running >0.10 (new MUC API)
+			return muc.get_room_from_jid(jid);
+		else
+			return
+		end
+	end
+end
+
 function log_if_needed(event)
 	local stanza = event.stanza;
 
-	if	(stanza.name == "presence") or
+	if (stanza.name == "presence") or
 		(stanza.name == "iq") or
-	   	(stanza.name == "message" and tostring(stanza.attr.type) == "groupchat")
+		(stanza.name == "message" and tostring(stanza.attr.type) == "groupchat")
 	then
 		local node, host = split_jid(stanza.attr.to);
-		local muc = hosts[host].muc;
 		if node and host then
 			local bare = node .. "@" .. host;
-			if muc and muc.rooms[bare] then
-				local room = muc.rooms[bare]
-				local today = os.date("%y%m%d");
-				local now = os.date("%X")
+			if get_room_from_jid(bare) then
+				local room = get_room_from_jid(bare)
+
+				local today = os.date("!%y%m%d");
+				local now = os.date("!%X")
+
 				local muc_to = nil
 				local muc_from = nil;
 				local already_joined = false;

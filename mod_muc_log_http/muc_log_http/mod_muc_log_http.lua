@@ -66,18 +66,57 @@ local function urlencode(s)
 	return s and (s:gsub("[^a-zA-Z0-9.~_-]", function (c) return ("%%%02x"):format(c:byte()); end));
 end
 
-local function generate_room_list(component)
-	local rooms = "";
-	local component_host = hosts[component];
-	if component_host and component_host.muc ~= nil then
-		for jid, room in pairs(component_host.muc.rooms) do
+local function get_room_from_jid(jid)
+	local node, host = split_jid(jid);
+	local component = hosts[host];
+	if component then
+		local muc = component.modules.muc
+		if muc and rawget(muc,"rooms") then
+			-- We're running 0.9.x or 0.10 (old MUC API)
+			return muc.rooms[jid];
+		elseif muc and rawget(muc,"get_room_from_jid") then
+			-- We're running >0.10 (new MUC API)
+			return muc.get_room_from_jid(jid);
+		else
+			return
+		end
+	end
+end
+
+local function get_room_list(host)
+	local component = hosts[host];
+	local list = {};
+	if component then
+		local muc = component.modules.muc
+		if muc and rawget(muc,"rooms") then
+			-- We're running 0.9.x or 0.10 (old MUC API)
+			for _, room in pairs(muc.rooms) do
+				list[room.jid] = room;
+			end
+			return list;
+		elseif muc and rawget(muc,"each_room") then
+			-- We're running >0.10 (new MUC API)
+			for room, _ in muc.each_room() do
+				list[room.jid] = room;
+			end
+			return list;
+		end
+	end
+end
+
+local function generate_room_list(host)
+		local rooms;
+
+		for jid, room in pairs(get_room_list(host)) do
 			local node = split_jid(jid);
 			if not room._data.hidden and room._data.logging and node then
-				rooms = rooms .. html.rooms.bit:gsub("###ROOM###", urlencode(node)):gsub("###COMPONENT###", component);
+				rooms = (rooms or "") .. html.rooms.bit:gsub("###ROOM###", urlencode(node)):gsub("###COMPONENT###", host);
 			end
 		end
-		return html.rooms.body:gsub("###ROOMS_STUFF###", rooms):gsub("###COMPONENT###", component), "Chatroom logs for "..component;
-	end
+
+		if rooms then
+			return html.rooms.body:gsub("###ROOMS_STUFF###", rooms):gsub("###COMPONENT###", host), "Chatroom logs for "..host;
+		end
 end
 
 -- Calendar stuff
@@ -224,7 +263,7 @@ local function generate_day_room_content(bare_room_jid)
 	local topic = "";
 	local component = hosts[host];
 
-	if not(component and component.muc and component.muc.rooms[bare_room_jid]) then
+	if not(get_room_from_jid(bare_room_jid)) then
 		return;
 	end
 
@@ -232,7 +271,8 @@ local function generate_day_room_content(bare_room_jid)
 	attributes = lfs.attributes(path);
 	do
 		local found = 0;
-		for jid, room in pairs(component.muc.rooms) do
+		module:log("debug", generate_room_list(host));
+		for jid, room in pairs(get_room_list(host)) do
 			local node = split_jid(jid)
 			if not room._data.hidden and room._data.logging and node then
 				if found == 0 then
@@ -249,7 +289,7 @@ local function generate_day_room_content(bare_room_jid)
 			end
 		end
 
-		room = component.muc.rooms[bare_room_jid];
+		room = get_room_from_jid(bare_room_jid);
 		if room._data.hidden or not room._data.logging then
 			room = nil;
 		end
@@ -611,6 +651,7 @@ function handle_request(event)
 	local room;
 
 	local node, day, more = request.url.path:match("^/"..url_base.."/+([^/]*)/*([^/]*)/*(.*)$");
+
 	if more ~= "" then
 		response.status_code = 404;
 		return response:send(handle_error(response.status_code, "Unknown URL."));
@@ -625,8 +666,7 @@ function handle_request(event)
 		return response:send(handle_error(response.status_code, "Muc Theme is not loaded."));
 	end
 
-
-	if node then room = hosts[my_host].modules.muc.rooms[node.."@"..my_host]; end
+	if node then room = get_room_from_jid(node.."@"..my_host); end
 	if node and not room then
 		response.status_code = 404;
 		return response:send(handle_error(response.status_code, "Room doesn't exist."));
@@ -635,7 +675,6 @@ function handle_request(event)
 		response.status_code = 404;
 		return response:send(handle_error(response.status_code, "There're no logs for this room."));
 	end
-
 
 	if not node then -- room list for component
 		return response:send(create_doc(generate_room_list(my_host)));
