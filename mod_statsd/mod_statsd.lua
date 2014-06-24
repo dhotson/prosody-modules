@@ -29,11 +29,11 @@ end
 -- Track users as they bind/unbind
 -- count bare sessions every time, as we have no way to tell if it's a new bare session or not
 module:hook("resource-bind", function(event)
-	send(prefix.."bare_sessions:"..iterators.count(bare_sessions).."|g")
+	send(prefix.."bare_sessions:"..iterators.count(pairs(bare_sessions)).."|g")
 	send(prefix.."full_sessions:+1|g")
 end, 1)
 module:hook("resource-unbind", function(event)
-	send(prefix.."bare_sessions:"..iterators.count(bare_sessions).."|g")
+	send(prefix.."bare_sessions:"..iterators.count(pairs(bare_sessions)).."|g")
 	send(prefix.."full_sessions:-1|g")
 end, 1)
 
