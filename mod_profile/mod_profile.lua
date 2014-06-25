@@ -6,6 +6,7 @@ local is_admin = require"core.usermanager".is_admin;
 local vcard = require"util.vcard";
 local base64 = require"util.encodings".base64;
 local sha1 = require"util.hashes".sha1;
+local t_insert, t_remove = table.insert, table.remove;
 
 local pep_plus;
 if module:get_host_type() == "local" and module:get_option_boolean("vcard_to_pep", true) then
@@ -44,10 +45,13 @@ end
 
 local function update_pep(username, data)
 	local pep = pep_plus.get_pep_service(username.."@"..module.host);
+	local photo, p = get_item(data, "PHOTO");
 	if vcard.to_vcard4 then
+		if p then t_remove(data, p); end
 		pep:purge("urn:xmpp:vcard4", true);
 		pep:publish("urn:xmpp:vcard4", true, "current", st.stanza("item", {id="current"})
 			:add_child(vcard.to_vcard4(data)));
+		if p then t_insert(data, p, photo); end
 	end
 
 	local nickname = get_item(data, "NICKNAME");
@@ -57,7 +61,6 @@ local function update_pep(username, data)
 			:tag("nick", { xmlns="http://jabber.org/protocol/nick" }):text(nickname[1]));
 	end
 
-	local photo = get_item(data, "PHOTO");
 	if photo and photo[1] then
 		local photo_raw = base64.decode(photo[1]);
 		local photo_hash = sha1(photo_raw, true);

@@ -1,8 +1,9 @@
+module:set_global();
 
 local tostring = tostring;
 local filters = require "util.filters";
 
-local def_env = module:shared("/*/admin_telnet/env");
+local def_env = module:shared("admin_telnet/env");
 local rawdebug_enabled = module:shared("sessions");
 local full_sessions = prosody.full_sessions;
 local log = module._log;
