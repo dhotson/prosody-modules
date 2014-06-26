@@ -5,12 +5,14 @@
 local http = require "net.http";
 local formdecode = http.formdecode;
 local formencode = http.formencode;
+local http_request = http.request;
 local uuid = require "util.uuid".generate;
 local hmac_sha1 = require "util.hmac".sha1;
 local json_encode = require "util.json".encode;
 local time = os.time;
 local m_min, m_max = math.min, math.max;
 local tostring = tostring;
+
 local xmlns_pubsub = "http://jabber.org/protocol/pubsub";
 local xmlns_pubsub_event = xmlns_pubsub .. "#event";
 local subs_by_topic = module:shared"subscriptions";
@@ -54,7 +56,7 @@ local function handle_request(event)
 			local secret = body["hub.secret"];
 			local verify_token = body["hub.verify_token"];
 
-			module:log("debug", "topic is "..(type(topic)=="string" and "%q" or "%s"), topic);
+			module:log("debug", "topic is "..(type(topic)=="string" and "%q" or "%s"), tostring(topic));
 
 			if not subs_by_topic[topic] then
 				subs_by_topic[topic] = {};
@@ -75,9 +77,9 @@ local function handle_request(event)
 				state = "unsubscribed",
 				secret = secret,
 				want_state = mode,
-				lease_seconds = lease_seconds,
-				expires = time() + lease_seconds,
 			};
+			subscription.lease_seconds = lease_seconds;
+			subscription.expires = time() + lease_seconds;
 			subs_by_topic[topic][callback] = subscription;
 			local challenge = uuid();
 
@@ -86,53 +88,26 @@ local function handle_request(event)
 				["hub.topic"] = topic,
 				["hub.challenge"] = challenge,
 				["hub.lease_seconds"] = tostring(lease_seconds),
-				["hub.verify_token"] = verify_token,
+				["hub.verify_token"] = verify_token, -- COMPAT draft version 0.3
 			}
-			module:log("debug", require"util.serialization".serialize(verify_modes));
-			if verify_modes["async"] then
-				module:log("debug", "Sending async verification request to %s for %s", tostring(callback_url), tostring(subscription));
-				http.request(callback_url, nil, function(body, code)
-					if body == challenge and code > 199 and code < 300 then
-						if not subscription.want_state then
-							module:log("warn", "Verification of already verified request, probably");
-							return;
-						end
-						subscription.state = subscription.want_state .. "d";
-						subscription.want_state = nil;
-						module:log("debug", "calling do_subscribe()");
-						do_subscribe(subscription);
-						subs_by_topic[topic][callback] = subscription;
-					else
-						module:log("warn", "status %d and body was %q", tostring(code), tostring(body));
-						subs_by_topic[topic][callback] = subscription;
+			module:log("debug", "Sending async verification request to %s for %s", tostring(callback_url), tostring(subscription));
+			http_request(callback_url, nil, function(body, code)
+				if body == challenge and code > 199 and code < 300 then
+					if not subscription.want_state then
+						module:log("warn", "Verification of already verified request, probably");
+						return;
 					end
-				end)
-				return 202;
-			elseif verify_modes["sync"] then
-				http.request(callback_url, nil, function(body, code)
-					if body == challenge and code > 199 and code < 300 then
-						if not subscription.want_state then
-							module:log("warn", "Verification of already verified request, probably");
-							return;
-						end
-						if mode == "unsubscribe" then
-							subs_by_topic[topic][callback] = nil;
-						else
-							subscription.state = subscription.want_state .. "d";
-							subscription.want_state = nil;
-							module:log("debug", "calling do_subscribe()");
-							do_subscribe(subscription);
-							subs_by_topic[topic][callback] = subscription;
-						end
-					else
-						subs_by_topic[topic][callback] = subscription;
-					end
-					response.status = 204;
-					response:send();
-				end)
-				return true;
-			end
-			return 400;
+					subscription.state = subscription.want_state .. "d";
+					subscription.want_state = nil;
+					module:log("debug", "calling do_subscribe()");
+					do_subscribe(subscription);
+					subs_by_topic[topic][callback] = subscription;
+				else
+					module:log("warn", "status %d and body was %q", tostring(code), tostring(body));
+					subs_by_topic[topic][callback] = subscription;
+				end
+			end)
+			return 202;
 		else
 			response.status = 400;
 			response.headers.content_type = "text/html";
@@ -141,8 +116,7 @@ local function handle_request(event)
 	end
 end
 
-local function periodic()
-	local now = time();
+local function periodic(now)
 	local next_check = now + max_lease;
 	local purge = false;
 	for topic, callbacks in pairs(subs_by_topic) do
@@ -151,21 +125,6 @@ local function periodic()
 				if subscription.expires < now then
 					-- Subscription has expired, drop it.
 					purge = true;
-				elseif subscription.expires < now + min_lease  then
-					-- Subscription set to expire soon, re-confirm it.
-					local challenge = uuid();
-					local callback_url = callback .. (callback:match("%?") and "&" or "?") .. formencode{
-						["hub.mode"] = subscription.state,
-						["hub.topic"] = topic,
-						["hub.challenge"] = challenge,
-						["hub.lease_seconds"] = subscription.lease_seconds,
-						["hub.verify_token"] = subscription.verify_token,
-					}
-					http.request(callback_url, nil, function(body, code)
-						if body == challenge and code > 199 and code < 300 then
-							subscription.expires = now + subscription.lease_seconds;
-						end
-					end);
 				else
 					next_check = m_min(next_check, subscription.expires);
 				end
@@ -201,7 +160,7 @@ local function on_notify(subscription, content)
 	if subscription.secret then
 		headers["X-Hub-Signature"] = "sha1="..hmac_sha1(subscription.secret, body, true);
 	end
-	http.request(subscription.callback, { method = "POST", body = body, headers = headers }, function(body, code)
+	http_request(subscription.callback, { method = "POST", body = body, headers = headers }, function(body, code)
 		if code >= 200 and code <= 299 then
 			module:log("debug", "Delivered");
 		else
