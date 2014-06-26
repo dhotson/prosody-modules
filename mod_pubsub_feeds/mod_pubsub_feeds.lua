@@ -113,7 +113,7 @@ function update_entry(item)
 		end
 	end
 
-	if item.lease_expires > time() then
+	if item.lease_expires and item.lease_expires > time() then
 		item.subscription = nil;
 		item.lease_expires = nil;
 	end
