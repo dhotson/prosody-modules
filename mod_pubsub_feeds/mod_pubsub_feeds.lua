@@ -13,7 +13,7 @@
 -- feed_pull_interval = 20 -- minutes
 --
 -- Reference
--- http://pubsubhubbub.googlecode.com/svn/trunk/pubsubhubbub-core-0.3.html
+-- http://pubsubhubbub.googlecode.com/svn/trunk/pubsubhubbub-core-0.4.html
 
 local pubsub = module:depends"pubsub";
 
@@ -143,8 +143,6 @@ end
 function refresh_feeds(now)
 	--module:log("debug", "Refreshing feeds");
 	for node, item in pairs(feed_list) do
-		--FIXME Don't fetch feeds which have a subscription
-		-- Otoho, what if the subscription expires or breaks?
 		if item.subscription ~= "subscribe" and item.last_update + refresh_interval < now then
 			--module:log("debug", "checking %s", item.node);
 			fetch(item, update_entry);
@@ -159,14 +157,12 @@ end
 
 function subscribe(feed, want)
 	want = want or "subscribe";
-	feed.token = uuid();
 	feed.secret = feed.secret or uuid();
 	local body = formencode{
 		["hub.callback"] = format_url(feed.node);
 		["hub.mode"] = want;
 		["hub.topic"] = feed.url;
-		["hub.verify"] = "async";
-		["hub.verify_token"] = feed.token;
+		["hub.verify"] = "async"; -- COMPAT this is REQUIRED in the 0.3 draft but removed in 0.4
 		["hub.secret"] = feed.secret;
 		--["hub.lease_seconds"] = "";
 	};
@@ -216,11 +212,10 @@ function handle_http_request(event)
 				-- it would probably invalidate the subscription
 				-- when/if the hub asks if it should be renewed
 			end
-			if query["hub.verify_token"] ~= feed.token then
-				module:log("debug", "Invalid verify_token: %s", tostring(query["hub.verify_token"]))
-				return 401;
+			local lease_seconds = tonumber(query["hub.lease_seconds"]);
+			if lease_seconds then
+				feed.lease_expires = time() + lease_seconds - refresh_interval * 2;
 			end
-			module:log("debug", "Confirming %s request to %s", feed.subscription, feed.url)
 			return query["hub.challenge"];
 		end
 		return 400;
