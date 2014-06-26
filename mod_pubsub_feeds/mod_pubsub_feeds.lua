@@ -208,13 +208,15 @@ function handle_http_request(event)
 				module:log("debug", "Invalid topic: %s", tostring(query["hub.topic"]))
 				return 404
 			end
-			if query["hub.mode"] ~= feed.subscription then
+			if query["hub.mode"] == "denied" then
+				module:log("info", "Subscription denied: %s", tostring(query["hub.reason"] or "No reason given"))
+				feed.subscription = "denied";
+				return "Ok then :(";
+			elseif query["hub.mode"] == feed.subscription then
+				module:log("debug", "Confirming %s request to %s", feed.subscription, feed.url)
+			else
 				module:log("debug", "Invalid mode: %s", tostring(query["hub.mode"]))
 				return 400
-				-- Would this work for unsubscribe?
-				-- Also, if feed.subscription is changed here,
-				-- it would probably invalidate the subscription
-				-- when/if the hub asks if it should be renewed
 			end
 			local lease_seconds = tonumber(query["hub.lease_seconds"]);
 			if lease_seconds then
