@@ -113,9 +113,13 @@ function update_entry(item)
 		end
 	end
 
+	if item.lease_expires > time() then
+		item.subscription = nil;
+		item.lease_expires = nil;
+	end
 	if use_pubsubhubub and not item.subscription then
 		--module:log("debug", "check if %s has a hub", item.node);
-		local hub = feed.links and feed.links.hub;
+		local hub = item.hub or feed.links and feed.links.hub;
 		if hub then
 			item.hub = hub;
 			module:log("debug", "%s has a hub: %s", item.node, item.hub);
