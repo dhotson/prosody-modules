@@ -2,6 +2,7 @@ local captcha_options = module:get_option("captcha_options", {});
 local nodeprep = require "util.encodings".stringprep.nodeprep;
 local usermanager = require "core.usermanager";
 local http = require "net.http";
+local path_sep = package.config:sub(1,1);
 
 local extra_fields = {
 	nick = true; name = true; first = true; last = true; email = true;
@@ -15,7 +16,7 @@ function template(data)
 end
 
 local function get_template(name)
-	local fh = assert(module:load_resource("templates/"..name..".html"));
+	local fh = assert(module:load_resource("templates"..path_sep..name..".html"));
 	local data = assert(fh:read("*a"));
 	fh:close();
 	return template(data);
