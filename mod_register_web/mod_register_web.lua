@@ -4,6 +4,8 @@ local usermanager = require "core.usermanager";
 local http = require "net.http";
 local path_sep = package.config:sub(1,1);
 
+module:depends"http";
+
 local extra_fields = {
 	nick = true; name = true; first = true; last = true; email = true;
 	address = true; city = true; state = true; zip = true;
