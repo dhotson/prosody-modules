@@ -127,6 +127,23 @@ converts them into an empty XML tag.  I recommend looking at the example configu
   * telephone - TEL
   * email - EMAIL
 
+For example, to get something like this in your vCard:
+
+    <TEL>
+      <WORK />
+      <VOICE />
+      <NUMBER>555-555-5555</NUMBER>
+    </TEL>
+
+Your configuration for `telephone` will probably look something like this:
+
+    telephone = {
+      work = {
+        voice = true,
+        number = 'telephoneNumber',
+      },
+    }
+
 ### Unsupported vCard fields
 
   * LABEL
