@@ -37,6 +37,12 @@ ldap = {
       photo       = {
         type   = 'image/jpeg',
         binval = 'jpegPhoto',
-      }
+      },
+      telephone = {
+        work = {
+          voice = true,
+          number = 'telephoneNumber',
+        },
+      },
     },
 }
