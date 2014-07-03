@@ -33,6 +33,7 @@ sub new {
         username => $username,
         domain   => $HOST,
         password => $options{'password'} // $PASSWORD_FOR{$username},
+        resource => 'test bot',
     );
 
     $self->reg_cb(error => sub {
