@@ -77,26 +77,51 @@ my $photo_data = do {
 test_vcard(one => {
     FN       => 'John Testerson',
     NICKNAME => 'one',
+    TEL      => {
+        NUMBER => '555-555-5555',
+        WORK   => '',
+        VOICE  => '',
+    },
 });
 
 test_vcard(two => {
     FN       => 'Jane Testerson',
     NICKNAME => 'two',
+    TEL      => {
+        NUMBER => '',
+        WORK   => '',
+        VOICE  => '',
+    },
 });
 
 test_vcard(three => {
     FN       => 'Jerry Testerson',
     NICKNAME => 'three',
+    TEL      => {
+        NUMBER => '',
+        WORK   => '',
+        VOICE  => '',
+    },
 });
 
 test_vcard(four => {
     FN       => 'Jack Testerson',
     NICKNAME => 'four',
+    TEL      => {
+        NUMBER => '',
+        WORK   => '',
+        VOICE  => '',
+    },
 });
 
 test_vcard(five => {
-    FN           => 'Jimmy Testerson',
-    NICKNAME     => 'five',
+    FN       => 'Jimmy Testerson',
+    NICKNAME => 'five',
+    TEL      => {
+        NUMBER => '',
+        WORK   => '',
+        VOICE  => '',
+    },
     _avatar      => $photo_data,
     _avatar_type => 'image/jpeg',
 });
