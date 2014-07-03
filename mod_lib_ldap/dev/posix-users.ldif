@@ -33,6 +33,7 @@ sn: Testerson
 cn: John Testerson
 userPassword: 12345
 homeDirectory: /home/one
+telephoneNumber: 555-555-5555
 
 dn: uid=two,ou=Users,dc=example,dc=com
 objectclass: posixAccount
