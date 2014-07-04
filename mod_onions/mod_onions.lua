@@ -84,6 +84,8 @@ local function socks5_connect_sent(conn, data)
 
 		local filter = initialize_filters(session);
 
+		session.version = 1;
+
 		session.sends2s = function (t)
 			log("debug", "sending (s2s over socks5): %s", (t.top_tag and t:top_tag()) or t:match("^[^>]*>?"));
 			if t.name then
