@@ -225,6 +225,7 @@ end
 
 -- Try to intercept anything to *.onion
 local function route_to_onion(event)
+	local stanza = event.stanza;
 
 	if not event.to_host:find(".onion(.?)$") then
 		if forbid_else then
