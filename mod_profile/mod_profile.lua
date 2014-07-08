@@ -68,12 +68,12 @@ local function update_pep(username, data)
 		pep:purge("urn:xmpp:avatar:metadata", true);
 		pep:purge("urn:xmpp:avatar:data", true);
 		pep:publish("urn:xmpp:avatar:metadata", true, "current", st.stanza("item", {id="current"})
-			:tag("metadata", {
-				xmlns="urn:xmpp:avatar:metadata",
-				bytes = tostring(#photo_raw),
-				id = photo_hash,
-				type = identify(photo_raw),
-			}));
+			:tag("metadata", { xmlns="urn:xmpp:avatar:metadata" })
+				:tag("info", {
+					bytes = tostring(#photo_raw),
+					id = photo_hash,
+					type = identify(photo_raw),
+				}));
 		pep:publish("urn:xmpp:avatar:data", true, photo_hash, st.stanza("item", {id="current"})
 			:tag("data", { xmlns="urn:xmpp:avatar:data" }):text(photo[1]));
 	end
