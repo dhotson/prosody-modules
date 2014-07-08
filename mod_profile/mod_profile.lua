@@ -74,7 +74,7 @@ local function update_pep(username, data)
 					id = photo_hash,
 					type = identify(photo_raw),
 				}));
-		pep:publish("urn:xmpp:avatar:data", true, photo_hash, st.stanza("item", {id="current"})
+		pep:publish("urn:xmpp:avatar:data", true, photo_hash, st.stanza("item", {id=photo_hash})
 			:tag("data", { xmlns="urn:xmpp:avatar:data" }):text(photo[1]));
 	end
 end
