@@ -29,7 +29,9 @@ function reload_auth_data()
 		line_number = line_number + 1;
 		local username, hash, realm, state = line:match("^([^:]+):(%x+):([^:]+):(.+)$");
 		if not username then
-			module:log("error", "Unable to parse line %d of auth file, skipping", line_number);
+			if line:sub(1,1) ~= "#" then
+				module:log("error", "Unable to parse line %d of auth file, skipping", line_number);
+			end
 		else
 			username, realm = nodeprep(username), nameprep(realm);
 			if not username then
