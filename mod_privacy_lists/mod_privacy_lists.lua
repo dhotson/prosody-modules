@@ -1,6 +1,6 @@
 -- Prosody IM
--- Copyright (C) 2009-2010 Matthew Wild
--- Copyright (C) 2009-2010 Waqas Hussain
+-- Copyright (C) 2009-2014 Matthew Wild
+-- Copyright (C) 2009-2014 Waqas Hussain
 -- Copyright (C) 2009 Thilo Cestonaro
 -- 
 -- This project is MIT/X11 licensed. Please see the
@@ -18,6 +18,24 @@ local load_roster = require "core.rostermanager".load_roster;
 local to_number = tonumber;
 
 local privacy_storage = module:open_store();
+local user_sessions = hosts[module.host].sessions;
+
+local function get_lists(username)
+	return user_sessions[username].privacy_lists;
+end
+
+local function save_lists(username)
+	local privacy_lists = user_sessions[username].privacy_lists;
+	if privacy_lists.default == nil and next(privacy_lists.lists) == nil then
+		privacy_lists = nil;
+	end
+	return privacy_storage:set(username, privacy_lists);
+end
+
+module:hook("resource-bind", function (event)
+	local username = event.session.username;
+	user_sessions[username].privacy_lists = privacy_storage:get(username) or { lists = {} };
+end);
 
 function isListUsed(origin, name, privacy_lists)
 	local user = bare_sessions[origin.username.."@"..origin.host];
@@ -218,7 +236,7 @@ module:hook("iq/bare/jabber:iq:privacy:query", function(data)
 	if stanza.attr.to == nil then -- only service requests to own bare JID
 		local query = stanza.tags[1]; -- the query element
 		local valid = false;
-		local privacy_lists = privacy_storage:get(origin.username) or { lists = {} };
+		local privacy_lists = get_lists(origin.username);
 
 		if privacy_lists.lists[1] then -- Code to migrate from old privacy lists format, remove in 0.8
 			module:log("info", "Upgrading format of stored privacy lists for %s@%s", origin.username, origin.host);
@@ -273,7 +291,7 @@ module:hook("iq/bare/jabber:iq:privacy:query", function(data)
 			end
 			origin.send(st.error_reply(stanza, valid[1], valid[2], valid[3]));
 		else
-			privacy_storage:set(origin.username, privacy_lists);
+			save_lists(origin.username);
 		end
 		return true;
 	end
@@ -281,7 +299,8 @@ end);
 
 function checkIfNeedToBeBlocked(e, session)
 	local origin, stanza = e.origin, e.stanza;
-	local privacy_lists = privacy_storage:get(session.username) or {};
+	local user = user_sessions[session.username];
+	local privacy_lists = user and user.privacy_lists;
 	local bare_jid = session.username.."@"..session.host;
 	local to = stanza.attr.to or bare_jid;
 	local from = stanza.attr.from;
@@ -291,7 +310,7 @@ function checkIfNeedToBeBlocked(e, session)
 	
 	--module:log("debug", "stanza: %s, to: %s, from: %s", tostring(stanza.name), tostring(to), tostring(from));
 	
-	if privacy_lists.lists == nil or
+	if not privacy_lists or privacy_lists.lists == nil or
 		not (session.activePrivacyList or privacy_lists.default)
 	then
 		return; -- Nothing to block, default is Allow all
