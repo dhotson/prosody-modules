@@ -15,14 +15,13 @@ local archive_store = "archive2";
 local archive = module:open_store(archive_store, "archive");
 local global_default_policy = module:get_option("default_archive_policy", false);
 local default_max_items, max_max_items = 20, module:get_option_number("max_archive_query_results", 50);
-local conversation_interval = module:get_option_number("archive_conversation_interval", 86400);
+local conversation_interval = tonumber(module:get_option_number("archive_conversation_interval", 86400));
 
 -- Feature discovery
 local xmlns_archive = "urn:xmpp:archive"
-local feature_archive = st.stanza('feature', {xmlns=xmlns_archive});
-feature_archive:tag('optional');
+local feature_archive = st.stanza("feature", {xmlns=xmlns_archive}):tag("optional");
 if(global_default_policy) then
-    feature_archive:tag('default');
+    feature_archive:tag("default");
 end
 module:add_extension(feature_archive);
 module:add_feature("urn:xmpp:archive:auto");
@@ -31,39 +30,36 @@ module:add_feature("urn:xmpp:archive:pref");
 module:add_feature("http://jabber.org/protocol/rsm");
 -- --------------------------------------------------
 
-local function os_date()
-    return os.date("!*t");
-end
 local function date_format(s)
     return os.date("%Y-%m-%dT%H:%M:%SZ", s);
 end
 
 local function prefs_to_stanza(prefs)
-    local prefstanza = st.stanza("pref", { xmlns='urn:xmpp:archive' });
+    local prefstanza = st.stanza("pref", { xmlns="urn:xmpp:archive" });
     local default = prefs[false] ~= nil and prefs[false] or global_default_policy;
 
-    prefstanza:tag('default', {otr='oppose', save=default and 'true' or 'false'}):up();
-    prefstanza:tag('method', {type='auto', use='concede'}):up();
-    prefstanza:tag('method', {type='local', use='concede'}):up();
-    prefstanza:tag('method', {type='manual', use='concede'}):up();
+    prefstanza:tag("default", {otr="oppose", save=default and "true" or "false"}):up();
+    prefstanza:tag("method", {type="auto", use="concede"}):up();
+    prefstanza:tag("method", {type="local", use="concede"}):up();
+    prefstanza:tag("method", {type="manual", use="concede"}):up();
 
     for jid, choice in pairs(prefs) do
         if jid then
-            prefstanza:tag('item', {jid=jid, otr='prefer', save=choice and 'message' or 'false' }):up()
+            prefstanza:tag("item", {jid=jid, otr="prefer", save=choice and "message" or "false" }):up()
         end
     end
 
     return prefstanza;
 end
-local function prefs_from_stanza(stanza)
-    local current_prefs = get_prefs(origin.username);
+local function prefs_from_stanza(stanza, username)
+    local current_prefs = get_prefs(username);
 
     -- "default" | "item" | "session" | "method"
     for elem in stanza:children() do
         if elem.name == "default" then
-            current_prefs[false] = elem.attr['save'] == 'true';
+            current_prefs[false] = elem.attr["save"] == "true";
         elseif elem.name == "item" then
-            current_prefs[elem.attr['jid']] = not elem.attr['save'] == 'false';
+            current_prefs[elem.attr["jid"]] = not elem.attr["save"] == "false";
         elseif elem.name == "session" then
             module:log("info", "element is not supported: " .. tostring(elem));
 --            local found = false;
@@ -115,7 +111,7 @@ local function preferences_handler(event)
         local new_prefs = stanza:get_child("pref", xmlns_archive);
         if not new_prefs then return false; end
 
-        local prefs = prefs_from_stanza(stanza);
+        local prefs = prefs_from_stanza(stanza, origin.username);
         local ok, err = set_prefs(user, prefs);
 
         if not ok then
@@ -126,13 +122,13 @@ local function preferences_handler(event)
 end
 local function auto_handler(event)
     local origin, stanza = event.origin, event.stanza;
-    if not stanza.attr['type'] == 'set' then return false; end
+    if not stanza.attr["type"] == "set" then return false; end
 
     local user = origin.username;
     local prefs = get_prefs(user);
-    local auto = stanza:get_child('auto', xmlns_archive);
+    local auto = stanza:get_child("auto", xmlns_archive);
 
-    prefs[false] = auto.attr['save'] ~= nil and auto.attr['save'] == 'true' or false;
+    prefs[false] = auto.attr["save"] ~= nil and auto.attr["save"] == "true" or false;
     set_prefs(user, prefs);
 
     return origin.send(st.reply(stanza));
@@ -163,19 +159,19 @@ local function list_stanza_to_query(origin, list_el)
     local sql = "SELECT `with`, `when` / ".. conversation_interval .." as `day`, COUNT(0) FROM `prosodyarchive` WHERE `host`=? AND `user`=? AND `store`=? ";
     local args = {origin.host, origin.username, archive_store};
 
-    local with = list_el.attr['with'];
+    local with = list_el.attr["with"];
     if with ~= nil then
         sql = sql .. "AND `with` = ? ";
         table.insert(args, jid_bare(with));
     end
 
-    local after = list_el.attr['start'];
+    local after = list_el.attr["start"];
     if after ~= nil then
         sql = sql .. "AND `when` >= ?";
         table.insert(args, date_parse(after));
     end
 
-    local before = list_el.attr['end'];
+    local before = list_el.attr["end"];
     if before ~= nil then
         sql = sql .. "AND `when` <= ? ";
         table.insert(args, date_parse(before));
@@ -185,7 +181,7 @@ local function list_stanza_to_query(origin, list_el)
 
     local qset = rsm.get(list_el);
     local limit = math.min(qset and qset.max or default_max_items, max_max_items);
-    sql = sql..'LIMIT ?';
+    sql = sql.."LIMIT ?";
     table.insert(args, limit);
 
     table.insert(args, 1, sql);
@@ -197,10 +193,10 @@ local function list_handler(event)
     local reply = st.reply(stanza);
 
     local query = list_stanza_to_query(origin, stanza.tags[1]);
-    local list = reply:tag('list', {xmlns=xmlns_archive});
+    local list = reply:tag("list", {xmlns=xmlns_archive});
 
     for row in db:select(unpack(query)) do
-        list:tag('chat', {
+        list:tag("chat", {
             xmlns=xmlns_archive,
             with=row[1],
             start=date_format(row[2] * conversation_interval),
@@ -220,10 +216,10 @@ local function retrieve_handler(event)
     local origin, stanza = event.origin, event.stanza;
     local reply = st.reply(stanza);
 
-    local retrieve = stanza:get_child('retrieve', xmlns_archive);
+    local retrieve = stanza:get_child("retrieve", xmlns_archive);
 
-    local qwith = retrieve.attr['with'];
-    local qstart = retrieve.attr['start'];
+    local qwith = retrieve.attr["with"];
+    local qstart = retrieve.attr["start"];
 
     module:log("debug", "Archive query, with %s from %s)",
         qwith or "anyone", qstart or "the dawn of time");
@@ -237,7 +233,7 @@ local function retrieve_handler(event)
         qstart = vstart;
     end
 
-    if qwith then -- Validate the 'with' jid
+    if qwith then -- Validate the "with" jid
         local pwith = qwith and jid_prep(qwith);
         if pwith and not qwith then -- it failed prepping
             origin.send(st.error_reply(stanza, "modify", "bad-request", "Invalid JID"))
@@ -268,13 +264,13 @@ local function retrieve_handler(event)
     end
     local count = err;
 
-    local chat = reply:tag('chat', {xmlns=xmlns_archive, with=qwith, start=date_format(qstart), version=count});
+    local chat = reply:tag("chat", {xmlns=xmlns_archive, with=qwith, start=date_format(qstart), version=count});
 
-    module:log("debug", 'Count '..count);
+    module:log("debug", "Count "..count);
     for id, item, when in data do
-        local tag = jid_bare(item['attr']['from']) == jid_bare(origin.full_jid) and 'from' or 'to';
+        local tag = jid_bare(item["attr"]["from"]) == jid_bare(origin.full_jid) and "from" or "to";
         tag = chat:tag(tag, {secs = when - qstart});
-        tag:tag('body'):text(item[2][1]):up():up();
+        tag:tag("body"):text(item[2][1]):up():up();
     end
 
     origin.send(reply);
@@ -283,8 +279,8 @@ end
 
 local function not_implemented(event)
     local origin, stanza = event.origin, event.stanza;
-    local reply = st.reply(stanza):tag('error', {type='cancel'});
-    reply:tag('feature-not-implemented', {xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'}):up();
+    local reply = st.reply(stanza):tag("error", {type="cancel"});
+    reply:tag("feature-not-implemented", {xmlns="urn:ietf:params:xml:ns:xmpp-stanzas"}):up();
     origin.send(reply);
 end
 
