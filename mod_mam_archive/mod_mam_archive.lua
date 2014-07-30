@@ -268,9 +268,14 @@ local function retrieve_handler(event)
 
     module:log("debug", "Count "..count);
     for id, item, when in data do
-        local tag = jid_bare(item["attr"]["from"]) == jid_bare(origin.full_jid) and "from" or "to";
+        if not getmetatable(item) == st.stanza_mt then
+            item = st.deserialize(item);
+        end
+        module:log("debug", tostring(item));
+
+        local tag = jid_bare(item.attr["from"]) == jid_bare(origin.full_jid) and "from" or "to";
         tag = chat:tag(tag, {secs = when - qstart});
-        tag:tag("body"):text(item[2][1]):up():up();
+        tag:add_child(item:get_child("body")):up();
     end
 
     origin.send(reply);
