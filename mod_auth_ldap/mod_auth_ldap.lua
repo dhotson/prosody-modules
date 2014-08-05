@@ -2,7 +2,7 @@
 
 local new_sasl = require "util.sasl".new;
 local lualdap = require "lualdap";
-local function ldap_filter_escape(s) return (s:gsub("[\\*\\(\\)\\\\%z]", function(c) return ("\\%02x"):format(c:byte()) end)); end
+local function ldap_filter_escape(s) return (s:gsub("[*()\\%z]", function(c) return ("\\%02x"):format(c:byte()) end)); end
 
 -- Config options
 local ldap_server = module:get_option_string("ldap_server", "localhost");
