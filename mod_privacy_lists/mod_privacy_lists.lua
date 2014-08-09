@@ -17,7 +17,7 @@ local jid_split, jid_join = util_Jid.split, util_Jid.join;
 local load_roster = require "core.rostermanager".load_roster;
 local to_number = tonumber;
 
-local privacy_storage = module:open_store();
+local privacy_storage = module:open_store("privacy");
 local user_sessions = hosts[module.host].sessions;
 
 local function get_lists(username)
