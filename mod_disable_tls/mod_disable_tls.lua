@@ -1,4 +1,4 @@
-local disable_tls_ports = module:get_option_set("disable_tls_ports");
+local disable_tls_ports = module:get_option_set("disable_tls_ports", {});
 
 module:hook("stream-features", function (event)
 	if disable_tls_ports:contains(event.origin.conn:serverport()) then
