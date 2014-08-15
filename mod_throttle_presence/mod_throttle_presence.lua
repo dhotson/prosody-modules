@@ -1,37 +1,44 @@
-local add_filter = require "util.filters".add_filter;
-local add_task = require "util.timer".add_task;
+local filters = require "util.filters";
+local st = require "util.stanza";
 
-local buffer_seconds = module:get_option_number("flush_presence_seconds");
+module:depends("csi");
 
-local function throttle_session(data)
-	local session = data.session;
-	local buffer, flushing = {}, false;
-	local timer_active = false;
-	local function flush_buffer()
-		module:log("debug", "Flushing buffer for %s", session.full_jid);
-		flushing = true;
-		for jid, presence in pairs(buffer) do
-			session.send(presence);
+local function presence_filter(stanza, session)
+	local buffer = session.presence_buffer;
+	local from = stanza.attr.from;
+	if stanza.name ~= "presence" or (stanza.attr.type and stanza.attr.type ~= "unavailable") then
+		local cached_presence = buffer[stanza.attr.from];
+		if cached_presence then
+			module:log("debug", "Important stanza for %s from %s, flushing presence", session.full_jid, from);
+			session.send(cached_presence);
+			buffer[stanza.attr.from] = nil;
 		end
-		flushing = false;
+	else
+		module:log("debug", "Buffering presence stanza from %s to %s", stanza.attr.from, session.full_jid);
+		session.buffer[stanza.attr.from] = st.clone(stanza);
+		return nil; -- Drop this stanza (we've stored it for later)
 	end
-	local function throttle_presence(stanza)
-		if stanza.name ~= "presence" or (stanza.attr.type and stanza.attr.type ~= "unavailable") then
-			module:log("debug", "Non-presence stanza for %s: %s", session.full_jid, tostring(stanza));
-			flush_buffer();
-		elseif not flushing then
-			module:log("debug", "Buffering presence stanza from %s to %s", stanza.attr.from, session.full_jid);
-			buffer[stanza.attr.from] = stanza;
-			if not timer_active and buffer_seconds then
-				timer_active = true;
-				add_task(buffer_seconds, flush_buffer);
-			end
-			return nil; -- Drop this stanza (we've stored it for later)
-		end
-		return stanza;
-	end
-	add_filter(session, "stanzas/out", throttle_presence);
+	return stanza;
 end
 
+local function throttle_session(event)
+	local session = event.session;
+	if session.presence_buffer then return; end
+	module:log("debug", "Suppressing presence updates to %s", session.full_jid);
+	session.presence_buffer = {};
+	filters.add_filter(session, "stanzas/out", presence_filter);
+end
 
-module:hook("resource-bind", throttle_session);
+local function restore_session(event)
+	local session = event.session;
+	if not session.presence_buffer then return; end
+	filters.remove_filter(session, "stanzas/out", presence_filter);
+	module:log("debug", "Flushing buffer for %s", session.full_jid);
+	for jid, presence in pairs(session.presence_buffer) do
+		session.send(presence);
+	end
+	session.presence_buffer = nil;
+end
+
+module:hook("csi-client-inactive", throttle_session);
+module:hook("csi-client-active", restore_session);
