@@ -22,7 +22,7 @@ local function presence_filter(stanza, session)
 end
 
 local function throttle_session(event)
-	local session = event.session;
+	local session = event.origin;
 	if session.presence_buffer then return; end
 	module:log("debug", "Suppressing presence updates to %s", session.full_jid);
 	session.presence_buffer = {};
@@ -30,7 +30,7 @@ local function throttle_session(event)
 end
 
 local function restore_session(event)
-	local session = event.session;
+	local session = event.origin;
 	if not session.presence_buffer then return; end
 	filters.remove_filter(session, "stanzas/out", presence_filter);
 	module:log("debug", "Flushing buffer for %s", session.full_jid);
