@@ -15,7 +15,7 @@ local function presence_filter(stanza, session)
 		end
 	else
 		module:log("debug", "Buffering presence stanza from %s to %s", stanza.attr.from, session.full_jid);
-		session.buffer[stanza.attr.from] = st.clone(stanza);
+		buffer[stanza.attr.from] = st.clone(stanza);
 		return nil; -- Drop this stanza (we've stored it for later)
 	end
 	return stanza;
