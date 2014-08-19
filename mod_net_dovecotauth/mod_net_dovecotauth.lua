@@ -19,7 +19,7 @@ local dump = require"util.serialization".serialize;
 
 -- Config
 local vhost = module:get_option_string("dovecotauth_host", (next(hosts))); -- TODO Is there a better solution?
-local allow_master = module:get_option_boolean("adovecotauth_allow_master", false);
+local allow_master = module:get_option_boolean("dovecotauth_allow_master", false);
 
 -- Active sessions
 local sessions = {};
