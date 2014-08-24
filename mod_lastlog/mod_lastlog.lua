@@ -10,7 +10,7 @@ module:hook("authentication-success", function(event)
 		datamanager.store(session.username, host, "lastlog", {
 			event = "login";
 			timestamp = time(),
-			ip = log_ip and session.ip or nil,
+			ip = log_ip and session and session.ip or nil,
 		});
 	end
 end);
@@ -21,7 +21,7 @@ module:hook("resource-unbind", function(event)
 		datamanager.store(session.username, host, "lastlog", {
 			event = "logout";
 			timestamp = time(),
-			ip = log_ip and session.ip or nil,
+			ip = log_ip and session and session.ip or nil,
 		});
 	end
 end);
@@ -31,7 +31,7 @@ module:hook("user-registered", function(event)
 	datamanager.store(event.username, host, "lastlog", {
 		event = "registered";
 		timestamp = time(),
-		ip = log_ip and session.ip or nil,
+		ip = log_ip and session and session.ip or nil,
 	});
 end);
 
