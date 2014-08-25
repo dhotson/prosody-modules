@@ -47,7 +47,6 @@ local function handle_request(event, path)
     end
   end
   status = status or "offline";
-  if type == "" then type = "image" end;
 
   statuses[status].image = function()
     return { status_code = 200, headers = { content_type = "image/png" },
@@ -103,6 +102,11 @@ local function handle_request(event, path)
         )
       };
   end
+
+  if ((type == "") or (not statuses[status][type])) then
+    type = "image"
+  end;
+
   return statuses[status][type]();
 end
 
