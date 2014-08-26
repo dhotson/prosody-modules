@@ -3,6 +3,7 @@
 local um = require "core.usermanager";
 local sm = require "core.storagemanager";
 local dm_load = require "util.datamanager".load;
+local jid_join = require"util.jid".join;
 
 local multipliers = {
 	d = 86400, -- day
@@ -23,9 +24,8 @@ function module.command(arg)
 	for user in um.users(host) do
 		local last_active = dm_load(user, host, "lastlog");
 		last_active = last_active and last_active.timestamp or 0;
-		local bare = user.."@"..host;
 		if last_active < max_age then
-			print(("user:delete%q"):format(bare));
+			print(("user:delete%q"):format(jid_join(user, host)));
 		end
 	end
 end
