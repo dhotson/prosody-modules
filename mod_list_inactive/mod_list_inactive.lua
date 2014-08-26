@@ -12,6 +12,12 @@ local multipliers = {
 	y = 31556952, -- year
 }
 
+local output_formats = {
+	default = "%s",
+	event = "%s %s",
+	delete = "user:delete%q -- %s"
+}
+
 function module.command(arg)
 	local items = {};
 	local host = arg[1];
@@ -21,11 +27,15 @@ function module.command(arg)
 
 	local max_age, unit = assert(arg[2], "No time range given"):match("^(%d*)%s*([dwmy]?)");
 	max_age = os.time() - ( tonumber(max_age) or 1 ) * ( multipliers[unit] or 1 );
+
+	local output = assert(output_formats[arg[3] or "default"], "No such output format: "..tostring(arg[3] or "default"));
+
 	for user in um.users(host) do
 		local last_active = dm_load(user, host, "lastlog");
+		local last_action = last_active and last_active.event or "?"
 		last_active = last_active and last_active.timestamp or 0;
 		if last_active < max_age then
-			print(("user:delete%q"):format(jid_join(user, host)));
+			print(output:format(jid_join(user, host), last_action));
 		end
 	end
 end
