@@ -9,6 +9,7 @@ local rsm = module:require "mod_mam/rsm";
 local jid_bare = require "util.jid".bare;
 local jid_prep = require "util.jid".prep;
 local date_parse = require "util.datetime".parse;
+local date_format = require "util.datetime".datetime;
 
 local st = require "util.stanza";
 local archive_store = "archive2";
@@ -16,6 +17,7 @@ local archive = module:open_store(archive_store, "archive");
 local global_default_policy = module:get_option("default_archive_policy", false);
 local default_max_items, max_max_items = 20, module:get_option_number("max_archive_query_results", 50);
 local conversation_interval = tonumber(module:get_option_number("archive_conversation_interval", 86400));
+local resolve_relative_path = require "core.configmanager".resolve_relative_path;
 
 -- Feature discovery
 local xmlns_archive = "urn:xmpp:archive"
@@ -29,10 +31,6 @@ module:add_feature("urn:xmpp:archive:manage");
 module:add_feature("urn:xmpp:archive:pref");
 module:add_feature("http://jabber.org/protocol/rsm");
 -- --------------------------------------------------
-
-local function date_format(s)
-    return os.date("%Y-%m-%dT%H:%M:%SZ", s);
-end
 
 local function prefs_to_stanza(prefs)
     local prefstanza = st.stanza("pref", { xmlns="urn:xmpp:archive" });
@@ -265,6 +263,7 @@ local function retrieve_handler(event)
     local count = err;
 
     local chat = reply:tag("chat", {xmlns=xmlns_archive, with=qwith, start=date_format(qstart), version=count});
+    local first, last;
 
     module:log("debug", "Count "..count);
     for id, item, when in data do
@@ -273,10 +272,13 @@ local function retrieve_handler(event)
         end
         module:log("debug", tostring(item));
 
-        local tag = jid_bare(item.attr["from"]) == jid_bare(origin.full_jid) and "from" or "to";
+        local tag = jid_bare(item.attr["from"]) == jid_bare(origin.full_jid) and "to" or "from";
         tag = chat:tag(tag, {secs = when - qstart});
         tag:add_child(item:get_child("body")):up();
+        if not first then first = id; end
+        last = id;
     end
+    reply:add_child(rsm.generate{ first = first, last = last, count = count })
 
     origin.send(reply);
     return true;
