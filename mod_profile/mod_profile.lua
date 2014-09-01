@@ -134,7 +134,7 @@ module:hook("iq-set/host/vcard-temp:vCard", handle_set);
 module:hook("presence/initial", function (event)
 	local username = event.origin.username
 	if not loaded_pep_for[username] then
-		data = storage:get(username);
+		local data = storage:get(username);
 		if data then
 			update_pep(username, data);
 		end
