@@ -55,7 +55,7 @@ local function write_to_log(log_jid, jid, prefix, body)
 	local f = open_files[log_jid];
 	if not f then return; end
 	body = body:gsub("\n", "\n    "); -- Indent newlines
-	f:write(prefix or "", prefix and ": " or "", jid, ": ", body, "\n");
+	f:write(os.date("%H:%M:%S "), prefix or "", prefix and ": " or "", jid, ": ", body, "\n");
 	f:flush();
 end
 
