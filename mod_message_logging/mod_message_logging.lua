@@ -50,6 +50,15 @@ function close_open_files()
 end
 module:hook_global("logging-reloaded", close_open_files);
 
+local function write_to_log(log_jid, jid, prefix, body)
+	if not body then return; end
+	local f = open_files[log_jid];
+	if not f then return; end
+	body = body:gsub("\n", "\n    "); -- Indent newlines
+	f:write(prefix or "", prefix and ": " or "", jid, ": ", body, "\n");
+	f:flush();
+end
+
 local function handle_incoming_message(event)
 	local origin, stanza = event.origin, event.stanza;
 	local message_type = stanza.attr.type;
@@ -57,40 +66,31 @@ local function handle_incoming_message(event)
 	if message_type == "error" then return; end
 
 	local from, to = jid_bare(stanza.attr.from), jid_bare(stanza.attr.to or stanza.attr.from);
-	local body = stanza:get_child("body");
-	if not body then return; end
-	body = body:get_text();
-
-	local f = open_files[to];
-	if not f then return; end
 	if message_type == "groupchat" then
-		-- Add the nickname
-		from = from.." <"..(select(3, jid_split(stanza.attr.from)) or "")..">";
+		from = from.." <"..select(3, jid_split(stanza.attr.from))..">";
 	end
-	body = body:gsub("\n", "\n    "); -- Indent newlines
-	f:write("RECV: ", from, ": ", body, "\n");
-	f:flush();
+	write_to_log(to, from, "RECV", stanza:get_child_text("body"));
 end
 
 local function handle_outgoing_message(event)
 	local origin, stanza = event.origin, event.stanza;
 	local message_type = stanza.attr.type;
 
-	if message_type == "error" or message_type == "groupchat" then return; end
+	if message_type == "error" then return; end
 
 	local from, to = jid_bare(stanza.attr.from), jid_bare(stanza.attr.to or origin.full_jid);
-	local body = stanza:get_child("body");
-	if not body then return; end
-	body = body:get_text();
-
-	local f = open_files[from];
-	if not f then return; end
-	body = body:gsub("\n", "\n    "); -- Indent newlines
-	f:write("SEND: ", to, ": ", body, "\n");
-	f:flush();
+	write_to_log(from, to, "SEND", stanza:get_child_text("body"));
 end
 
-
+local function handle_muc_message(event)
+	local stanza = event.stanza;
+	if stanza.attr.type ~= "groupchat" then return; end
+	local room = event.room or hosts[select(2, jid_split(stanza.attr.to))].modules.muc.rooms[stanza.attr.to];
+	if not room then return; end
+	local nick = select(3, jid_split(room._jid_nick[stanza.attr.from]));
+	if not nick then return; end
+	write_to_log(room.jid, jid_bare(stanza.attr.from).." <"..nick..">", "MESG", stanza:get_child_text("body"));
+end
 
 function module.add_host(module)
 	local host_base_path = get_host_path(module.host);
@@ -98,12 +98,16 @@ function module.add_host(module)
 		mkdir(host_base_path);
 	end
 
-	module:hook("message/bare", handle_incoming_message, 1);
-	module:hook("message/full", handle_incoming_message, 1);
-
-	module:hook("pre-message/bare", handle_outgoing_message, 1);
-	module:hook("pre-message/full", handle_outgoing_message, 1);
-	module:hook("pre-message/host", handle_outgoing_message, 1);
+	if hosts[module.host].modules.muc then
+		module:hook("message/bare", handle_muc_message, 1);
+	else
+		module:hook("message/bare", handle_incoming_message, 1);
+		module:hook("message/full", handle_incoming_message, 1);
+	
+		module:hook("pre-message/bare", handle_outgoing_message, 1);
+		module:hook("pre-message/full", handle_outgoing_message, 1);
+		module:hook("pre-message/host", handle_outgoing_message, 1);
+	end
 
 end
 
