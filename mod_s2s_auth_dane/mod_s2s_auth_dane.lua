@@ -47,12 +47,15 @@ end
 local use_map = { ["DANE-EE"] = 3; ["DANE-TA"] = 2; ["PKIX-EE"] = 1; ["PKIX-CA"] = 0 }
 
 local implemented_uses = set.new { "DANE-EE", "PKIX-EE" };
-if debug.getregistry()["SSL:Certificate"].__index.issued then
-	-- Need cert:issued() for these
-	implemented_uses:add("DANE-TA");
-	implemented_uses:add("PKIX-CA");
-else
-	module:log("warn", "Unable to support DANE-TA and PKIX-CA");
+do
+	local cert_mt = debug.getregistry()["SSL:Certificate"];
+	if cert_mt and cert_mt.__index.issued then
+		-- Need cert:issued() for these
+		implemented_uses:add("DANE-TA");
+		implemented_uses:add("PKIX-CA");
+	else
+		module:log("warn", "Unable to support DANE-TA and PKIX-CA");
+	end
 end
 local configured_uses = module:get_option_set("dane_uses", { "DANE-EE", "DANE-TA" });
 local enabled_uses = set.intersection(implemented_uses, configured_uses) / function(use) return use_map[use] end;
