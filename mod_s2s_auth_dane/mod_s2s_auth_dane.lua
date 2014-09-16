@@ -242,7 +242,7 @@ module:hook("s2s-check-certificate", function(event)
 			if dane.bogus then
 				why = "Bogus: "..tostring(dane.bogus);
 			end
-			log("warn", "DANE validation failed: %s", why);
+			log("warn", "DANE validation failed for %s: %s", host, why);
 			session.cert_identity_status = "invalid";
 			session.cert_chain_status = "invalid";
 		end
