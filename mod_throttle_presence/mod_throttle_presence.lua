@@ -4,12 +4,18 @@ local st = require "util.stanza";
 module:depends("csi");
 
 local function presence_filter(stanza, session)
+	if stanza._flush then
+		stanza._flush = nil;
+		return stanza;
+	end
 	local buffer = session.presence_buffer;
 	local from = stanza.attr.from;
 	if stanza.name ~= "presence" or (stanza.attr.type and stanza.attr.type ~= "unavailable") then
 		local cached_presence = buffer[stanza.attr.from];
 		if cached_presence then
 			module:log("debug", "Important stanza for %s from %s, flushing presence", session.full_jid, from);
+			stanza._flush = true;
+			cached_presence._flush = true;
 			session.send(cached_presence);
 			buffer[stanza.attr.from] = nil;
 		end
