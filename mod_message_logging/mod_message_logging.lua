@@ -67,7 +67,7 @@ local function handle_incoming_message(event)
 
 	local from, to = jid_bare(stanza.attr.from), jid_bare(stanza.attr.to or stanza.attr.from);
 	if message_type == "groupchat" then
-		from = from.." <"..select(3, jid_split(stanza.attr.from))..">";
+		from = from.." <"..(select(3, jid_split(stanza.attr.from)) or "")..">";
 	end
 	write_to_log(to, from, "RECV", stanza:get_child_text("body"));
 end
