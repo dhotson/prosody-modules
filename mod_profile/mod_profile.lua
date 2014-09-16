@@ -67,7 +67,7 @@ local function update_pep(username, data)
 
 		pep:purge("urn:xmpp:avatar:metadata", true);
 		pep:purge("urn:xmpp:avatar:data", true);
-		pep:publish("urn:xmpp:avatar:metadata", true, "current", st.stanza("item", {id="current"})
+		pep:publish("urn:xmpp:avatar:metadata", true, photo_hash, st.stanza("item", {id=photo_hash})
 			:tag("metadata", { xmlns="urn:xmpp:avatar:metadata" })
 				:tag("info", {
 					bytes = tostring(#photo_raw),
