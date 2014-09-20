@@ -33,12 +33,14 @@ function subscribe(user_jid, contact_jid)
 		warn("The host '%s' is not configured for this server.", user_host);
 		return;
 	end
-	storagemanager.initialize_host(user_host);
-	usermanager.initialize_host(user_host);
+	if hosts[user_host].users.name == "null" then
+		storagemanager.initialize_host(user_host);
+		usermanager.initialize_host(user_host);
+	end
 	-- Update user's roster to say subscription request is pending...
 	rostermanager.set_contact_pending_out(user_username, user_host, contact_jid);
 	if hosts[contact_host] then
-		if contact_host ~= user_host then
+		if contact_host ~= user_host and hosts[contact_host].users.name == "null" then
 			storagemanager.initialize_host(contact_host);
 			usermanager.initialize_host(contact_host);
 		end
@@ -66,12 +68,14 @@ function unsubscribe(user_jid, contact_jid)
 		warn("The host '%s' is not configured for this server.", user_host);
 		return;
 	end
-	storagemanager.initialize_host(user_host);
-	usermanager.initialize_host(user_host);
+	if hosts[user_host].users.name == "null" then
+		storagemanager.initialize_host(user_host);
+		usermanager.initialize_host(user_host);
+	end
 	-- Update user's roster to say subscription is cancelled...
 	rostermanager.unsubscribe(user_username, user_host, contact_jid);
 	if hosts[contact_host] then
-		if contact_host ~= user_host then
+		if contact_host ~= user_host and hosts[contact_host].users.name == "null" then
 			storagemanager.initialize_host(contact_host);
 			usermanager.initialize_host(contact_host);
 		end
@@ -93,8 +97,10 @@ function rename(user_jid, contact_jid, contact_nick, contact_group)
 		warn("The host '%s' is not configured for this server.", user_host);
 		return;
 	end
-	storagemanager.initialize_host(user_host);
-	usermanager.initialize_host(user_host);
+	if hosts[user_host].users.name == "null" then
+		storagemanager.initialize_host(user_host);
+		usermanager.initialize_host(user_host);
+	end
 
 	-- Load user's roster and find the contact
 	local roster = rostermanager.load_roster(user_username, user_host);
