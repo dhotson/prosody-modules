@@ -34,11 +34,13 @@ function subscribe(user_jid, contact_jid)
 		return;
 	end
 	storagemanager.initialize_host(user_host);
+	usermanager.initialize_host(user_host);
 	-- Update user's roster to say subscription request is pending...
 	rostermanager.set_contact_pending_out(user_username, user_host, contact_jid);
 	if hosts[contact_host] then
 		if contact_host ~= user_host then
 			storagemanager.initialize_host(contact_host);
+			usermanager.initialize_host(contact_host);
 		end
 		-- Update contact's roster to say subscription request is pending...
 		rostermanager.set_contact_pending_in(contact_username, contact_host, user_jid);
@@ -65,11 +67,13 @@ function unsubscribe(user_jid, contact_jid)
 		return;
 	end
 	storagemanager.initialize_host(user_host);
+	usermanager.initialize_host(user_host);
 	-- Update user's roster to say subscription is cancelled...
 	rostermanager.unsubscribe(user_username, user_host, contact_jid);
 	if hosts[contact_host] then
 		if contact_host ~= user_host then
 			storagemanager.initialize_host(contact_host);
+			usermanager.initialize_host(contact_host);
 		end
 		-- Update contact's roster to say subscription is cancelled...
 		rostermanager.unsubscribed(contact_username, contact_host, user_jid);
@@ -90,6 +94,7 @@ function rename(user_jid, contact_jid, contact_nick, contact_group)
 		return;
 	end
 	storagemanager.initialize_host(user_host);
+	usermanager.initialize_host(user_host);
 
 	-- Load user's roster and find the contact
 	local roster = rostermanager.load_roster(user_username, user_host);
