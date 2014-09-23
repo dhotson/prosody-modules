@@ -3,7 +3,7 @@ local allowed_streamhosts = module:get_option_set("allowed_streamhosts", {}); --
 if module:get_option_boolean("allow_local_streamhosts", true) then
 	for hostname, host in pairs(hosts) do
 		if host.modules.proxy65 then
-			allowed_streamhosts:include(hostname);
+			allowed_streamhosts:add(hostname);
 		end
 	end
 end
