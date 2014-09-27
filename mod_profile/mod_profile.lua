@@ -129,9 +129,39 @@ module:hook("iq-get/host/vcard-temp:vCard", handle_get);
 module:hook("iq-set/bare/vcard-temp:vCard", handle_set);
 module:hook("iq-set/host/vcard-temp:vCard", handle_set);
 
+local function on_publish(event)
+	if event.actor == true then return end -- Not from a client
+	local node, item = event.node, event.item;
+	local username = jid_split(event.actor);
+	local data = storage:get(username) or {};
+	if node == "urn:xmpp:avatar:data" then
+		local new_photo = item:get_child_text("data", "urn:xmpp:avatar:data");
+		new_photo = new_photo and { name = "PHOTO"; ENCODING = { "b" }; new_photo } or nil;
+		local _, i = get_item(data, "PHOTO")
+		if new_photo then
+			data[i or #data+1] = new_photo;
+		elseif i then
+			table.remove(data, i);
+		end
+	elseif node == "http://jabber.org/protocol/nick" then
+		local new_nick = item:get_child_text("nick", "http://jabber.org/protocol/nick");
+		new_nick = new_nick and new_nick ~= "" and { name = "NICKNAME"; new_nick } or nil;
+		local _, i = get_item(data, "NICKNAME")
+		if new_nick then
+			data[i or #data+1] = new_nick;
+		elseif i then
+			table.remove(data, i);
+		end
+	else
+		return;
+	end
+	storage:set(username, data);
+end
+
 local function pep_service_added(event)
 	local item = event.item;
 	local service, username = item.service, jid_split(item.jid);
+	service.events.add_handler("item-published", on_publish);
 	local data = storage:get(username);
 	if data then
 		update_pep(username, data, service);
