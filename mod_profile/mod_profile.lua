@@ -13,7 +13,6 @@ if module:get_host_type() == "local" and module:get_option_boolean("vcard_to_pep
 	pep_plus = module:depends"pep_plus";
 end
 
-local loaded_pep_for = module:shared"loaded-pep-for";
 local storage = module:open_store();
 local legacy_storage = module:open_store("vcard");
 
@@ -43,8 +42,8 @@ local function identify(data)
 	return "application/octet-stream";
 end
 
-local function update_pep(username, data)
-	local pep = pep_plus.get_pep_service(username.."@"..module.host);
+local function update_pep(username, data, pep)
+	pep = pep or pep_plus.get_pep_service(username.."@"..module.host);
 	local photo, p = get_item(data, "PHOTO");
 	if vcard.to_vcard4 then
 		if p then t_remove(data, p); end
@@ -119,7 +118,6 @@ local function handle_set(event)
 
 	if pep_plus and username then
 		update_pep(username, data);
-		loaded_pep_for[username] = true;
 	end
 
 	return origin.send(st.reply(stanza));
@@ -131,16 +129,22 @@ module:hook("iq-get/host/vcard-temp:vCard", handle_get);
 module:hook("iq-set/bare/vcard-temp:vCard", handle_set);
 module:hook("iq-set/host/vcard-temp:vCard", handle_set);
 
-module:hook("presence/initial", function (event)
-	local username = event.origin.username
-	if not loaded_pep_for[username] then
-		local data = storage:get(username);
-		if data then
-			update_pep(username, data);
-		end
-		loaded_pep_for[username] = true;
+local function pep_service_added(event)
+	local item = event.item;
+	local service, username = item.service, jid_split(item.jid);
+	local data = storage:get(username);
+	if data then
+		update_pep(username, data, service);
 	end
-end);
+end
+
+local function pep_service_removed()
+	-- This would happen when mod_pep_plus gets unloaded, but this module gets unloaded before that
+end
+
+function module.load()
+	module:handle_items("pep-service", pep_service_added, pep_service_removed, true);
+end
 
 -- The vCard4 part
 if vcard.to_vcard4 then
