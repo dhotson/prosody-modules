@@ -82,8 +82,9 @@ local function wrap_session(session, resume, xmlns_sm)
 
 	local _send = session.sends2s or session.send;
 	local function new_send(stanza)
-		local xmlns = stanza.attr and stanza.attr.xmlns;
-		if not xmlns then -- Stanza in default stream namespace
+		local is_stanza = stanza.attr and not stanza.attr.xmlns;
+		if is_stanza then -- Stanza in default stream namespace
+			module:log("debug", "st.clone( %s ) -- %s a stanza", tostring(stanza), is_stanza and "is" or "is not");
 			local cached_stanza = st.clone(stanza);
 
 			if cached_stanza and cached_stanza:get_child("delay", xmlns_delay) == nil then
@@ -100,7 +101,7 @@ local function wrap_session(session, resume, xmlns_sm)
 			return true;
 		end
 		local ok, err = _send(stanza);
-		if ok and #queue > max_unacked_stanzas and not session.awaiting_ack and not xmlns then
+		if ok and #queue > max_unacked_stanzas and not session.awaiting_ack and is_stanza then
 			session.awaiting_ack = true;
 			return _send(st.stanza("r", sm_attr));
 		end
