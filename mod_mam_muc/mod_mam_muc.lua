@@ -1,5 +1,5 @@
 -- XEP-0313: Message Archive Management for Prosody MUC
--- Copyright (C) 2011-2013 Kim Alvefur
+-- Copyright (C) 2011-2014 Kim Alvefur
 --
 -- This file is MIT/X11 licensed.
 
@@ -199,7 +199,7 @@ module:hook("iq-get/bare/"..xmlns_mam..":query", function(event)
 			first = first, last = last, count = count }));
 end);
 
-function room_mt:send_history(to, stanza)
+function send_history(self, to, stanza)
 	local maxchars, maxstanzas, seconds, since;
 	local history_tag = stanza:find("{http://jabber.org/protocol/muc}x/history")
 	if history_tag then
@@ -249,7 +249,7 @@ function room_mt:send_history(to, stanza)
 end
 
 -- Handle messages
-function room_mt:save_to_history(stanza)
+function save_to_history(self, stanza)
 	local orig_to = stanza.attr.to;
 	local room = jid_split(self.jid);
 
