@@ -247,9 +247,6 @@ local function retrieve_handler(event)
     local before, after = qset and qset.before, qset and qset.after;
     if type(before) ~= "string" then before = nil; end
 
-    module:log("debug", "RSM: start=%s, max=%s, before=%s, after=%s",
-        qstart or 'nostart', qmax or 'nomax', before or 'nobefore', after or 'noafter');
-
     -- Load all the data!
     local data, err = archive:find(origin.username, {
         start = qstart; ["end"] = qstart + conversation_interval;
@@ -257,6 +254,7 @@ local function retrieve_handler(event)
         limit = qmax;
         before = before; after = after;
         reverse = reverse;
+        total = true;
     });
 
     if not data then
@@ -266,7 +264,8 @@ local function retrieve_handler(event)
 
     local chat = reply:tag("chat", {xmlns=xmlns_archive, with=qwith, start=date_format(qstart), version=count});
     local first, last;
-    local count = 0;
+
+    module:log("debug", "Count "..count);
     for id, item, when in data do
         if not getmetatable(item) == st.stanza_mt then
             item = st.deserialize(item);
@@ -278,9 +277,7 @@ local function retrieve_handler(event)
         tag:add_child(item:get_child("body")):up();
         if not first then first = id; end
         last = id;
-        count = count+1;
     end
-    module:log("debug", "Count ".. count);
     reply:add_child(rsm.generate{ first = first, last = last, count = count })
 
     origin.send(reply);
