@@ -89,7 +89,7 @@ local function outgoing_stanza_filter(stanza, session)
 			module:add_timer(0, function ()
 				if not session.awaiting_ack then
 					session.awaiting_ack = true;
-					session.send(st.stanza("r", { xmlns = session.smacks }));
+					(session.sends2s or session.send)(st.stanza("r", { xmlns = session.smacks }));
 				end
 			end);
 		end
