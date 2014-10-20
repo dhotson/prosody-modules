@@ -57,17 +57,6 @@ module:hook("s2s-stream-features",
 			end
 		end);
 
-module:hook_stanza("http://etherx.jabber.org/streams", "features",
-		function (session, stanza)
-			if can_do_smacks(session) then
-				if stanza:get_child("sm", xmlns_sm3) then
-					session.sends2s(st.stanza("enable", sm3_attr));
-				elseif stanza:get_child("sm", xmlns_sm2) then
-					session.sends2s(st.stanza("enable", sm2_attr));
-				end
-			end
-		end);
-
 local function outgoing_stanza_filter(stanza, session)
 	local is_stanza = stanza.attr and not stanza.attr.xmlns;
 	if is_stanza and not stanza._cached then -- Stanza in default stream namespace
@@ -165,11 +154,27 @@ end
 module:hook_stanza(xmlns_sm2, "enable", function (session, stanza) return handle_enable(session, stanza, xmlns_sm2); end, 100);
 module:hook_stanza(xmlns_sm3, "enable", function (session, stanza) return handle_enable(session, stanza, xmlns_sm3); end, 100);
 
+module:hook_stanza("http://etherx.jabber.org/streams", "features",
+		function (session, stanza)
+			if can_do_smacks(session) then
+				if stanza:get_child("sm", xmlns_sm3) then
+					session.sends2s(st.stanza("enable", sm3_attr));
+					session.smacks = xmlns_sm3;
+				elseif stanza:get_child("sm", xmlns_sm2) then
+					session.sends2s(st.stanza("enable", sm2_attr));
+					session.smacks = xmlns_sm2;
+				else
+					return;
+				end
+				wrap_session_out(session, false);
+			end
+		end);
+
 function handle_enabled(session, stanza, xmlns_sm)
 	module:log("debug", "Enabling stream management");
 	session.smacks = xmlns_sm;
 
-	wrap_session(session, false);
+	wrap_session_in(session, false);
 
 	-- FIXME Resume?
 
