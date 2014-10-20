@@ -138,7 +138,7 @@ function handle_enable(session, stanza, xmlns_sm)
 	local ok, err, err_text = can_do_smacks(session);
 	if not ok then
 		session.log("warn", "Failed to enable smacks: %s", err_text); -- TODO: XEP doesn't say we can send error text, should it?
-		session.send(st.stanza("failed", { xmlns = xmlns_sm }):tag(err, { xmlns = xmlns_errors}));
+		(session.sends2s or session.send)(st.stanza("failed", { xmlns = xmlns_sm }):tag(err, { xmlns = xmlns_errors}));
 		return true;
 	end
 
