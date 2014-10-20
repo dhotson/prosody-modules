@@ -220,7 +220,7 @@ function send_history(self, to, stanza)
 	-- Load all the data!
 	local data, err = archive:find(jid_split(self.jid), {
 		limit = m_min(maxstanzas or 20, max_history_length);
-		after = since;
+		start = since;
 		reverse = true;
 		with = "message<groupchat";
 	});
