@@ -156,18 +156,20 @@ module:hook_stanza(xmlns_sm3, "enable", function (session, stanza) return handle
 
 module:hook_stanza("http://etherx.jabber.org/streams", "features",
 		function (session, stanza)
-			if can_do_smacks(session) then
-				if stanza:get_child("sm", xmlns_sm3) then
-					session.sends2s(st.stanza("enable", sm3_attr));
-					session.smacks = xmlns_sm3;
-				elseif stanza:get_child("sm", xmlns_sm2) then
-					session.sends2s(st.stanza("enable", sm2_attr));
-					session.smacks = xmlns_sm2;
-				else
-					return;
+			module:add_timer(0, function ()
+				if can_do_smacks(session) then
+					if stanza:get_child("sm", xmlns_sm3) then
+						session.sends2s(st.stanza("enable", sm3_attr));
+						session.smacks = xmlns_sm3;
+					elseif stanza:get_child("sm", xmlns_sm2) then
+						session.sends2s(st.stanza("enable", sm2_attr));
+						session.smacks = xmlns_sm2;
+					else
+						return;
+					end
+					wrap_session_out(session, false);
 				end
-				wrap_session_out(session, false);
-			end
+			end);
 		end);
 
 function handle_enabled(session, stanza, xmlns_sm)
