@@ -106,13 +106,9 @@ local function count_incoming_stanzas(stanza, session)
 end
 
 local function wrap_session(session, resume)
-	local queue;
 	if not resume then
-		queue = {};
-		session.outgoing_stanza_queue = queue;
+		session.outgoing_stanza_queue = {};
 		session.last_acknowledged_stanza = 0;
-	else
-		queue = session.outgoing_stanza_queue;
 	end
 
 	add_filter(session, "stanzas/out", outgoing_stanza_filter, -1000);
