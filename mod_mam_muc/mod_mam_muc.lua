@@ -31,7 +31,6 @@ local default_max_items, max_max_items = 20, module:get_option_number("max_archi
 
 local log_all_rooms = module:get_option_boolean("muc_log_all_rooms", false);
 local log_by_default = module:get_option_boolean("muc_log_by_default", true);
-local advertise_archive = module:get_option_boolean("muc_log_advertise", true);
 
 local archive_store = "archive2";
 local archive = module:open_store(archive_store, "archive");
@@ -109,8 +108,21 @@ if not log_all_rooms then
 	end);
 end
 
+local query_form = dataform {
+	{ name = "FORM_TYPE"; type = "hidden"; value = xmlns_mam; };
+	{ name = "with"; type = "jid-single"; };
+	{ name = "start"; type = "text-single" };
+	{ name = "end"; type = "text-single"; };
+};
+
+-- Serve form
+module:hook("iq-get/self/"..xmlns_mam..":query", function(event)
+	local origin, stanza = event.origin, event.stanza;
+	return origin.send(st.reply(stanza):add_child(query_form:form()));
+end);
+
 -- Handle archive queries
-module:hook("iq-get/bare/"..xmlns_mam..":query", function(event)
+module:hook("iq-set/bare/"..xmlns_mam..":query", function(event)
 	local origin, stanza = event.origin, event.stanza;
 	local room = stanza.attr.to;
 	local room_node = jid_split(room);
@@ -133,10 +145,17 @@ module:hook("iq-get/bare/"..xmlns_mam..":query", function(event)
 	local qid = query.attr.queryid;
 
 	-- Search query parameters
-	local qstart = query:get_child_text("start");
-	local qend = query:get_child_text("end");
-	module:log("debug", "Archive query, id %s from %s until %s)",
-		tostring(qid), qstart or "the dawn of time", qend or "now");
+	local qwith, qstart, qend;
+	local form = query:get_child("x", "jabber:x:data");
+	if form then
+		local err;
+		form, err = query_form:data(form);
+		if err then
+			return origin.send(st.error_reply(stanza, "modify", "bad-request", select(2, next(err))))
+		end
+		qwith, qstart, qend = form["with"], form["start"], form["end"];
+		qwith = qwith and jid_bare(qwith); -- dataforms does jidprep
+	end
 
 	if qstart or qend then -- Validate timestamps
 		local vstart, vend = (qstart and timestamp_parse(qstart)), (qend and timestamp_parse(qend))
@@ -169,6 +188,7 @@ module:hook("iq-get/bare/"..xmlns_mam..":query", function(event)
 	end
 	local count = err;
 
+	origin.send(st.reply(stanza))
 	local msg_reply_attr = { to = stanza.attr.from, from = stanza.attr.to };
 
 	-- Wrap it in stuff and deliver
@@ -194,9 +214,10 @@ module:hook("iq-get/bare/"..xmlns_mam..":query", function(event)
 	module:log("debug", "Archive query %s completed", tostring(qid));
 
 	if reverse then first, last = last, first; end
-	return origin.send(st.reply(stanza)
-		:query(xmlns_mam):add_child(rsm.generate {
-			first = first, last = last, count = count }));
+	return origin.send(st.message(msg_reply_attr)
+		:tag("fin", { xmlns = xmlns_mam, queryid = qid })
+			:add_child(rsm.generate {
+				first = first, last = last, count = count }));
 end);
 
 function send_history(self, to, stanza)
@@ -264,10 +285,7 @@ function save_to_history(self, stanza)
 	if stanza.attr.type then
 		with = with .. "<" .. stanza.attr.type
 	end
-	local ok, id = archive:append(room, nil, time_now(), with, stanza);
-	if ok and advertise_archive then
-		stanza:tag("archived", { xmlns = xmlns_mam, by = jid_bare(orig_to), id = id }):up();
-	end
+	archive:append(room, nil, time_now(), with, stanza);
 end
 
 module:hook("muc-room-destroyed", function(event)
