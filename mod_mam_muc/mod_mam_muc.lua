@@ -12,7 +12,10 @@ local st = require "util.stanza";
 local rsm = module:require "mod_mam/rsm";
 local jid_bare = require "util.jid".bare;
 local jid_split = require "util.jid".split;
-local room_mt = module:depends"muc".room_mt;
+
+local mod_muc = module:depends"muc";
+local room_mt = mod_muc.room_mt;
+local rooms = mod_muc.rooms;
 
 local getmetatable = getmetatable;
 local function is_stanza(x)
@@ -39,8 +42,6 @@ elseif not archive.find then
         module:log("error", "mod_%s does not support archiving, switch to mod_storage_sql2", archive._provided_by);
         return
 end
-
-local rooms = hosts[module.host].modules.muc.rooms;
 
 local send_history, save_to_history;
 
@@ -168,10 +169,12 @@ module:hook("iq-get/bare/"..xmlns_mam..":query", function(event)
 	end
 	local count = err;
 
+	local msg_reply_attr = { to = stanza.attr.from, from = stanza.attr.to };
+
 	-- Wrap it in stuff and deliver
-	local first, last;
+	local fwd_st, first, last;
 	for id, item, when in data do
-		local fwd_st = st.message{ to = orig_from, from = room }
+		fwd_st = st.message(msg_reply_attr)
 			:tag("result", { xmlns = xmlns_mam, queryid = qid, id = id })
 				:tag("forwarded", { xmlns = xmlns_forward })
 					:tag("delay", { xmlns = xmlns_delay, stamp = timestamp(when) }):up();
