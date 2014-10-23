@@ -3,7 +3,7 @@
 --
 -- This file is MIT/X11 licensed.
 
-local xmlns_mam     = "urn:xmpp:mam:tmp";
+local xmlns_mam     = "urn:xmpp:mam:0";
 local xmlns_delay   = "urn:xmpp:delay";
 local xmlns_forward = "urn:xmpp:forward:0";
 local muc_form_enable_logging = "muc#roomconfig_enablelogging"
@@ -12,6 +12,7 @@ local st = require "util.stanza";
 local rsm = module:require "mod_mam/rsm";
 local jid_bare = require "util.jid".bare;
 local jid_split = require "util.jid".split;
+local dataform = require "util.dataforms".new;
 
 local mod_muc = module:depends"muc";
 local room_mt = mod_muc.room_mt;
