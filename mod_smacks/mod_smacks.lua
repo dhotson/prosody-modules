@@ -74,13 +74,9 @@ local function outgoing_stanza_filter(stanza, session)
 			session.log("debug", "hibernating, stanza queued");
 			return ""; -- Hack to make session.send() not return nil
 		end
-		if #queue > max_unacked_stanzas then
-			module:add_timer(0, function ()
-				if not session.awaiting_ack then
-					session.awaiting_ack = true;
-					(session.sends2s or session.send)(st.stanza("r", { xmlns = session.smacks }));
-				end
-			end);
+		if #queue > max_unacked_stanzas and not session.awaiting_ack then
+			session.awaiting_ack = true;
+			return tostring(stanza)..tostring(st.stanza("r", { xmlns = session.smacks }));
 		end
 	end
 	return stanza;
