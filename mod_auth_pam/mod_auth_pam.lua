@@ -15,13 +15,13 @@ end
 function test_password(username, password)
 	local h, err = pam.start("xmpp", username, {
 		function (t)
-			if #t == 1 and t[1][1] == pam.PAM_PROMPT_ECHO_OFF then
+			if #t == 1 and t[1][1] == pam.PROMPT_ECHO_OFF then
 				return { { password, 0} };
 			end
 		end
 	});
-	if h and h:authenticate() and h:endx(pam.PAM_SUCCESS) then
-		return true, true;
+	if h and h:authenticate() and h:endx(pam.SUCCESS) then
+		return user_exists(username), true;
 	end
 	return nil, true;
 end
