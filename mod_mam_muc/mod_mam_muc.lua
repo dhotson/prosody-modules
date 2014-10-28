@@ -290,7 +290,8 @@ function save_to_history(self, stanza)
 end
 
 module:hook("muc-room-destroyed", function(event)
-	archive:delete(jid_split(event.room.jid));
+	local username = jid_split(event.room.jid);
+	archive:delete(username);
 end);
 
 -- TODO should we perhaps log presence as well?
