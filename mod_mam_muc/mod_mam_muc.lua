@@ -36,11 +36,11 @@ local log_by_default = module:get_option_boolean("muc_log_by_default", true);
 local archive_store = "archive2";
 local archive = module:open_store(archive_store, "archive");
 if not archive or archive.name == "null" then
-        module:log("error", "Could not open archive storage");
-        return
+	module:log("error", "Could not open archive storage");
+	return
 elseif not archive.find then
-        module:log("error", "mod_%s does not support archiving, switch to mod_storage_sql2", archive._provided_by);
-        return
+	module:log("error", "mod_%s does not support archiving, switch to mod_storage_sql2", archive._provided_by);
+	return
 end
 
 local send_history, save_to_history;
