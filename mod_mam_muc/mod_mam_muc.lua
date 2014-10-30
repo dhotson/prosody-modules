@@ -16,7 +16,11 @@ local dataform = require "util.dataforms".new;
 
 local mod_muc = module:depends"muc";
 local room_mt = mod_muc.room_mt;
-local rooms = mod_muc.rooms;
+local rooms = rawget(mod_muc, "rooms");
+local new_muc = not rooms;
+if new_muc then
+	rooms = module:shared"muc/rooms";
+end
 
 local getmetatable = getmetatable;
 local function is_stanza(x)
@@ -57,27 +61,29 @@ end
 local send_history, save_to_history;
 
 	-- Override history methods for all rooms.
-module:hook("muc-room-created", function (event)
-	local room = event.room;
-	if logging_enabled(room) then
-		room.send_history = send_history;
-		room.save_to_history = save_to_history;
-	end
-end);
-
-function module.load()
-	for _, room in pairs(rooms) do
+if not new_muc then -- 0.10 or older
+	module:hook("muc-room-created", function (event)
+		local room = event.room;
 		if logging_enabled(room) then
 			room.send_history = send_history;
 			room.save_to_history = save_to_history;
 		end
+	end);
+
+	function module.load()
+		for _, room in pairs(rooms) do
+			if logging_enabled(room) then
+				room.send_history = send_history;
+				room.save_to_history = save_to_history;
+			end
+		end
 	end
-end
-function module.unload()
-	for _, room in pairs(rooms) do
-		if room.send_history == send_history then
-			room.send_history = nil;
-			room.save_to_history = nil;
+	function module.unload()
+		for _, room in pairs(rooms) do
+			if room.send_history == send_history then
+				room.send_history = nil;
+				room.save_to_history = nil;
+			end
 		end
 	end
 end
@@ -228,6 +234,53 @@ module:hook("iq-set/bare/"..xmlns_mam..":query", function(event)
 				first = first, last = last, count = count }));
 end);
 
+module:hook("muc-get-history", function (event)
+	local room = event.room;
+	if not logging_enabled(room) then return end
+	local room_jid = room.jid;
+	local maxstanzas = event.maxstanzas;
+	local maxchars = event.maxchars;
+	local since = event.since;
+	local to = event.to;
+
+	-- Load all the data!
+	local query = {
+		limit = m_min(maxstanzas or 20, max_history_length);
+		start = since;
+		reverse = true;
+		with = "message<groupchat";
+	}
+	module:log("debug", require"util.serialization".serialize(query))
+	local data, err = archive:find(jid_split(room_jid), query);
+
+	if not data then
+		module:log("error", "Could not fetch history: %s", tostring(err));
+		return
+	end
+
+	local chars = 0;
+	local history, i = {}, 1;
+
+	for id, item, when in data do
+		item.attr.to = to;
+		item:tag("delay", { xmlns = "urn:xmpp:delay", from = room_jid, stamp = timestamp(when) }):up(); -- XEP-0203
+		if maxchars then
+			chars = #tostring(item);
+			if chars + charcount > maxchars then
+				break
+			end
+			charcount = charcount + chars;
+		end
+		history[i], i = item, i+1;
+		-- module:log("debug", tostring(item));
+	end
+	function event:next_stanza()
+		i = i - 1;
+		return history[i];
+	end
+	return true;
+end, 1);
+
 function send_history(self, to, stanza)
 	local maxchars, maxstanzas, seconds, since;
 	local history_tag = stanza:find("{http://jabber.org/protocol/muc}x/history")
@@ -246,34 +299,17 @@ function send_history(self, to, stanza)
 		end
 	end
 
-	-- Load all the data!
-	local data, err = archive:find(jid_split(self.jid), {
-		limit = m_min(maxstanzas or 20, max_history_length);
-		start = since;
-		reverse = true;
-		with = "message<groupchat";
-	});
+	local event = {
+		room = self;
+		to = to; -- `to` is required to calculate the character count for `maxchars`
+		maxchars = maxchars, maxstanzas = maxstanzas, since = since;
+		next_stanza = function() end; -- events should define this iterator
+	};
 
-	if not data then
-		module:log("error", "Could not fetch history: %s", tostring(err));
-		return
-	end
+	module:fire_event("muc-get-history", event);
 
-	local to_send = {};
-	local charcount = 0;
-	local chars;
-	for id, item, when in data do
-		item.attr.to = to;
-		item:tag("delay", { xmlns = "urn:xmpp:delay", from = self.jid, stamp = timestamp(when) }):up(); -- XEP-0203
-		if maxchars then
-			chars = #tostring(item);
-			if chars + charcount > maxchars then break end
-			charcount = charcount + chars;
-		end
-		to_send[1+#to_send] = item;
-	end
-	for i = #to_send,1,-1 do
-		self:_route_stanza(to_send[i]);
+	for msg in event.next_stanza, event do
+		self:_route_stanza(msg);
 	end
 end
 
@@ -293,6 +329,13 @@ function save_to_history(self, stanza)
 	end
 	archive:append(room, nil, time_now(), with, stanza);
 end
+
+module:hook("muc-broadcast-message", function (event)
+	local room, stanza = event.room, event.stanza;
+	if stanza:get_child("body") then
+		save_to_history(room, stanza);
+	end
+end);
 
 module:hook("muc-room-destroyed", function(event)
 	local username = jid_split(event.room.jid);
