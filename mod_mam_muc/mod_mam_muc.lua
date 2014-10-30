@@ -43,12 +43,23 @@ elseif not archive.find then
 	return
 end
 
+local function logging_enabled(room)
+	if log_all_rooms then
+		return true;
+	end
+	local enabled = room._data.logging;
+	if enabled == nil then
+		return log_by_default;
+	end
+	return enabled;
+end
+
 local send_history, save_to_history;
 
 	-- Override history methods for all rooms.
 module:hook("muc-room-created", function (event)
 	local room = event.room;
-	if log_all_rooms or room._data.logging then
+	if logging_enabled(room) then
 		room.send_history = send_history;
 		room.save_to_history = save_to_history;
 	end
@@ -56,7 +67,7 @@ end);
 
 function module.load()
 	for _, room in pairs(rooms) do
-		if log_all_rooms or room._data.logging then
+		if logging_enabled(room) then
 			room.send_history = send_history;
 			room.save_to_history = save_to_history;
 		end
@@ -74,16 +85,12 @@ end
 if not log_all_rooms then
 	module:hook("muc-config-form", function(event)
 		local room, form = event.room, event.form;
-		local logging_enabled = room._data.logging;
-		if logging_enabled == nil then
-			logging_enabled = log_by_default;
-		end
 		table.insert(form,
 		{
 			name = muc_form_enable_logging,
 			type = "boolean",
 			label = "Enable Logging?",
-			value = logging_enabled,
+			value = logging_enabled(room),
 		}
 		);
 	end);
@@ -276,9 +283,7 @@ function save_to_history(self, stanza)
 	local room = jid_split(self.jid);
 
 	-- Policy check
-	if not ( log_all_rooms == true -- Logging forced on all rooms
-	or (self._data.logging == nil and log_by_default == true)
-	or self._data.logging ) then return end -- Don't log
+	if not logging_enabled(self) then return end -- Don't log
 
 	module:log("debug", "We're logging this")
 	-- And stash it
