@@ -12,6 +12,7 @@ local data_load, data_store = datamanager.load, datamanager.store;
 local datastore = "muc_log";
 local muc_form_config_option = "muc#roomconfig_enablelogging"
 
+local log_by_default = module:get_option_boolean("muc_log_by_default", false);
 local log_presences = module:get_option_boolean("muc_log_presences", true);
 
 -- Module Definitions
@@ -31,6 +32,14 @@ local function get_room_from_jid(jid)
 			return
 		end
 	end
+end
+
+local function logging_enabled(room)
+	local enabled = room._data.logging;
+	if enabled == nil then
+		return log_by_default;
+	end
+	return enabled;
 end
 
 function log_if_needed(event)
@@ -56,7 +65,7 @@ function log_if_needed(event)
 				if room._data.hidden then -- do not log any data of private rooms
 					return;
 				end
-				if not room._data.logging then -- do not log where logging is not enabled
+				if not logging_enabled(room) then -- do not log where logging is not enabled
 					return;
 				end
 
@@ -129,7 +138,7 @@ module:hook("muc-config-form", function(event)
 		name = muc_form_config_option,
 		type = "boolean",
 		label = "Enable Logging?",
-		value = room._data.logging or false,
+		value = logging_enabled(room),
 	}
 	);
 end);
