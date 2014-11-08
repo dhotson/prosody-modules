@@ -75,13 +75,13 @@ nav a { text-decoration: none; }
 local dates_template = template(base{
 	title = "Logs for room {room}";
 	body = [[
-	<base href="{room}/">
-	<nav>
-	<a href="..">↑</a>
-	</nav>
-	<ul>
-	{lines!}</ul>
-	]];
+<base href="{room}/">
+<nav>
+<a href="..">↑</a>
+</nav>
+<ul>
+{lines!}</ul>
+]];
 })
 
 local date_line_template = template[[
@@ -91,39 +91,39 @@ local date_line_template = template[[
 local page_template = template(base{
 	title = "Logs for room {room} on {date}";
 	body = [[
-	<nav>
-	<a class="prev" href="{prev}">←</a>
-	<a class="up" href="../{room}">↑</a>
-	<a class="next" href="{next}">→</a>
-	</nav>
-	<ul>
-	{logs!}
-	</ul>
-	]];
+<nav>
+<a class="prev" href="{prev}">←</a>
+<a class="up" href="../{room}">↑</a>
+<a class="next" href="{next}">→</a>
+</nav>
+<ul>
+{logs!}
+</ul>
+]];
 });
 
 local line_templates = {
 	["message<groupchat"] = template[[
-	<li id="{key}" class="{st_name}"><a href="#{key}"><time>{time}</time></a><dl><dt>{nick}</dt><dd>{body}</dd></dl></li>
-	]];
+<li id="{key}" class="{st_name}"><a href="#{key}"><time>{time}</time></a><dl><dt>{nick}</dt><dd>{body}</dd></dl></li>
+]];
 	["message<groupchat<subject"] = template[[
-	<li id="{key}" class="{st_name} action subject"><a href="#{key}"><time>{time}</time></a><dl><dt>{nick}</dt><dd>changed subject to {subject}</dd></dl></li>
-	]];
+<li id="{key}" class="{st_name} action subject"><a href="#{key}"><time>{time}</time></a><dl><dt>{nick}</dt><dd>changed subject to {subject}</dd></dl></li>
+]];
 	["presence"] = template[[
-	<li id="{key}" class="action join"><a href="#{key}"><time>{time}</time></a><dl><dt>{nick}</dt><dd>joined</dd></dl></li>
-	]];
+<li id="{key}" class="action join"><a href="#{key}"><time>{time}</time></a><dl><dt>{nick}</dt><dd>joined</dd></dl></li>
+]];
 	["presence<unavailable"] = template[[
-	<li id="{key}" class="action leave"><a href="#{key}"><time>{time}</time></a><dl><dt>{nick}</dt><dd>left</dd></dl></li>
-	]];
+<li id="{key}" class="action leave"><a href="#{key}"><time>{time}</time></a><dl><dt>{nick}</dt><dd>left</dd></dl></li>
+]];
 };
 
 local room_list_template = template(base{
 	title = "Rooms on {host}";
 	body = [[
-	<dl>
-	{rooms!}
-	</dl>
-	]];
+<dl>
+{rooms!}
+</dl>
+]];
 });
 
 local room_item_template = template[[
@@ -221,20 +221,20 @@ local function logs_page(event, path)
 		["start"] = datetime.parse(date.."T00:00:00Z") + 86401;
 		limit = math.huge;
 	}) do
-	next_when = when;
-	module:log("debug", "Next message: %s", datetime.datetime(when));
-	break;
-end
+		next_when = when;
+		module:log("debug", "Next message: %s", datetime.datetime(when));
+		break;
+	end
 
-module:log("debug", "Find prev date with messages");
-for key, message, when in archive:find(room, {
-	["end"] = datetime.parse(date.."T00:00:00Z") - 1;
-	limit = math.huge;
-	reverse = true;
-}) do
-prev_when = when;
-module:log("debug", "Previous message: %s", datetime.datetime(when));
-break;
+	module:log("debug", "Find prev date with messages");
+	for key, message, when in archive:find(room, {
+		["end"] = datetime.parse(date.."T00:00:00Z") - 1;
+		limit = math.huge;
+		reverse = true;
+	}) do
+		prev_when = when;
+		module:log("debug", "Previous message: %s", datetime.datetime(when));
+		break;
 	end
 
 	return page_template{
