@@ -13,14 +13,21 @@ local rsm = module:require "mod_mam/rsm";
 local jid_bare = require "util.jid".bare;
 local jid_split = require "util.jid".split;
 local dataform = require "util.dataforms".new;
+local it = require"util.iterators";
 
+-- Support both old and new MUC code
 local mod_muc = module:depends"muc";
 local room_mt = mod_muc.room_mt;
 local rooms = rawget(mod_muc, "rooms");
+local each_room = rawget(mod_muc, "each_room") or function() return it.values(rooms); end;
 local new_muc = not rooms;
 if new_muc then
 	rooms = module:shared"muc/rooms";
 end
+local get_room_from_jid = rawget(mod_muc, "get_room_from_jid") or
+	function (jid)
+		return rooms[jid];
+	end
 
 local getmetatable = getmetatable;
 local function is_stanza(x)
@@ -71,7 +78,7 @@ if not new_muc then -- 0.10 or older
 	end);
 
 	function module.load()
-		for _, room in pairs(rooms) do
+		for room in each_room() do
 			if logging_enabled(room) then
 				room.send_history = send_history;
 				room.save_to_history = save_to_history;
@@ -79,7 +86,7 @@ if not new_muc then -- 0.10 or older
 		end
 	end
 	function module.unload()
-		for _, room in pairs(rooms) do
+		for room in each_room() do
 			if room.send_history == send_history then
 				room.send_history = nil;
 				room.save_to_history = nil;
@@ -144,7 +151,7 @@ module:hook("iq-set/bare/"..xmlns_mam..":query", function(event)
 	local orig_from = stanza.attr.from;
 	local query = stanza.tags[1];
 
-	local room_obj = rooms[room];
+	local room_obj = get_room_from_jid(room);
 	if not room_obj then
 		return origin.send(st.error_reply(stanza, "cancel", "item-not-found"))
 	end
