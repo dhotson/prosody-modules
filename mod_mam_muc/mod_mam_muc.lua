@@ -338,6 +338,13 @@ module:hook("muc-broadcast-message", function (event)
 	end
 end);
 
+module:hook("muc-occupant-joined", function (event)
+	save_to_history(event.room, st.stanza("presence", { from = event.nick }));
+end);
+module:hook("muc-occupant-left", function (event)
+	save_to_history(event.room, st.stanza("presence", { type = "unavailable", from = event.nick }));
+end);
+
 module:hook("muc-room-destroyed", function(event)
 	local username = jid_split(event.room.jid);
 	archive:delete(username);
