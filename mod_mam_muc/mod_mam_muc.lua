@@ -122,6 +122,7 @@ if not log_all_rooms then
 	end);
 end
 
+-- Note: We ignore the 'with' field as this is internally used for stanza types
 local query_form = dataform {
 	{ name = "FORM_TYPE"; type = "hidden"; value = xmlns_mam; };
 	{ name = "with"; type = "jid-single"; };
@@ -159,7 +160,7 @@ module:hook("iq-set/bare/"..xmlns_mam..":query", function(event)
 	local qid = query.attr.queryid;
 
 	-- Search query parameters
-	local qwith, qstart, qend;
+	local qstart, qend;
 	local form = query:get_child("x", "jabber:x:data");
 	if form then
 		local err;
@@ -167,8 +168,7 @@ module:hook("iq-set/bare/"..xmlns_mam..":query", function(event)
 		if err then
 			return origin.send(st.error_reply(stanza, "modify", "bad-request", select(2, next(err))))
 		end
-		qwith, qstart, qend = form["with"], form["start"], form["end"];
-		qwith = qwith and jid_bare(qwith); -- dataforms does jidprep
+		qstart, qend = form["start"], form["end"];
 	end
 
 	if qstart or qend then -- Validate timestamps
