@@ -195,6 +195,7 @@ module:hook("iq-set/bare/"..xmlns_mam..":query", function(event)
 		before = before; after = after;
 		reverse = reverse;
 		total = true;
+		with = "message<groupchat";
 	});
 
 	if not data then
