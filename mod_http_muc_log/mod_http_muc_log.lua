@@ -256,7 +256,6 @@ local function logs_page(event, path)
 	local iter, err = archive:find(room, {
 		["start"] = datetime.parse(date.."T00:00:00Z");
 		["end"]   = datetime.parse(date.."T23:59:59Z");
-		limit = math.huge;
 		-- with = "message<groupchat";
 	});
 	if not iter then return 500; end
@@ -291,7 +290,6 @@ local function logs_page(event, path)
 	module:log("debug", "Find next date with messages");
 	for key, message, when in archive:find(room, {
 		["start"] = datetime.parse(date.."T00:00:00Z") + 86400;
-		limit = math.huge;
 	}) do
 		next_when = datetime.date(when);
 		module:log("debug", "Next message: %s", datetime.datetime(when));
@@ -301,7 +299,6 @@ local function logs_page(event, path)
 	module:log("debug", "Find prev date with messages");
 	for key, message, when in archive:find(room, {
 		["end"] = datetime.parse(date.."T00:00:00Z") - 1;
-		limit = math.huge;
 		reverse = true;
 	}) do
 		prev_when = datetime.date(when);
