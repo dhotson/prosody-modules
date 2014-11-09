@@ -37,7 +37,7 @@ local function template(data)
 	{name?} is optional and is replaced with an empty string if no value exists
 	]]
 	return function(values)
-		return (data:gsub("{([^!}]-)(%p?)}", function (name, opt)
+		return (data:gsub("{([^}]-)(%p?)}", function (name, opt)
 			local value = values[name];
 			if value then
 				if opt ~= "!" then
