@@ -29,7 +29,7 @@ end
 module:depends"http";
 
 local function template(data)
-	local _doc = [[
+	--[[ DOC
 	Like util.template, but deals with plain text
 	Returns a closure that is called with a table of values
 	{name} is substituted for values["name"] and is XML escaped
@@ -51,38 +51,66 @@ local function template(data)
 	end
 end
 
-local base = template[[
+-- TODO Move templates into files
+local base = template(template[[
 <!DOCTYPE html>
+<html>
+<head>
 <meta charset="utf-8">
 <title>{title}</title>
 <style>
-body { margin: 1ex 1em; }
-ul { padding: 0; }
-li.action dt, li.action dd { display: inline-block; margin-left: 0;}
-li.action dd { margin-left: 1ex;}
-li { list-style: none; }
-li:hover { background: #eee; }
-li time { float: right; font-size: small; opacity: 0.2; }
-li:hover time { opacity: 1; }
-li.join , li.leave { color: green; }
-li.join dt, li.leave dt { color: green; }
-nav { font-size: x-large; margin: 1ex 2em; }
-nav a { text-decoration: none; }
+body{background-color:#eeeeec;margin:1ex 0;padding-bottom:3em;font-family:Arial,Helvetica,sans-serif;}
+header,footer{margin:1ex 1em;font-size:smaller;color:#babdb6;}
+.content{background-color:white;padding:1em;list-style-position:inside;}
+nav{font-size:x-large;margin:1ex 2em;}
+nav a{text-decoration:none;}
+nav a.up{font-size:smaller;}
+nav a.next{float:right;}
+a:link,a:visited{color:#2e3436;text-decoration:none;}
+a:link:hover,a:visited:hover{color:#3465a4;}
+ul,ol{padding:0;}
+li{list-style:none;}
+hr{display:none;}
+li time{float:right;font-size:small;opacity:0.2;}
+li:hover time{opacity:1;}
+.room-list .name{font-size:larger;}
+q.body::before,q.body::after{content:"";}
+.presence .verb{font-style:normal;color:#30c030;}
+.presence.unavailable .verb{color:#c03030;}
 </style>
+</head>
+<body>
 <h1>{title}</h1>
+<header>
+{header!}
+</header>
+<hr>
+<div class="content">
 {body!}
-]]
+</div>
+<hr>
+<footer>
+{footer!}
+<div class="powered-by">Prosody {prosody_version?}</div>
+</footer>
+</head>
+</html>
+]] { prosody_version = prosody.version });
 
 local dates_template = template(base{
 	title = "Logs for room {room}";
-	body = [[
-<base href="{room}/">
+	header = [[
 <nav>
-<a href="..">↑</a>
+<a href=".." class="up">Back to room list</a>
 </nav>
-<ul>
-{lines!}</ul>
 ]];
+	body = [[
+<nav>
+<ul class="dates">
+{lines!}</ul>
+</nav>
+]];
+	footer = "";
 })
 
 local date_line_template = template[[
@@ -91,45 +119,66 @@ local date_line_template = template[[
 
 local page_template = template(base{
 	title = "Logs for room {room} on {date}";
-	body = [[
+	header = [[
 <nav>
-<a class="prev" href="{prev}">←</a>
-<a class="up" href=".">↑</a>
-<a class="next" href="{next}">→</a>
+<a class="up" href=".">Back to date list</a>
+<br>
+<a class="prev" href="{prev}">← {prev}</a>
+<a class="next" href="{next}">{next} →</a>
 </nav>
-<ul>
-{logs!}
-</ul>
+]];
+	body = [[
+<ol class="chat-logs">
+{logs!}</ol>
+]];
+	footer = [[
+<nav>
+<div>
+<a class="prev" href="{prev}">← {prev}</a>
+<a class="next" href="{next}">{next} →</a>
+</div>
+</nav>
+<script>
+(function () {
+	var timeTags = document.getElementsByTagName("time");
+	var i = 0;
+	var date;
+	while(timeTags[i]) {
+		date = new Date(timeTags[i].getAttribute("datetime"));
+		timeTags[i].textContent = date.toLocaleTimeString();
+		timeTags[i].setAttribute("title", date.toString());
+		i++;
+	}
+})();
+</script>
 ]];
 });
 
-local line_templates = {
-	["message<groupchat"] = template[[
-<li id="{key}" class="{st_name}"><a href="#{key}"><time>{time}</time></a><dl><dt>{nick}</dt><dd>{body}</dd></dl></li>
+local line_template = template[[
+<li class="{st_name} {st_type?}" id="{key}">
+	<span class="time">
+		<a href="#{key}"><time datetime="{datetime}">{time}</time></a>
+	</span>
+	<b class="nick">{nick}</b>
+	<em class="verb">{verb?}</em>
+	<q class="body">{body?}</q>
+</li>
 ]];
-	["message<groupchat<subject"] = template[[
-<li id="{key}" class="{st_name} action subject"><a href="#{key}"><time>{time}</time></a><dl><dt>{nick}</dt><dd>changed subject to {subject}</dd></dl></li>
-]];
-	["presence"] = template[[
-<li id="{key}" class="action join"><a href="#{key}"><time>{time}</time></a><dl><dt>{nick}</dt><dd>joined</dd></dl></li>
-]];
-	["presence<unavailable"] = template[[
-<li id="{key}" class="action leave"><a href="#{key}"><time>{time}</time></a><dl><dt>{nick}</dt><dd>left</dd></dl></li>
-]];
-};
 
 local room_list_template = template(base{
 	title = "Rooms on {host}";
+	header = "";
 	body = [[
-<dl>
+<dl class="room-list">
 {rooms!}
 </dl>
 ]];
+	footer = "";
 });
 
 local room_item_template = template[[
-<dt><a href="{room}/">{name}</a></dt>
-<dd>{description?}</dd>
+<dt class="name"><a href="{room}/">{name}</a></dt>
+<dd class="description">{description?}</dd>
 ]];
 
 local function public_room(room)
@@ -192,27 +241,28 @@ local function logs_page(event, path)
 	});
 	if not iter then return 500; end
 
-	local templ, typ;
-	for key, message, when in iter do
-		templ = message.name;
-		local typ = message.attr.type;
-		if typ then templ = templ .. '<' .. typ; end
-		local subject = message:get_child_text("subject");
-		if subject then templ = templ .. '<subject'; end
-		templ = line_templates[templ];
-		if templ then
-			logs[i], i = templ { 
-				key = key;
-				time = datetime.time(when);
-				nick = select(3, jid_split(message.attr.from));
-				body = message:get_child_text("body");
-				subject = subject;
-				st_name = message.name;
-				st_type = message.attr.type;
-			}, i + 1;
-		else
-			module:log("debug", "No template for %s", tostring(message));
+	local verb, subject, body;
+	for key, item, when in iter do
+		body = item:get_child_text("body");
+		subject = item:get_child_text("subject");
+		verb = nil;
+		if subject then
+			verb = "set the topic to";
+		elseif body and body:sub(1,4) == "/me " then
+			verb, body = body:sub(5), nil;
+		elseif item.name == "presence" then
+			verb = item.attr.type == "unavailable" and "has left" or "has joined";
 		end
+		logs[i], i = line_template { 
+			key = key;
+			datetime = datetime.datetime(when);
+			time = datetime.time(when);
+			verb = verb;
+			body = subject or body;
+			nick = select(3, jid_split(item.attr.from));
+			st_name = item.name;
+			st_type = item.attr.type;
+		}, i + 1;
 	end
 
 	local next_when = datetime.parse(date.."T12:00:00Z") + 86400;
