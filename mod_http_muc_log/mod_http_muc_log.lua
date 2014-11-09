@@ -12,7 +12,8 @@ local archive = module:open_store("archive2", "archive");
 local mod_muc = module:depends"muc";
 local rooms = rawget(mod_muc, "rooms");
 local each_room = rawget(mod_muc, "each_room") or function() return it.values(rooms); end;
-if not rooms then
+local new_muc = not rooms;
+if new_muc then
 	rooms = module:shared"muc/rooms";
 end
 local get_room_from_jid = rawget(mod_muc, "get_room_from_jid") or
