@@ -94,7 +94,7 @@ q.body::before,q.body::after{content:"";}
 {footer!}
 <div class="powered-by">Prosody {prosody_version?}</div>
 </footer>
-</head>
+</body>
 </html>
 ]] { prosody_version = prosody.version });
 
