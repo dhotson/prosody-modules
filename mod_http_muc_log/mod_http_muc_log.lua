@@ -152,6 +152,7 @@ local function dates_page(event, path)
 		local iter = archive:find(room, {
 			["start"] = next_day;
 			limit = 1;
+			with = "message<groupchat";
 		})
 		if not iter then break end
 		next_day = nil;
