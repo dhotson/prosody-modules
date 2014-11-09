@@ -71,6 +71,7 @@ nav a.prev{float:left;}
 nav a.next{float:right;}
 nav a.next::after{content:" →";}
 nav a.prev::before{content:"← ";}
+nav a:empty::after,nav a:empty::before{content:""}
 a:link,a:visited{color:#2e3436;text-decoration:none;}
 a:link:hover,a:visited:hover{color:#3465a4;}
 ul,ol{padding:0;}
@@ -272,15 +273,15 @@ local function logs_page(event, path)
 		}, i + 1;
 	end
 
-	local next_when = datetime.parse(date.."T12:00:00Z") + 86400;
-	local prev_when = datetime.parse(date.."T12:00:00Z") - 86400;
+	local next_when = "";
+	local prev_when = "";
 
 	module:log("debug", "Find next date with messages");
 	for key, message, when in archive:find(room, {
 		["start"] = datetime.parse(date.."T00:00:00Z") + 86400;
 		limit = math.huge;
 	}) do
-		next_when = when;
+		next_when = datetime.date(when);
 		module:log("debug", "Next message: %s", datetime.datetime(when));
 		break;
 	end
@@ -291,7 +292,7 @@ local function logs_page(event, path)
 		limit = math.huge;
 		reverse = true;
 	}) do
-		prev_when = when;
+		prev_when = datetime.date(when);
 		module:log("debug", "Previous message: %s", datetime.datetime(when));
 		break;
 	end
@@ -302,8 +303,8 @@ local function logs_page(event, path)
 		room = room;
 		date = date;
 		logs = table.concat(logs);
-		next = datetime.date(next_when);
-		prev = datetime.date(prev_when);
+		next = next_when;
+		prev = prev_when;
 	};
 end
 
