@@ -67,7 +67,10 @@ footer{font-size:smaller;color:#babdb6;}
 nav{font-size:x-large;margin:1ex 2em;}
 nav a{text-decoration:none;}
 nav a.up{font-size:smaller;}
+nav a.prev{float:left;}
 nav a.next{float:right;}
+nav a.next::after{content:" →";}
+nav a.prev::before{content:"← ";}
 a:link,a:visited{color:#2e3436;text-decoration:none;}
 a:link:hover,a:visited:hover{color:#3465a4;}
 ul,ol{padding:0;}
@@ -125,8 +128,8 @@ local page_template = template(base{
 <nav>
 <a class="up" href=".">Back to date list</a>
 <br>
-<a class="prev" href="{prev}">← {prev}</a>
-<a class="next" href="{next}">{next} →</a>
+<a class="prev" href="{prev}">{prev}</a>
+<a class="next" href="{next}">{next}</a>
 </nav>
 ]];
 	body = [[
@@ -136,8 +139,8 @@ local page_template = template(base{
 	footer = [[
 <nav>
 <div>
-<a class="prev" href="{prev}">← {prev}</a>
-<a class="next" href="{next}">{next} →</a>
+<a class="prev" href="{prev}">{prev}</a>
+<a class="next" href="{next}">{next}</a>
 </div>
 </nav>
 <script>
