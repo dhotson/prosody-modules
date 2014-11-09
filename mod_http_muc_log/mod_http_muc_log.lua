@@ -60,7 +60,8 @@ local base = template(template[[
 <title>{title}</title>
 <style>
 body{background-color:#eeeeec;margin:1ex 0;padding-bottom:3em;font-family:Arial,Helvetica,sans-serif;}
-header,footer{margin:1ex 1em;font-size:smaller;color:#babdb6;}
+header,footer{margin:1ex 1em;}
+footer{font-size:smaller;color:#babdb6;}
 .content{background-color:white;padding:1em;list-style-position:inside;}
 nav{font-size:x-large;margin:1ex 2em;}
 nav a{text-decoration:none;}
@@ -80,8 +81,8 @@ q.body::before,q.body::after{content:"";}
 </style>
 </head>
 <body>
-<h1>{title}</h1>
 <header>
+<h1>{title}</h1>
 {header!}
 </header>
 <hr>
