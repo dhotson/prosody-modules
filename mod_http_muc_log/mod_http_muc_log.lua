@@ -57,6 +57,7 @@ local base = template(template[[
 <html>
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="canonical" href="{canonical}">
 <title>{title}</title>
 <style>
@@ -64,22 +65,26 @@ body{background-color:#eeeeec;margin:1ex 0;padding-bottom:3em;font-family:Arial,
 header,footer{margin:1ex 1em;}
 footer{font-size:smaller;color:#babdb6;}
 .content{background-color:white;padding:1em;list-style-position:inside;}
-nav{font-size:x-large;margin:1ex 2em;}
-nav a{text-decoration:none;}
+nav{font-size:large;margin:1ex 1ex;clear:both;line-height:1.5em;}
+nav a{padding: 1ex;text-decoration:none;}
 nav a.up{font-size:smaller;}
 nav a.prev{float:left;}
 nav a.next{float:right;}
 nav a.next::after{content:" →";}
 nav a.prev::before{content:"← ";}
 nav a:empty::after,nav a:empty::before{content:""}
+@media screen and (min-width: 460px) {
+nav{font-size:x-large;margin:1ex 1em;}
+}
 a:link,a:visited{color:#2e3436;text-decoration:none;}
 a:link:hover,a:visited:hover{color:#3465a4;}
 ul,ol{padding:0;}
 li{list-style:none;}
-hr{display:none;}
+hr{visibility:hidden;clear:both;}
+br{clear:both;}
 li time{float:right;font-size:small;opacity:0.2;}
 li:hover time{opacity:1;}
-.room-list .name{font-size:larger;}
+.room-list .description{font-size:smaller;}
 q.body::before,q.body::after{content:"";}
 .presence .verb{font-style:normal;color:#30c030;}
 .presence.unavailable .verb{color:#c03030;}
@@ -97,6 +102,7 @@ q.body::before,q.body::after{content:"";}
 <hr>
 <footer>
 {footer!}
+<br>
 <div class="powered-by">Prosody {prosody_version?}</div>
 </footer>
 </body>
@@ -145,15 +151,19 @@ local page_template = template(base{
 </div>
 </nav>
 <script>
+/*
+ * Local timestamps
+ */
 (function () {
 	var timeTags = document.getElementsByTagName("time");
-	var i = 0;
-	var date;
+	var i = 0, tag, date;
 	while(timeTags[i]) {
-		date = new Date(timeTags[i].getAttribute("datetime"));
-		timeTags[i].textContent = date.toLocaleTimeString();
-		timeTags[i].setAttribute("title", date.toString());
-		i++;
+		tag = timeTags[i++];
+		if(date = tag.getAttribute("datetime")) {
+			date = new Date(date);
+			tag.textContent = date.toLocaleTimeString();
+			tag.setAttribute("title", date.toString());
+		}
 	}
 })();
 </script>
@@ -175,9 +185,11 @@ local room_list_template = template(base{
 	title = "Rooms on {host}";
 	header = "";
 	body = [[
+<nav>
 <dl class="room-list">
 {rooms!}
 </dl>
+</nav>
 ]];
 	footer = "";
 });
