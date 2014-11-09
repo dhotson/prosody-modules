@@ -93,7 +93,7 @@ local page_template = template(base{
 	body = [[
 <nav>
 <a class="prev" href="{prev}">←</a>
-<a class="up" href="../{room}">↑</a>
+<a class="up" href=".">↑</a>
 <a class="next" href="{next}">→</a>
 </nav>
 <ul>
@@ -127,7 +127,7 @@ local room_list_template = template(base{
 });
 
 local room_item_template = template[[
-<dt><a href="{room}">{name}</a></dt>
+<dt><a href="{room}/">{name}</a></dt>
 <dd>{description?}</dd>
 ]];
 
@@ -139,10 +139,10 @@ local function public_room(room)
 end
 
 -- FIXME Invent some more efficient API for this
-local function dates_page(event, room)
+local function dates_page(event, path)
 	local request, response = event.request, event.response;
 
-	room = nodeprep(room);
+	local room = nodeprep(path:match("^(.*)/$"));
 	if not room or not public_room(room) then return end
 
 	local dates, i = {}, 1;
