@@ -57,6 +57,7 @@ local base = template(template[[
 <html>
 <head>
 <meta charset="utf-8">
+<link rel="canonical" href="{canonical}">
 <title>{title}</title>
 <style>
 body{background-color:#eeeeec;margin:1ex 0;padding-bottom:3em;font-family:Arial,Helvetica,sans-serif;}
@@ -218,6 +219,8 @@ local function dates_page(event, path)
 	until not next_day;
 
 	return dates_template{
+		host = module.host;
+		canonical = module:http_url() .. "/" .. path;
 		room = room;
 		lines = table.concat(dates);
 	};
@@ -291,6 +294,8 @@ local function logs_page(event, path)
 	end
 
 	return page_template{
+		canonical = module:http_url() .. "/" .. path;
+		host = module.host;
 		room = room;
 		date = date;
 		logs = table.concat(logs);
@@ -313,6 +318,7 @@ local function list_rooms(event)
 	end
 	return room_list_template {
 		host = module.host;
+		canonical = module:http_url() .. "/";
 		rooms = table.concat(room_list);
 	};
 end
