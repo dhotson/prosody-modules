@@ -270,7 +270,7 @@ local function logs_page(event, path)
 
 	module:log("debug", "Find next date with messages");
 	for key, message, when in archive:find(room, {
-		["start"] = datetime.parse(date.."T00:00:00Z") + 86401;
+		["start"] = datetime.parse(date.."T00:00:00Z") + 86400;
 		limit = math.huge;
 	}) do
 		next_when = when;
