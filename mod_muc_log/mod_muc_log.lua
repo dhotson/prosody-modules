@@ -56,7 +56,7 @@ function log_if_needed(event)
 				local room = get_room_from_jid(bare)
 
 				local today = os.date("!%y%m%d");
-				local now = os.date("!%X")
+				local now = os.date("!%H:%M:%S");
 
 				local muc_to = nil
 				local muc_from = nil;
