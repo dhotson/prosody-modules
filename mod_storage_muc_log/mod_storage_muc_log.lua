@@ -25,7 +25,7 @@ do
 	if am == pm then
 		module:log("warn", "Timestamps in AM and PM are identical in your locale, expect timestamps to be wrong");
 	end
-	if os_date("!%X", os.time(t)) ~= os_date(timef, os_date(t)) then
+	if os_date("!%X", os.time(t)) ~= os_date(timef, os.time(t)) then
 		module:log("warn", "Timestamp format differ from what mod_muc_log used, this module may not work correctly");
 	end
 end
