@@ -8,7 +8,7 @@ local lfs = require"lfs";
 local noop = function () end;
 local os_date = os.date;
 
-local timef, datef = "!%X", "!%y%m%d";
+local timef, datef = "!%H:%M:%S", "!%y%m%d";
 local host = module.host;
 
 local driver = {};
@@ -19,11 +19,14 @@ do
 	-- Fun fact: 09:00 and 21:00 en_HK are both "09:00:00 UTC"
 	local t = os_date("!*t");
 	t.hour = 9;
-	local am = os_date(timef, os.time(t));
+	local am = os_date("!%X", os.time(t));
 	t.hour = 21;
-	local pm = os_date(timef, os.time(t));
+	local pm = os_date("!%X", os.time(t));
 	if am == pm then
 		module:log("warn", "Timestamps in AM and PM are identical in your locale, expect timestamps to be wrong");
+	end
+	if os_date("!%X", os.time(t)) ~= os_date(timef, os_date(t)) then
+		module:log("warn", "Timestamp format differ from what mod_muc_log used, this module may not work correctly");
 	end
 end
 
