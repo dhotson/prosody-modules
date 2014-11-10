@@ -117,6 +117,14 @@ function rename(user_jid, contact_jid, contact_nick, contact_group)
 	end
 end
 
+function remove(user_jid, contact_jid)
+	unsubscribe_both(user_jid, contact_jid);
+	local user_username, user_host = jid.split(user_jid);
+	local roster = rostermanager.load_roster(user_username, user_host);
+	roster[contact_jid] = nil;
+	rostermanager.save_roster(user_username, user_host, roster);
+end
+
 function module.command(arg)
 	local command = arg[1];
 	if not command then
@@ -135,6 +143,9 @@ function module.command(arg)
 		return 0;
 	elseif command == "unsubscribe_both" then
 		unsubscribe_both(arg[1], arg[2]);
+		return 0;
+	elseif command == "remove" then
+		remove(arg[1], arg[2]);
 		return 0;
 	elseif command == "rename" then
 		rename(arg[1], arg[2], arg[3], arg[4]);
