@@ -44,7 +44,7 @@ local default_max_items, max_max_items = 20, module:get_option_number("max_archi
 local log_all_rooms = module:get_option_boolean("muc_log_all_rooms", false);
 local log_by_default = module:get_option_boolean("muc_log_by_default", true);
 
-local archive_store = "archive2";
+local archive_store = "muc_log";
 local archive = module:open_store(archive_store, "archive");
 if not archive or archive.name == "null" then
 	module:log("error", "Could not open archive storage");

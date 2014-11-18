@@ -6,7 +6,7 @@ local uuid = require"util.uuid".generate;
 local it = require"util.iterators";
 local gettime = require"socket".gettime;
 
-local archive = module:open_store("archive2", "archive");
+local archive = module:open_store("muc_log", "archive");
 
 -- Support both old and new MUC code
 local mod_muc = module:depends"muc";
