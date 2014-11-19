@@ -12,13 +12,14 @@ local extra_fields = {
 	phone = true; url = true; date = true;
 }
 
+local template_path = module:get_option_string("register_web_template", "templates");
 function template(data)
 	-- Like util.template, but deals with plain text
 	return { apply = function(values) return (data:gsub("{([^}]+)}", values)); end }
 end
 
 local function get_template(name)
-	local fh = assert(module:load_resource("templates"..path_sep..name..".html"));
+	local fh = assert(module:load_resource(template_path..path_sep..name..".html"));
 	local data = assert(fh:read("*a"));
 	fh:close();
 	return template(data);
