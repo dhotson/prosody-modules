@@ -271,22 +271,24 @@ local function logs_page(event, path)
 		subject = item:get_child_text("subject");
 		verb = nil;
 		if subject then
-			verb = "set the topic to";
+			verb, body = "set the topic to", subject;
 		elseif body and body:sub(1,4) == "/me " then
 			verb, body = body:sub(5), nil;
 		elseif item.name == "presence" then
 			verb = item.attr.type == "unavailable" and "has left" or "has joined";
 		end
-		logs[i], i = line_template { 
-			key = key;
-			datetime = datetime.datetime(when);
-			time = datetime.time(when);
-			verb = verb;
-			body = subject or body;
-			nick = select(3, jid_split(item.attr.from));
-			st_name = item.name;
-			st_type = item.attr.type;
-		}, i + 1;
+		if body or verb then
+			logs[i], i = line_template {
+				key = key;
+				datetime = datetime.datetime(when);
+				time = datetime.time(when);
+				verb = verb;
+				body = body;
+				nick = select(3, jid_split(item.attr.from));
+				st_name = item.name;
+				st_type = item.attr.type;
+			}, i + 1;
+		end
 		first = first or key;
 		last = key;
 	end
