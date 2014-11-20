@@ -264,6 +264,7 @@ local function logs_page(event, path)
 	});
 	if not iter then return 500; end
 
+	local first, last;
 	local verb, subject, body;
 	for key, item, when in iter do
 		body = item:get_child_text("body");
@@ -286,28 +287,31 @@ local function logs_page(event, path)
 			st_name = item.name;
 			st_type = item.attr.type;
 		}, i + 1;
+		first = first or key;
+		last = key;
 	end
+	if i == 1 then return end -- No items
 
 	local next_when = "";
 	local prev_when = "";
 
 	module:log("debug", "Find next date with messages");
 	for key, message, when in archive:find(room, {
-		["start"] = datetime.parse(date.."T00:00:00Z") + 86400;
+		after = last;
+		limit = 1;
 	}) do
 		next_when = datetime.date(when);
 		module:log("debug", "Next message: %s", datetime.datetime(when));
-		break;
 	end
 
 	module:log("debug", "Find prev date with messages");
 	for key, message, when in archive:find(room, {
-		["end"] = datetime.parse(date.."T00:00:00Z") - 1;
+		before = first;
+		limit = 1;
 		reverse = true;
 	}) do
 		prev_when = datetime.date(when);
 		module:log("debug", "Previous message: %s", datetime.datetime(when));
-		break;
 	end
 
 	response.headers.content_type = "text/html";
