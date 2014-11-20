@@ -203,7 +203,10 @@ local function public_room(room)
 	if type(room) == "string" then
 		room = get_room(room);
 	end
-	return room and not room:get_hidden() and not room:get_members_only() and room._data.logging ~= false;
+	return (room
+		and not (room.get_hidden or room.is_hidden)(room)
+		and not (room.get_members_only or room.is_members_only)(room)
+		and room._data.logging ~= false);
 end
 
 -- FIXME Invent some more efficient API for this
@@ -325,7 +328,6 @@ local function list_rooms(event)
 				room = jid_split(room.jid);
 				name = room:get_name();
 				description = room:get_description();
-				subject = room:get_subject();
 			}, i + 1;
 		end
 	end
