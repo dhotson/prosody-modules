@@ -237,6 +237,7 @@ local function dates_page(event, path)
 		end
 	until not next_day;
 
+	response.headers.content_type = "text/html";
 	return dates_template{
 		host = module.host;
 		canonical = module:http_url() .. "/" .. path;
@@ -309,6 +310,7 @@ local function logs_page(event, path)
 		break;
 	end
 
+	response.headers.content_type = "text/html";
 	return page_template{
 		canonical = module:http_url() .. "/" .. path;
 		host = module.host;
@@ -331,6 +333,8 @@ local function list_rooms(event)
 			}, i + 1;
 		end
 	end
+
+	event.response.headers.content_type = "text/html";
 	return room_list_template {
 		host = module.host;
 		canonical = module:http_url() .. "/";
@@ -355,6 +359,7 @@ local function with_cache(f)
 			end
 			module:log("debug", "Server cache hit");
 			response.headers.etag = etag;
+			response.headers.content_type = "text/html";
 			return cached[1];
 		end
 
@@ -369,6 +374,7 @@ local function with_cache(f)
 			cache[ckey] = cached;
 		end
 
+		response.headers.content_type = "text/html";
 		return render;
 	end
 end
