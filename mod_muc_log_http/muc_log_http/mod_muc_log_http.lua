@@ -9,6 +9,7 @@ local split_jid = require "util.jid".split;
 local config_get = require "core.configmanager".get;
 local urldecode = require "net.http".urldecode;
 local http_event = require "net.http.server".fire_event;
+local datamanager = require"core.storagemanager".olddm;
 local data_load, data_getpath = datamanager.load, datamanager.getpath;
 local datastore = "muc_log";
 local url_base = "muc_log";
