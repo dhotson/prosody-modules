@@ -5,6 +5,9 @@ local nodeprep = require"util.encodings".stringprep.nodeprep;
 local uuid = require"util.uuid".generate;
 local it = require"util.iterators";
 local gettime = require"socket".gettime;
+local url = require"socket.url";
+local xml_escape = st.xml_escape;
+local t_concat = table.concat;
 
 local archive = module:open_store("muc_log", "archive");
 
@@ -28,128 +31,114 @@ end
 
 module:depends"http";
 
-local function template(data)
+local function render(template, values)
 	--[[ DOC
-	Like util.template, but deals with plain text
-	Returns a closure that is called with a table of values
 	{name} is substituted for values["name"] and is XML escaped
 	{name!} is substituted without XML escaping
 	{name?} is optional and is replaced with an empty string if no value exists
+	{name# sub-template } renders a sub-template using an array of values
 	]]
-	return function(values)
-		return (data:gsub("{([^}]-)(%p?)}", function (name, opt)
-			local value = values[name];
-			if value then
-				if opt ~= "!" then
-					return st.xml_escape(value);
-				end
-				return value;
-			elseif opt == "?" then
-				return "";
+	return (template:gsub("%b{}", function (block)
+		local name, opt, e = block:sub(2, -2):match("([%a_][%w_]*)(%p?)()");
+		local value = values[name];
+		if opt == '#' then
+			if not value or not value[1] then return ""; end
+			local out, subtpl = {}, block:sub(e+1, -2);
+			for i=1, #value do
+				out[i] = render(subtpl, value[i]);
 			end
-		end));
-	end
+			return t_concat(out);
+		end
+		if value ~= nil  then
+			if type(value) ~= "string" then
+				value = tostring(value);
+			end
+			if opt ~= '!' then
+				return xml_escape(value);
+			end
+			return value;
+		elseif opt == '?' then
+			return block:sub(e+1, -2);
+		end
+	end));
 end
 
--- TODO Move templates into files
-local base = template(template[[
+-- TODO Move template into a file
+local template = [=[
 <!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="canonical" href="{canonical}">
 <title>{title}</title>
 <style>
+:link,:visited{text-decoration:none;color:#2e3436;text-decoration:none;}
+:link:hover,:visited:hover{color:#3465a4;}
 body{background-color:#eeeeec;margin:1ex 0;padding-bottom:3em;font-family:Arial,Helvetica,sans-serif;}
-header,footer{margin:1ex 1em;}
-footer{font-size:smaller;color:#babdb6;}
-.content{background-color:white;padding:1em;list-style-position:inside;}
-nav{font-size:large;margin:1ex 1ex;clear:both;line-height:1.5em;}
-nav a{padding: 1ex;text-decoration:none;}
-nav a.up{font-size:smaller;}
-nav a.prev{float:left;}
-nav a.next{float:right;}
-nav a.next::after{content:" →";}
-nav a.prev::before{content:"← ";}
-nav a:empty::after,nav a:empty::before{content:""}
-@media screen and (min-width: 460px) {
-nav{font-size:x-large;margin:1ex 1em;}
-}
-a:link,a:visited{color:#2e3436;text-decoration:none;}
-a:link:hover,a:visited:hover{color:#3465a4;}
 ul,ol{padding:0;}
 li{list-style:none;}
 hr{visibility:hidden;clear:both;}
 br{clear:both;}
-li time{float:right;font-size:small;opacity:0.2;}
-li:hover time{opacity:1;}
-.room-list .description{font-size:smaller;}
-q.body::before,q.body::after{content:"";}
+header,footer{margin:1ex 1em;}
+footer{font-size:smaller;color:#babdb6;}
+nav{font-size:large;margin:1ex 1ex;clear:both;line-height:1.5em;}
+footer nav .up{display:none;}
+@media screen and (min-width: 460px) {
+nav {font-size:x-large;margin:1ex 1em;}
+}
+nav a{padding: 1ex;}
+nav .up{font-size:smaller;display:block;clear:both;}
+nav .prev{float:left;}
+nav .next{float:right;}
+nav .next::after{content:" →";}
+nav .prev::before{content:"← ";}
+nav :empty::after,nav :empty::before{content:""}
+.content{background-color:white;padding:1em;list-style-position:inside;}
+.time{float:right;font-size:small;opacity:0.2;}
+li:hover .time{opacity:1;}
+.description{font-size:smaller;}
+.body{white-space:pre-line;}
+.body::before,.body::after{content:"";}
 .presence .verb{font-style:normal;color:#30c030;}
-.presence.unavailable .verb{color:#c03030;}
+.unavailable .verb{color:#c03030;}
 </style>
 </head>
 <body>
 <header>
-<h1>{title}</h1>
-{header!}
+<h1 title="xmpp:{jid?}">{title}</h1>
+<nav>{links#
+<a class="{rel?}" href="{href}" rel="{rel?}">{text}</a>}
+</nav>
 </header>
 <hr>
 <div class="content">
-{body!}
+<nav>
+<dl class="room-list">
+{rooms#
+<dt class="name"><a href="{href}">{name}</a></dt>
+<dd class="description">{description?}</dd>}
+</dl>
+<ul class="dates">{dates#
+<li><a href="{date}">{date}</a></li>}
+</ul>
+</nav>
+<ol class="chat-logs">{lines#
+<li class="{st_name} {st_type?}" id="{key}">
+<a class="time" href="#{key}"><time datetime="{datetime}">{time}</time></a>
+<b class="nick">{nick}</b>
+<em class="verb">{verb?}</em>
+<q class="body">{body?}</q>
+</li>}
+</ol>
 </div>
 <hr>
 <footer>
-{footer!}
+<nav>{links#
+<a class="{rel?}" href="{href}" rel="{rel?}">{text}</a>}
+</nav>
 <br>
-<div class="powered-by">Prosody {prosody_version?}</div>
+<div class="powered-by">Prosody</div>
 </footer>
-</body>
-</html>
-]] { prosody_version = prosody.version });
-
-local dates_template = template(base{
-	title = "Logs for room {room}";
-	header = [[
-<nav>
-<a href=".." class="up">Back to room list</a>
-</nav>
-]];
-	body = [[
-<nav>
-<ul class="dates">
-{lines!}</ul>
-</nav>
-]];
-	footer = "";
-})
-
-local date_line_template = template[[
-<li><a href="{date}">{date}</a></li>
-]];
-
-local page_template = template(base{
-	title = "Logs for room {room} on {date}";
-	header = [[
-<nav>
-<a class="up" href=".">Back to date list</a>
-<br>
-<a class="prev" href="{prev}">{prev}</a>
-<a class="next" href="{next}">{next}</a>
-</nav>
-]];
-	body = [[
-<ol class="chat-logs">
-{logs!}</ol>
-]];
-	footer = [[
-<nav>
-<div>
-<a class="prev" href="{prev}">{prev}</a>
-<a class="next" href="{next}">{next}</a>
-</div>
-</nav>
 <script>
 /*
  * Local timestamps
@@ -167,37 +156,20 @@ local page_template = template(base{
 	}
 })();
 </script>
-]];
-});
+</body>
+</html>
+]=];
 
-local line_template = template[[
-<li class="{st_name} {st_type?}" id="{key}">
-	<span class="time">
-		<a href="#{key}"><time datetime="{datetime}">{time}</time></a>
-	</span>
-	<b class="nick">{nick}</b>
-	<em class="verb">{verb?}</em>
-	<q class="body">{body?}</q>
-</li>
-]];
-
-local room_list_template = template(base{
-	title = "Rooms on {host}";
-	header = "";
-	body = [[
-<nav>
-<dl class="room-list">
-{rooms!}
-</dl>
-</nav>
-]];
-	footer = "";
-});
-
-local room_item_template = template[[
-<dt class="name"><a href="{room}/">{name}</a></dt>
-<dd class="description">{description?}</dd>
-]];
+local base_url = module:http_url() .. '/';
+local get_link do
+	local link, path = { path = '/' }, { "", "", is_directory = true };
+	function get_link(room, date)
+		path[1], path[2] = room, date;
+		path.is_directory = not date;
+		link.path = url.build_path(path);
+		return url.build(link);
+	end
+end
 
 local function public_room(room)
 	if type(room) == "string" then
@@ -229,7 +201,7 @@ local function dates_page(event, path)
 		next_day = nil;
 		for key, message, when in iter do
 			next_day = datetime.date(when);
-			dates[i], i = date_line_template{
+			dates[i], i = {
 				date = next_day;
 			}, i + 1;
 			next_day = datetime.parse(next_day .. "T23:59:59Z") + 1;
@@ -238,12 +210,14 @@ local function dates_page(event, path)
 	until not next_day;
 
 	response.headers.content_type = "text/html; charset=utf-8";
-	return dates_template{
-		host = module.host;
-		canonical = module:http_url() .. "/" .. path;
-		room = room;
-		lines = table.concat(dates);
-	};
+	return render(template, {
+		title = get_room(room):get_name();
+		jid = get_room(room).jid;
+		dates = dates;
+		links = {
+			{ href = "../", rel = "up", text = "Back to room list" },
+		};
+	});
 end
 
 local function logs_page(event, path)
@@ -278,7 +252,7 @@ local function logs_page(event, path)
 			verb = item.attr.type == "unavailable" and "has left" or "has joined";
 		end
 		if body or verb then
-			logs[i], i = line_template {
+			logs[i], i = {
 				key = key;
 				datetime = datetime.datetime(when);
 				time = datetime.time(when);
@@ -317,35 +291,37 @@ local function logs_page(event, path)
 	end
 
 	response.headers.content_type = "text/html; charset=utf-8";
-	return page_template{
-		canonical = module:http_url() .. "/" .. path;
-		host = module.host;
-		room = room;
-		date = date;
-		logs = table.concat(logs);
-		next = next_when;
-		prev = prev_when;
-	};
+	return render(template, {
+		title = ("%s - %s"):format(get_room(room):get_name(), date);
+		jid = get_room(room).jid;
+		lines = logs;
+		links = {
+			{ href = "./", rel = "up", text = "Back to date list" },
+			{ href = prev_when, rel = "prev", text = prev_when},
+			{ href = next_when, rel = "next", text = next_when},
+		};
+	});
 end
 
 local function list_rooms(event)
+	local request, response = event.request, event.response;
 	local room_list, i = {}, 1;
 	for room in each_room() do
 		if public_room(room) then
-			room_list[i], i = room_item_template {
-				room = jid_split(room.jid);
+			room_list[i], i = {
+				href = get_link(jid_split(room.jid), nil);
 				name = room:get_name();
 				description = room:get_description();
 			}, i + 1;
 		end
 	end
 
-	event.response.headers.content_type = "text/html; charset=utf-8";
-	return room_list_template {
-		host = module.host;
-		canonical = module:http_url() .. "/";
-		rooms = table.concat(room_list);
-	};
+	response.headers.content_type = "text/html; charset=utf-8";
+	return render(template, {
+		title = module:get_option_string("name", "Prosody Chatrooms");
+		jid = module.host;
+		rooms = room_list;
+	});
 end
 
 local cache = setmetatable({}, {__mode = 'v'});
@@ -390,13 +366,10 @@ module:hook("muc-broadcast-message", function (event)
 	local room = event.room;
 	local room_name = jid_split(room.jid);
 	local today = datetime.date();
-	cache[ room_name .. "/" .. today ] = nil;
-	if cache[room_name] and cache[room_name].date ~= today then
-		cache[room_name] = nil;
-	end
+	cache[get_link(room_name)] = nil;
+	cache[get_link(room_name, today)] = nil;
 end);
 
-module:log("info", module:http_url());
 module:provides("http", {
 	route = {
 		["GET /"] = list_rooms;
