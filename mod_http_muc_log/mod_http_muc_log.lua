@@ -206,7 +206,7 @@ local function public_room(room)
 	return (room
 		and not (room.get_hidden or room.is_hidden)(room)
 		and not (room.get_members_only or room.is_members_only)(room)
-		and room._data.logging ~= false);
+		and room._data.logging == true);
 end
 
 -- FIXME Invent some more efficient API for this
