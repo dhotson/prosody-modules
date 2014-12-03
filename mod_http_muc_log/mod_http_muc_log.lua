@@ -63,102 +63,13 @@ local function render(template, values)
 	end));
 end
 
--- TODO Move template into a file
-local template = [=[
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{title}</title>
-<style>
-:link,:visited{text-decoration:none;color:#2e3436;text-decoration:none;}
-:link:hover,:visited:hover{color:#3465a4;}
-body{background-color:#eeeeec;margin:1ex 0;padding-bottom:3em;font-family:Arial,Helvetica,sans-serif;}
-ul,ol{padding:0;}
-li{list-style:none;}
-hr{visibility:hidden;clear:both;}
-br{clear:both;}
-header,footer{margin:1ex 1em;}
-footer{font-size:smaller;color:#babdb6;}
-nav{font-size:large;margin:1ex 1ex;clear:both;line-height:1.5em;}
-footer nav .up{display:none;}
-@media screen and (min-width: 460px) {
-nav {font-size:x-large;margin:1ex 1em;}
-}
-nav a{padding: 1ex;}
-nav .up{font-size:smaller;display:block;clear:both;}
-nav .prev{float:left;}
-nav .next{float:right;}
-nav .next::after{content:" →";}
-nav .prev::before{content:"← ";}
-nav :empty::after,nav :empty::before{content:""}
-.content{background-color:white;padding:1em;list-style-position:inside;}
-.time{float:right;font-size:small;opacity:0.2;}
-li:hover .time{opacity:1;}
-.description{font-size:smaller;}
-.body{white-space:pre-line;}
-.body::before,.body::after{content:"";}
-.presence .verb{font-style:normal;color:#30c030;}
-.unavailable .verb{color:#c03030;}
-</style>
-</head>
-<body>
-<header>
-<h1 title="xmpp:{jid?}">{title}</h1>
-<nav>{links#
-<a class="{rel?}" href="{href}" rel="{rel?}">{text}</a>}
-</nav>
-</header>
-<hr>
-<div class="content">
-<nav>
-<dl class="room-list">
-{rooms#
-<dt class="name"><a href="{href}">{name}</a></dt>
-<dd class="description">{description?}</dd>}
-</dl>
-<ul class="dates">{dates#
-<li><a href="{date}">{date}</a></li>}
-</ul>
-</nav>
-<ol class="chat-logs">{lines#
-<li class="{st_name} {st_type?}" id="{key}">
-<a class="time" href="#{key}"><time datetime="{datetime}">{time}</time></a>
-<b class="nick">{nick}</b>
-<em class="verb">{verb?}</em>
-<q class="body">{body?}</q>
-</li>}
-</ol>
-</div>
-<hr>
-<footer>
-<nav>{links#
-<a class="{rel?}" href="{href}" rel="{rel?}">{text}</a>}
-</nav>
-<br>
-<div class="powered-by">Prosody</div>
-</footer>
-<script>
-/*
- * Local timestamps
- */
-(function () {
-	var timeTags = document.getElementsByTagName("time");
-	var i = 0, tag, date;
-	while(timeTags[i]) {
-		tag = timeTags[i++];
-		if(date = tag.getAttribute("datetime")) {
-			date = new Date(date);
-			tag.textContent = date.toLocaleTimeString();
-			tag.setAttribute("title", date.toString());
-		}
-	}
-})();
-</script>
-</body>
-</html>
-]=];
+local template = "Could not load template"
+do
+	local template_file = module:get_option_string(module.name .. "_template", module.name .. ".html");
+	template_file = assert(module:load_resource(template_file));
+	template = template_file:read("*a");
+	template_file:close();
+end
 
 local base_url = module:http_url() .. '/';
 local get_link do
