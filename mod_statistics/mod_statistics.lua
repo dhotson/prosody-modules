@@ -44,7 +44,7 @@ local function push_session_to_all(session, stats)
 		stats.bytes_in, stats.bytes_out);
 	local jid = session[jid_fields[session.type]] or "";
 	for conn in pairs(sessions) do
-		return conn:write(("SESS %q %q %s\n"):format(id, jid, s));
+		conn:write(("SESS %q %q %s\n"):format(id, jid, s));
 	end
 end
 
