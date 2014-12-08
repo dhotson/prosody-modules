@@ -86,26 +86,16 @@ function main()
 		--stdscr:mvaddstr(6, 0, "CONNECTED");
 	end
 
-	local partial;
+	local partial = "";
 	function stats_listener.onincoming(conn, data)
 		--print("DATA", data)
-		if partial then
-			partial, data = nil, partial..data;
-		end
-		if not data:match("\n") then
-			partial = data;
-			return;
-		end
+		data = partial..data;
 		local lastpos = 1;
 		for line, pos in data:gmatch("([^\n]+)\n()") do
 			lastpos = pos;
 			handle_line(line);
 		end
-		if lastpos == #data then
-			partial = nil;
-		else
-			partial = data:sub(lastpos);
-		end
+		partial = data:sub(lastpos);
 	end
 
 	function stats_listener.ondisconnect(conn, err)
