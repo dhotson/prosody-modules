@@ -165,7 +165,7 @@ local function list_stanza_to_query(origin, list_el)
 
     local after = list_el.attr["start"];
     if after ~= nil then
-        sql = sql .. "AND `when` >= ?";
+        sql = sql .. "AND `when` >= ? ";
         table.insert(args, date_parse(after));
     end
 
