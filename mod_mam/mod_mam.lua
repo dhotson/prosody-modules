@@ -31,6 +31,9 @@ local m_min = math.min;
 local timestamp, timestamp_parse = require "util.datetime".datetime, require "util.datetime".parse;
 local default_max_items, max_max_items = 20, module:get_option_number("max_archive_query_results", 50);
 local global_default_policy = module:get_option("default_archive_policy", false);
+if global_default_policy ~= "roster" then
+	global_default_policy = module:get_option_boolean("default_archive_policy", global_default_policy);
+end
 
 local archive_store = "archive2";
 local archive = module:open_store(archive_store, "archive");
