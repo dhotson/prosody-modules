@@ -32,9 +32,16 @@ function adns.lookup(handler, qname, qtype, qclass)
 			handler(mapping);
 			return;
 		end
-	elseif qtype == "A" and (qname == "localhost." or qname == "127.0.0.1.") then
-		handler({{ a = "127.0.0.1" }});
-		return;
+	elseif qtype == "A" then
+		if (qname == "localhost." or qname == "127.0.0.1.") then
+			handler({{ a = "127.0.0.1" }});
+			return;
+		end
+		local ip = qname:match("^(%d+.%d+.%d+.%d+).$");
+		if ip then
+			handler({{ a = ip }});
+			return;
+		end
 	end
 	return original_lookup(handler, qname, qtype, qclass);
 end
