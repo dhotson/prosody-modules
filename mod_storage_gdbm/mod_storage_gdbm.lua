@@ -18,28 +18,33 @@ lfs.mkdir(base_path);
 
 local cache = {};
 
-local driver = {};
-local driver_mt = { __index = driver };
+local keyval = {};
+local keyval_mt = { __index = keyval, suffix = ".db" };
 
-function driver:set(user, value)
+function keyval:set(user, value)
 	local ok, err = gdbm.replace(self._db, user or "@", serialize(value));
 	if not ok then return nil, err; end
 	return true;
 end
 
-function driver:get(user)
+function keyval:get(user)
 	local data, err = gdbm.fetch(self._db, user or "@");
 	if not data then return nil, err; end
 	return deserialize(data);
 end
 
+local drivers = {
+	keyval = keyval_mt;
+}
+
 function open(_, store, typ)
 	typ = typ or "keyval";
-	if typ ~= "keyval" then
+	local driver_mt = drivers[typ];
+	if not driver_mt then
 		return nil, "unsupported-store";
 	end
 
-	local db_path = path.join(base_path, store) .. ".db";
+	local db_path = path.join(base_path, store) .. driver_mt.suffix;
 
 	local db = cache[db_path];
 	if not db then
