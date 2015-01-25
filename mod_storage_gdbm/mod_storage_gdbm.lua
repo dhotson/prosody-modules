@@ -9,7 +9,9 @@
 local gdbm = require"gdbm";
 local path = require"util.paths";
 local lfs = require"lfs";
-local serialize, deserialize = import("util.serialization", "serialize", "deserialize");
+local serialization = require"util.serialization";
+local serialize = serialization.serialize;
+local deserialize = serialization.deserialize;
 
 local base_path = path.resolve_relative_path(prosody.paths.data, module.host);
 lfs.mkdir(base_path);
