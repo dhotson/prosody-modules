@@ -58,7 +58,7 @@ module:hook("s2s-stream-features",
 		end);
 
 local function outgoing_stanza_filter(stanza, session)
-	local is_stanza = stanza.attr and not stanza.attr.xmlns;
+	local is_stanza = stanza.attr and not stanza.attr.xmlns and not stanza.name:find":";
 	if is_stanza and not stanza._cached then -- Stanza in default stream namespace
 		local queue = session.outgoing_stanza_queue;
 		local cached_stanza = st.clone(stanza);
