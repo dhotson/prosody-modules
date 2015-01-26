@@ -266,7 +266,7 @@ module:hook("pre-resource-unbind", function (event)
 				-- (for example, the client may have bound a new resource and
 				-- started a new smacks session, or not be using smacks)
 				local curr_session = full_sessions[session.full_jid];
-				if false and session.destroyed then
+				if session.destroyed then
 					session.log("debug", "The session has already been destroyed");
 				elseif curr_session and curr_session.resumption_token == resumption_token
 				-- Check the hibernate time still matches what we think it is,
