@@ -15,7 +15,7 @@ local function hook(event_name, typ, policy)
 			local info = origin.conn:socket():info();
 			for key, what in pairs(policy) do
 				module:log("debug", "Does info[%q] = %s match %s ?", key, tostring(info[key]), tostring(what));
-				if (type(what) == "number" and what < info[key] ) or (type(what) == "string" and not what:match(info[key])) then
+				if (type(what) == "number" and what < info[key] ) or (type(what) == "string" and not info[key]:match(what)) then
 					origin:close({ condition = "policy-violation", text = "Cipher not acceptable" });
 					return false;
 				end
