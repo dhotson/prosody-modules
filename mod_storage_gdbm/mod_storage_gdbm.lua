@@ -79,7 +79,7 @@ function archive:find(username, query)
 	local meta = self:get(username);
 	local r = query.reverse;
 	local d = r and -1 or 1;
-	local s = meta[ifelse(r, query.before, meta.after)];
+	local s = meta[ifelse(r, query.before, query.after)];
 	if s then
 		s = s + d;
 	else
