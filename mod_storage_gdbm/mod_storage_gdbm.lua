@@ -80,20 +80,23 @@ function archive:find(username, query)
 	local r = query.reverse;
 	local d = r and -1 or 1;
 	local s = meta[ifelse(r, query.before, query.after)];
+	local limit = query.limit;
 	if s then
 		s = s + d;
 	else
 		s = ifelse(r, #meta, 1)
 	end
 	local e = ifelse(r, 1, #meta);
+	local c = 0;
 	return function ()
+		if limit and c >= limit then return end
 		local item, value;
 		for i = s, e, d do
 			item = meta[i];
 			if (not query.with or item.with == query.with)
 			and (not query.start or item.when >= query.start)
 			and (not query["end"] or item.when >= query["end"]) then
-				s = i + d;
+				s = i + d; c = c + 1;
 				value = self:get(item.key);
 				return item.key, (deserialize[item.type] or id)(value), item.when, item.with;
 			end
