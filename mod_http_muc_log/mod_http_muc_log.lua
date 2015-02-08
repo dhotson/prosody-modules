@@ -101,24 +101,25 @@ local function dates_page(event, path)
 
 	local dates, i = {}, 1;
 	module:log("debug", "Find all dates with messages");
-	local next_day;
+	local prev_day;
 	repeat
 		local iter = archive:find(room, {
-			["start"] = next_day;
+			["end"] = prev_day;
 			limit = 1;
 			with = "message<groupchat";
+			reverse = true;
 		})
 		if not iter then break end
-		next_day = nil;
+		prev_day = nil;
 		for key, message, when in iter do
-			next_day = datetime.date(when);
+			prev_day = datetime.date(when);
 			dates[i], i = {
-				date = next_day;
+				date = prev_day;
 			}, i + 1;
-			next_day = datetime.parse(next_day .. "T23:59:59Z") + 1;
+			prev_day = datetime.parse(prev_day .. "T00:00:00Z") - 1;
 			break;
 		end
-	until not next_day;
+	until not prev_day;
 
 	response.headers.content_type = "text/html; charset=utf-8";
 	return render(template, {
