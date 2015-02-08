@@ -95,7 +95,7 @@ function archive:find(username, query)
 			item = meta[i];
 			if (not query.with or item.with == query.with)
 			and (not query.start or item.when >= query.start)
-			and (not query["end"] or item.when >= query["end"]) then
+			and (not query["end"] or item.when <= query["end"]) then
 				s = i + d; c = c + 1;
 				value = self:get(item.key);
 				return item.key, (deserialize[item.type] or id)(value), item.when, item.with;
