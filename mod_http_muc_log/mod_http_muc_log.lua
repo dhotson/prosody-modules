@@ -1,4 +1,5 @@
 local st = require "util.stanza";
+local mt = require"util.multitable";
 local datetime = require"util.datetime";
 local jid_split = require"util.jid".split;
 local nodeprep = require"util.encodings".stringprep.nodeprep;
@@ -8,6 +9,7 @@ local gettime = require"socket".gettime;
 local url = require"socket.url";
 local xml_escape = st.xml_escape;
 local t_concat = table.concat;
+local os_time, os_date = os.time, os.date;
 
 local archive = module:open_store("muc_log", "archive");
 
@@ -92,40 +94,90 @@ local function public_room(room)
 		and room._data.logging == true);
 end
 
--- FIXME Invent some more efficient API for this
-local function dates_page(event, path)
+local function sort_Y(a,b) return a.year > b.year end
+local function sort_m(a,b) return a.n > b.n end
+
+local t_diff = os_time(os_date("*t")) - os_time(os_date("!*t"));
+local function time(t)
+	return os_time(t) + t_diff;
+end
+
+local function years_page(event, path)
 	local request, response = event.request, event.response;
 
 	local room = nodeprep(path:match("^(.*)/$"));
 	if not room or not public_room(room) then return end
 
-	local dates, i = {}, 1;
+	local dates = mt.new();
 	module:log("debug", "Find all dates with messages");
-	local prev_day;
+	local next_day, t;
 	repeat
 		local iter = archive:find(room, {
-			["end"] = prev_day;
+			start = next_day;
 			limit = 1;
 			with = "message<groupchat";
-			reverse = true;
 		})
 		if not iter then break end
-		prev_day = nil;
+		next_day = nil;
 		for key, message, when in iter do
-			prev_day = datetime.date(when);
-			dates[i], i = {
-				date = prev_day;
-			}, i + 1;
-			prev_day = datetime.parse(prev_day .. "T00:00:00Z") - 1;
+			t = os_date("!*t", when);
+			dates:set(t.year, t.month, t.day, when );
+			next_day = when + (86400 - (when % 86400));
 			break;
 		end
-	until not prev_day;
+	until not next_day;
+
+	local year, years;
+	local month, months;
+	local week, weeks;
+	local days;
+	local tmp, n;
+
+	years = {};
+
+	for Y, m in pairs(dates.data) do
+		t = { year = Y, month = 1, day = 1 };
+		months = { };
+		year = { year = Y, months = months };
+		years[#years+1] = year;
+		for m, d in pairs(m) do
+			t.day = 1;
+			t.month = m;
+			tmp = os_date("!*t", time(t));
+			days = {};
+			week = { days = days }
+			weeks = { week };
+			month = { year = year.year, month = os_date("!%B", time(t)), n = m, weeks = weeks };
+			months[#months+1] = month;
+			n = 1;
+			for i=1, (tmp.wday+5)%7 do
+				days[n], n = {}, n+1;
+			end
+			for i = 1, 31 do
+				t.day = i;
+				tmp = os_date("!*t", time(t));
+				if tmp.month ~= m then break end
+				if i > 1 and tmp.wday == 2 then
+					days = {};
+					weeks[#weeks+1] = { days = days };
+					n = 1;
+				end
+				if d[i] then
+					days[n], n = { wday = tmp.wday, links = {{ href = datetime.date(d[i]), day = i }} }, n+1;
+				else
+					days[n], n = { wday = tmp.wday, plain = i }, n+1;
+				end
+			end
+		end
+		table.sort(year, sort_m);
+	end
+	table.sort(years, sort_Y);
 
 	response.headers.content_type = "text/html; charset=utf-8";
 	return render(template, {
 		title = get_room(room):get_name();
 		jid = get_room(room).jid;
-		dates = dates;
+		years = years;
 		links = {
 			{ href = "../", rel = "up", text = "Back to room list" },
 		};
@@ -138,7 +190,7 @@ local function logs_page(event, path)
 	local room, date = path:match("^(.-)/(%d%d%d%d%-%d%d%-%d%d)$");
 	room = nodeprep(room);
 	if not room then
-		return dates_page(event, path);
+		return years_page(event, path);
 	end
 	if not public_room(room) then return end
 
@@ -208,7 +260,7 @@ local function logs_page(event, path)
 		jid = get_room(room).jid;
 		lines = logs;
 		links = {
-			{ href = "./", rel = "up", text = "Back to date list" },
+			{ href = "./", rel = "up", text = "Back to calendar" },
 			{ href = prev_when, rel = "prev", text = prev_when},
 			{ href = next_when, rel = "next", text = next_when},
 		};

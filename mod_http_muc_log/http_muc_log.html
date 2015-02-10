@@ -26,6 +26,10 @@ nav .next{float:right;}
 nav .next::after{content:" →";}
 nav .prev::before{content:"← ";}
 nav :empty::after,nav :empty::before{content:""}
+table{display:inline-block; margin:1ex 1em;}
+th{font-size:x-small}
+td{text-align:right;color:#bababa;padding:.5ex}
+td a{padding:0}
 .content{background-color:white;padding:1em;list-style-position:inside;}
 .time{float:right;font-size:small;opacity:0.2;}
 li:hover .time{opacity:1;}
@@ -51,9 +55,16 @@ li:hover .time{opacity:1;}
 <dt class="name"><a href="{href}">{name}</a></dt>
 <dd class="description">{description?}</dd>}
 </dl>
-<ul class="dates">{dates#
-<li><a href="{date}">{date}</a></li>}
-</ul>
+{years#
+<h2 id="{year}">{year}</h2>
+{months#
+<table id="{month}-{year}">
+<caption>{month}</caption>
+<tr><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th></tr>{weeks#
+<tr>{days#<td>{plain?}{links#<a href="{href}">{day}</a>}</td>}</tr>}
+</table>
+}
+}
 </nav>
 <ol class="chat-logs">{lines#
 <li class="{st_name} {st_type?}" id="{key}">
