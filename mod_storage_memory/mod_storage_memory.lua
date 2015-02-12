@@ -19,8 +19,29 @@ function keyval_store:set(username, data)
 	return true;
 end
 
+local map_store = {};
+map_store.__index = map_store;
+
+function map_store:get(username, key)
+	local userstore = self.store[username];
+	if type(userstore) == "table" then
+		return userstore[key];
+	end
+end
+
+function map_store:set(username, key, data)
+	local userstore = self.store[username];
+	if userstore == nil then
+		userstore = {};
+		self.store[username] = userstore;
+	end
+	userstore[key] = data;
+	return true;
+end
+
 local stores = {
 	keyval = keyval_store;
+	map = map_store;
 }
 
 local driver = {};
