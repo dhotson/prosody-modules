@@ -16,8 +16,38 @@ local ldap_mode = module:get_option_string("ldap_mode", "bind");
 local host = ldap_filter_escape(module:get_option_string("realm", module.host));
 
 -- Initiate connection
-local ld = assert(lualdap.open_simple(ldap_server, ldap_rootdn, ldap_password, ldap_tls));
-module.unload = function() ld:close(); end
+local ld = nil;
+module.unload = function() if ld then pcall(ld, ld.close); end end
+
+function ldap_search_once(args)
+	if ld == nil then
+		local err;
+		ld, err = lualdap.open_simple(ldap_server, ldap_rootdn, ldap_password, ldap_tls);
+		if not ld then return nil, err, "reconnect"; end
+	end
+
+	local success, iterator, invariant, initial = pcall(ld.search, ld, args);
+	if not success then ld = nil; return nil, iterator, "search"; end
+
+	local success, dn, attr = pcall(iterator, invariant, initial);
+	if not success then ld = nil; return success, dn, "iter"; end
+
+	return dn, attr, "return";
+end
+
+function ldap_search(args, retry_count)
+	local dn, attr, where;
+	for i=1,1+retry_count do
+		dn, attr, where = ldap_search_once(args);
+		if dn or not(attr) then break; end -- nothing or something found
+		module:log("warn", "LDAP: %s %s (in %s)", tostring(dn), tostring(attr), where);
+		-- otherwise retry
+	end
+	if not dn and attr then
+		module:log("error", "LDAP: %s", tostring(attr));
+	end
+	return dn, attr;
+end
 
 local function get_user(username)
 	module:log("debug", "get_user(%q)", username);
