@@ -19,14 +19,14 @@ local host = ldap_filter_escape(module:get_option_string("realm", module.host));
 local ld = nil;
 module.unload = function() if ld then pcall(ld, ld.close); end end
 
-function ldap_search_once(args)
+function ldap_do_once(method, ...)
 	if ld == nil then
 		local err;
 		ld, err = lualdap.open_simple(ldap_server, ldap_rootdn, ldap_password, ldap_tls);
 		if not ld then return nil, err, "reconnect"; end
 	end
 
-	local success, iterator, invariant, initial = pcall(ld.search, ld, args);
+	local success, iterator, invariant, initial = pcall(ld[method], ld, ...);
 	if not success then ld = nil; return nil, iterator, "search"; end
 
 	local success, dn, attr = pcall(iterator, invariant, initial);
@@ -35,10 +35,10 @@ function ldap_search_once(args)
 	return dn, attr, "return";
 end
 
-function ldap_search(args, retry_count)
+function ldap_do(method, retry_count, ...)
 	local dn, attr, where;
 	for i=1,1+retry_count do
-		dn, attr, where = ldap_search_once(args);
+		dn, attr, where = ldap_do_once(method, ...);
 		if dn or not(attr) then break; end -- nothing or something found
 		module:log("warn", "LDAP: %s %s (in %s)", tostring(dn), tostring(attr), where);
 		-- otherwise retry
@@ -51,7 +51,7 @@ end
 
 local function get_user(username)
 	module:log("debug", "get_user(%q)", username);
-	for dn, attr in ldap_search({
+	return ldap_do("search", 2, {
 		base = ldap_base;
 		scope = ldap_scope;
 		sizelimit = 1;
@@ -59,7 +59,7 @@ local function get_user(username)
 			user = ldap_filter_escape(username);
 			host = host;
 		});
-	}, 3) do return dn, attr; end
+	});
 end
 
 local provider = {};
@@ -76,7 +76,7 @@ function provider.set_password(username, password)
 	local dn, attr = get_user(username);
 	if not dn then return nil, attr end
 	if attr.userPassword == password then return true end
-	return ld:modify(dn, { '=', userPassword = password })();
+	return ldap_do("modify", 2, dn, { '=', userPassword = password });
 end
 
 if ldap_mode == "getpasswd" then
