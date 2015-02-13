@@ -51,7 +51,7 @@ end
 
 local function get_user(username)
 	module:log("debug", "get_user(%q)", username);
-	for dn, attr in ld:search({
+	for dn, attr in ldap_search({
 		base = ldap_base;
 		scope = ldap_scope;
 		sizelimit = 1;
@@ -59,7 +59,7 @@ local function get_user(username)
 			user = ldap_filter_escape(username);
 			host = host;
 		});
-	}) do return dn, attr; end
+	}, 3) do return dn, attr; end
 end
 
 local provider = {};
