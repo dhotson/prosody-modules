@@ -44,11 +44,11 @@ module:hook("presence/full", function(event)
         end
 
 	-- Get the room
-	local room = jid.split(stanza.attr.from);
+	local room = jid.split(stanza.attr.to);
         if not room then return; end
 
 	-- Get who has tried to join it
-	local who = jid.bare(stanza.attr.to)
+	local who = jid.bare(stanza.attr.from)
 
 	-- Checking whether room is restricted
 	local check_restricted = is_restricted(room, who)
