@@ -1,4 +1,5 @@
 local st = require "util.stanza";
+local jid = require "util.jid";
 local nodeprep = require "util.encodings".stringprep.nodeprep;
 
 local rooms = module:shared "muc/rooms";
@@ -7,22 +8,21 @@ if not rooms then
         return;
 end
 
-local admins = module:get_option_set("admins", {});
 local restrict_patterns = module:get_option("muc_restrict_matching", {});
 local restrict_excepts = module:get_option_set("muc_restrict_exceptions", {});
-local restrict_allow_admins = module:get_option_set("muc_restrict_allow_admins", false);
+local restrict_allow_admins = module:get_option_boolean("muc_restrict_allow_admins", false);
 
 local function is_restricted(room, who)
 	-- If admins can join prohibited rooms, we allow them to
-	if (restrict_allow_admins == true) and (admins:contains(who)) then
+	if restrict_allow_admins and usermanager.is_admin(who, module.host) then
 		module:log("debug", "Admins are allowed to enter restricted rooms (%s on %s)", who, room)
-		return false;
+		return nil;
 	end
 
 	-- Don't evaluate exceptions
-	if restrict_excepts:contains(room:lower()) then
-		module:log("debug", "Room %s is amongst restriction exceptions", room:lower())
-		return false;
+	if restrict_excepts:contains(room) then
+		module:log("debug", "Room %s is amongst restriction exceptions", room())
+		return nil;
 	end
 
 	-- Evaluate regexps of restricted patterns
@@ -44,11 +44,11 @@ module:hook("presence/full", function(event)
         end
 
 	-- Get the room
-        local room = stanza.attr.from:match("([^@]+)@[^@]+")
+	local room = jid.split(stanza.attr.from);
         if not room then return; end
 
 	-- Get who has tried to join it
-	local who = stanza.attr.to:match("([^\/]+)\/[^\/]+")
+	local who = jid.bare(stanza.attr.to)
 
 	-- Checking whether room is restricted
 	local check_restricted = is_restricted(room, who)
