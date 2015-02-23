@@ -16,7 +16,7 @@ local function hook(event_name, typ, policy)
 			for key, what in pairs(policy) do
 				module:log("debug", "Does info[%q] = %s match %s ?", key, tostring(info[key]), tostring(what));
 				if (type(what) == "number" and what < info[key] ) or (type(what) == "string" and not info[key]:match(what)) then
-					origin:close({ condition = "policy-violation", text = "Cipher not acceptable" });
+					origin:close({ condition = "policy-violation", text = ("TLS %s '%s' not acceptable"):format(key, tostring(info[key])) });
 					return false;
 				end
 				module:log("debug", "Seems so");
