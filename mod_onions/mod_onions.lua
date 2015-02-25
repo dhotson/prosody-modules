@@ -19,6 +19,8 @@ local lshift = bit.lshift;
 local byte = string.byte;
 local c = string.char;
 
+module:depends("s2s");
+
 local proxy_ip = module:get_option("onions_socks5_host") or "127.0.0.1";
 local proxy_port = module:get_option("onions_socks5_port") or 9050;
 local forbid_else = module:get_option("onions_only") or false;
