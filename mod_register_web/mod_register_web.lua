@@ -101,8 +101,9 @@ else
 end
 
 function generate_page(event, display_options)
-	local request = event.request;
+	local request, response = event.request, event.response;
 
+	response.headers.content_type = "text/html; charset=utf-8";
 	return render(register_tpl, {
 		path = request.path; hostname = module.host;
 		notice = display_options and display_options.register_error or "";
@@ -154,6 +155,7 @@ end
 
 function generate_register_response(event, form, ok, err)
 	local message;
+	event.response.headers.content_type = "text/html; charset=utf-8";
 	if ok then
 		return generate_success(event, form);
 	else
