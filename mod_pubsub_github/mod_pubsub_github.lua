@@ -8,7 +8,7 @@ local pubsub_service = module:depends("pubsub").service;
 local node = module:get_option("github_node", "github");
 
 function handle_POST(event)
-	local data = json.decode(formdecode(event.request.body).payload);
+	local data = json.decode(event.request.body);
 	if not data then
 		return "Invalid JSON. From you of all people...";
 	end
