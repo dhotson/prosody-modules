@@ -34,14 +34,19 @@ end
 module:depends"http";
 
 local function render(template, values)
-	--[[ DOC
-	{name} is substituted for values["name"] and is XML escaped
-	{name!} is substituted without XML escaping
-	{name?} is optional and is replaced with an empty string if no value exists
-	{name# sub-template } renders a sub-template using an array of values
-	]]
+	-- This function takes a string template and a table of values.
+	-- Sequences like {name} in the template string are substituted
+	-- with values from the table, optionally depending on a modifier
+	-- symbol.
+	--
+	-- Variants are:
+	-- {name} is substituted for values["name"] and is XML escaped
+	-- {name? sub-template } renders a sub-template if values["name"] is false-ish
+	-- {name& sub-template } renders a sub-template if values["name"] is true-ish
+	-- {name# sub-template } renders a sub-template using an array of values
+	-- {name!} is substituted *without* XML escaping
 	return (template:gsub("%b{}", function (block)
-		local name, opt, e = block:sub(2, -2):match("([%a_][%w_]*)(%p?)()");
+		local name, opt, e = block:sub(2, -2):match("^([%a_][%w_]*)(%p?)()");
 		local value = values[name];
 		if opt == '#' then
 			if not value or not value[1] then return ""; end
@@ -50,8 +55,12 @@ local function render(template, values)
 				out[i] = render(subtpl, value[i]);
 			end
 			return t_concat(out);
-		end
-		if value ~= nil  then
+		elseif opt == '&' then
+			if not value then return ""; end
+			return render(block:sub(e+1, -2), values);
+		elseif opt == '?' and not value then
+			return render(block:sub(e+1, -2), values);
+		elseif value ~= nil then
 			if type(value) ~= "string" then
 				value = tostring(value);
 			end
@@ -59,8 +68,6 @@ local function render(template, values)
 				return xml_escape(value);
 			end
 			return value;
-		elseif opt == '?' then
-			return block:sub(e+1, -2);
 		end
 	end));
 end
@@ -162,11 +169,7 @@ local function years_page(event, path)
 					weeks[#weeks+1] = { days = days };
 					n = 1;
 				end
-				if d[i] then
-					days[n], n = { wday = tmp.wday, links = {{ href = datetime.date(d[i]), day = i }} }, n+1;
-				else
-					days[n], n = { wday = tmp.wday, plain = i }, n+1;
-				end
+				days[n], n = { wday = tmp.wday, day = i, href = d[i] and datetime.date(d[i]) }, n+1;
 			end
 		end
 		table.sort(year, sort_m);
