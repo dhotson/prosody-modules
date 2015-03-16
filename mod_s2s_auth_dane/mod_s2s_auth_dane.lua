@@ -17,6 +17,7 @@
 
 module:set_global();
 
+local noop = function () end
 local type = type;
 local t_insert = table.insert;
 local set = require"util.set";
@@ -60,20 +61,45 @@ end
 local configured_uses = module:get_option_set("dane_uses", { "DANE-EE", "DANE-TA" });
 local enabled_uses = set.intersection(implemented_uses, configured_uses) / function(use) return use_map[use] end;
 
-local function dane_lookup(host_session, cb, a,b,c,e)
-	if host_session.dane ~= nil then return end
+-- Find applicable TLSA records
+-- Takes a s2sin/out and a callback
+local function dane_lookup(host_session, cb)
+	cb = cb or noop;
+	if host_session.dane ~= nil then return end -- Has already done a lookup
+
 	if host_session.direction == "incoming" then
+		-- We don't know what hostname or port to use for Incoming connections
+		-- so we do a SRV lookup and then request TLSA records for each SRV
+		-- Most servers will probably use the same certificate on outgoing
+		-- and incoming connections, so this should work well
 		local name = host_session.from_host and idna_to_ascii(host_session.from_host);
-		if not name then return end
-		host_session.dane = dns_lookup(function (answer)
-			host_session.dane = false;
-			if not answer.secure then
-				if cb then return cb(a,b,c,e); end
+		if not name then
+			module:log("error", "Could not convert '%s' to ASCII for DNS lookup", tostring(host_session.from_host));
 				return;
 			end
+		host_session.dane = dns_lookup(function (answer, err)
+			host_session.dane = false; -- Mark that we already did the lookup
+
+			if not answer then
+				module:log("debug", "Resolver error: %s", tostring(err));
+				return cb(host_session);
+			end
+
+			if not answer.secure then
+				module:log("debug", "Results are not secure");
+				return cb(host_session);
+			end
+
 			local n = #answer
-			if n == 0 then if cb then return cb(a,b,c,e); end return end
-			if n == 1 and answer[1].srv.target == '.' then return end
+			if n == 0 then
+				-- No SRV records, we could proceed with the domainname and
+				-- default port but that will currently not work properly since
+				-- mod_s2s doesn't keep the answer around for that
+				return cb(host_session);
+			end
+			if n == 1 and answer[1].srv.target == '.' then
+				return cb(host_session); -- No service ... This shouldn't happen?
+			end
 			local srv_hosts = { answer = answer };
 			local dane = {};
 			host_session.dane = dane;
@@ -83,20 +109,36 @@ local function dane_lookup(host_session, cb, a,b,c,e)
 				dns_lookup(function(dane_answer)
 					n = n - 1;
 					if dane_answer.bogus then
-						-- How to handle this?
+						dane.bogus = dane_answer.bogus;
 					elseif dane_answer.secure then
 						for _, record in ipairs(dane_answer) do
 							t_insert(dane, record);
 						end
 					end
-					if n == 0 and cb then return cb(a,b,c,e); end
+					if n == 0 then
+						if #dane > 0 and dane.bogus then
+							-- Got at least one non-bogus reply,
+							-- This should trigger a failure if one of them did not match
+							host_session.log("warn", "Ignoring bogus replies");
+							dane.bogus = nil;
+						end
+						if #dane == 0 and dane.bogus == nil then
+							-- Got no usable data
+							host_session.dane = false;
+						end
+						return cb(host_session);
+					end
 				end, ("_%d._tcp.%s."):format(record.srv.port, record.srv.target), "TLSA");
 			end
 		end, "_xmpp-server._tcp."..name..".", "SRV");
 		return true;
 	elseif host_session.direction == "outgoing" then
+		-- Prosody has already done SRV lookups for outgoing session, so check if those are secure
 		local srv_hosts = host_session.srv_hosts;
-		if not ( srv_hosts and srv_hosts.answer and srv_hosts.answer.secure )  then return end
+		if not ( srv_hosts and srv_hosts.answer and srv_hosts.answer.secure ) then
+			return; -- No secure SRV records, fall back to non-DANE mode
+		end
+		-- Do TLSA lookup for currently selected SRV record
 		local srv_choice = srv_hosts[host_session.srv_choice];
 		host_session.dane = dns_lookup(function(answer)
 			if answer and ((answer.secure and #answer > 0) or answer.bogus) then
@@ -105,19 +147,25 @@ local function dane_lookup(host_session, cb, a,b,c,e)
 				srv_choice.dane = false;
 			end
 			host_session.dane = srv_choice.dane;
-			if cb then return cb(a,b,c,e); end
+			return cb(host_session);
 		end, ("_%d._tcp.%s."):format(srv_choice.port, srv_choice.target), "TLSA");
 		return true;
 	end
 end
 
+local function resume(host_session)
+	host_session.log("debug", "DANE lookup completed, resuming connection");
+	host_session.conn:resume()
+end
+
 function module.add_host(module)
 	local function on_new_s2s(event)
 		local host_session = event.origin;
-		if host_session.type == "s2sout" or host_session.type == "s2sin" or host_session.dane ~= nil then return end -- Already authenticated
-		local function resume()
-			host_session.log("debug", "DANE lookup completed, resuming connection");
-			host_session.conn:resume()
+		if host_session.type == "s2sout" or host_session.type == "s2sin" then
+			return; -- Already authenticated
+		end
+		if host_session.dane ~= nil then
+			return; -- Already done DANE lookup
 		end
 		if dane_lookup(host_session, resume) then
 			host_session.log("debug", "Pausing connection until DANE lookup is completed");
@@ -134,7 +182,7 @@ function module.add_host(module)
 
 	module:hook("s2s-authenticated", function(event)
 		local session = event.session;
-		if session.dane and not session.secure then
+		if session.dane and next(session.dane) ~= nil and not session.secure then
 			-- TLSA record but no TLS, not ok.
 			-- TODO Optional?
 			-- Bogus replies should trigger this path
@@ -152,6 +200,7 @@ function module.add_host(module)
 	end);
 end
 
+-- Compare one TLSA record against a certificate
 local function one_dane_check(tlsa, cert)
 	local select, match, certdata = tlsa.select, tlsa.match;
 
@@ -173,6 +222,9 @@ local function one_dane_check(tlsa, cert)
 		return;
 	end
 
+	if #certdata ~= #tlsa.data then
+		module:log("warn", "Length mismatch: Cert: %d, TLSA: %d", #certdata, #tlsa.data);
+	end
 	return certdata == tlsa.data;
 end
 
