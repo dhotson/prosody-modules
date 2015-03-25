@@ -99,7 +99,7 @@ local deserialize = {
 };
 
 function archive:find(username, query)
-	query = query or empty_query;
+	query = query or empty;
 	local meta = self:get(username) or empty;
 	local prefix = (username or "@") .. "#";
 	local r = query.reverse;
