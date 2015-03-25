@@ -151,6 +151,18 @@ function open(_, store, typ)
 	return setmetatable({ _db = db; _path = db_path; store = store, typ = type }, driver_mt);
 end
 
+function purge(_, user)
+	for dir in lfs.dir(base_path) do
+		local name, ext = dir:match("^(.-)%.a?db$");
+		if ext == ".db" then
+			open(_, name, "keyval"):set(user, nil);
+		elseif ext == ".adb" then
+			open(_, name, "archive"):delete(user);
+		end
+	end
+	return true;
+end
+
 function module.unload()
 	for path, db in pairs(cache) do
 		gdbm.sync(db);
