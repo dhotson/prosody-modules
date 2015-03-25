@@ -78,7 +78,8 @@ function archive:append(username, key, when, with, value)
 	end
 	meta[i] = { key = key, when = when, with = with, type = type };
 	meta[key] = i;
-	local ok, err = self:set(key, value);
+	local prefix = (username or "@") .. "#";
+	local ok, err = self:set(prefix..key, value);
 	if not ok then return nil, err; end
 	ok, err = self:set(username, meta);
 	if not ok then return nil, err; end
@@ -92,6 +93,7 @@ local deserialize = {
 function archive:find(username, query)
 	query = query or empty_query;
 	local meta = self:get(username) or empty;
+	local prefix = (username or "@") .. "#";
 	local r = query.reverse;
 	local d = t(r, -1, 1);
 	local s = meta[t(r, query.before, query.after)];
@@ -112,7 +114,7 @@ function archive:find(username, query)
 			and (not query.start or item.when >= query.start)
 			and (not query["end"] or item.when <= query["end"]) then
 				s = i + d; c = c + 1;
-				value = self:get(item.key);
+				value = self:get(prefix..item.key);
 				return item.key, (deserialize[item.type] or id)(value), item.when, item.with;
 			end
 		end
