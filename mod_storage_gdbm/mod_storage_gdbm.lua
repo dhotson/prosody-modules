@@ -1,5 +1,5 @@
 -- mod_storage_gdbm
--- Copyright (C) 2014 Kim Alvefur
+-- Copyright (C) 2014-2015 Kim Alvefur
 --
 -- This file is MIT/X11 licensed.
 -- 
@@ -9,11 +9,17 @@
 local gdbm = require"gdbm";
 local path = require"util.paths";
 local lfs = require"lfs";
-local uuid = require"util.uuid".generate;
-local serialization = require"util.serialization";
 local st = require"util.stanza";
+local uuid = require"util.uuid".generate;
+
+local serialization = require"util.serialization";
 local serialize = serialization.serialize;
 local deserialize = serialization.deserialize;
+
+local g_set, g_get, g_del = gdbm.replace, gdbm.fetch, gdbm.delete;
+local g_first, g_next = gdbm.firstkey, gdbm.nextkey;
+
+local t_remove = table.remove;
 
 local empty = {};
 
@@ -23,8 +29,8 @@ local function is_stanza(s)
 	return getmetatable(s) == st.stanza_mt;
 end
 
-local function ifelse(cond, iftrue, iffalse)
-	if cond then return iftrue; end return iffalse;
+local function t(c, a, b)
+	if c then return a; end return b;
 end
 
 local base_path = path.resolve_relative_path(prosody.paths.data, module.host);
@@ -36,13 +42,13 @@ local keyval = {};
 local keyval_mt = { __index = keyval, suffix = ".db" };
 
 function keyval:set(user, value)
-	local ok, err = gdbm.replace(self._db, user or "@", serialize(value));
+	local ok, err = g_set(self._db, user or "@", serialize(value));
 	if not ok then return nil, err; end
 	return true;
 end
 
 function keyval:get(user)
-	local data, err = gdbm.fetch(self._db, user or "@");
+	local data, err = g_get(self._db, user or "@");
 	if not data then return nil, err; end
 	return deserialize(data);
 end
@@ -81,15 +87,15 @@ function archive:find(username, query)
 	query = query or empty_query;
 	local meta = self:get(username) or empty;
 	local r = query.reverse;
-	local d = r and -1 or 1;
-	local s = meta[ifelse(r, query.before, query.after)];
+	local d = t(r, -1, 1);
+	local s = meta[t(r, query.before, query.after)];
 	local limit = query.limit;
 	if s then
 		s = s + d;
 	else
-		s = ifelse(r, #meta, 1)
+		s = t(r, #meta, 1)
 	end
-	local e = ifelse(r, 1, #meta);
+	local e = t(r, 1, #meta);
 	local c = 0;
 	return function ()
 		if limit and c >= limit then return end
