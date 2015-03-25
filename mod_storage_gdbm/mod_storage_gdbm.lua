@@ -42,7 +42,13 @@ local keyval = {};
 local keyval_mt = { __index = keyval, suffix = ".db" };
 
 function keyval:set(user, value)
-	local ok, err = g_set(self._db, user or "@", serialize(value));
+	if type(value) == "table" and next(value) == nil then
+		value = nil;
+	end
+	if value ~= nil then
+		value = serialize(value);
+	end
+	local ok, err = (value and g_set or g_del)(self._db, user or "@", value);
 	if not ok then return nil, err; end
 	return true;
 end
