@@ -59,6 +59,14 @@ function keyval:get(user)
 	return deserialize(data);
 end
 
+local function g_keys(db, key)
+	return (key == nil and g_first or g_next)(db, key);
+end
+
+function keyval:users()
+	return g_keys, self._db, nil;
+end
+
 local archive = {};
 local archive_mt = { __index = archive, suffix = ".adb" };
 
