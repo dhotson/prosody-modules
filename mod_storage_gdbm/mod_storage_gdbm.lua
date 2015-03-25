@@ -15,6 +15,8 @@ local st = require"util.stanza";
 local serialize = serialization.serialize;
 local deserialize = serialization.deserialize;
 
+local empty = {};
+
 local function id(v) return v; end
 
 local function is_stanza(s)
@@ -76,7 +78,8 @@ local deserialize = {
 };
 
 function archive:find(username, query)
-	local meta = self:get(username);
+	query = query or empty_query;
+	local meta = self:get(username) or empty;
 	local r = query.reverse;
 	local d = r and -1 or 1;
 	local s = meta[ifelse(r, query.before, query.after)];
