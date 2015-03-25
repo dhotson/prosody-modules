@@ -78,9 +78,9 @@ function archive:append(username, key, when, with, value)
 	end
 	meta[i] = { key = key, when = when, with = with, type = type };
 	meta[key] = i;
-	local ok, err = self:set(username, meta);
+	local ok, err = self:set(key, value);
 	if not ok then return nil, err; end
-	ok, err = self:set(key, value);
+	ok, err = self:set(username, meta);
 	if not ok then return nil, err; end
 	return key;
 end
