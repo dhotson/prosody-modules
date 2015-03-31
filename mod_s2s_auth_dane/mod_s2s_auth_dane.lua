@@ -234,17 +234,17 @@ module:hook("s2s-check-certificate", function(event)
 	local log = session.log or module._log;
 	local dane = session.dane;
 	if type(dane) == "table" then
-		local use, tlsa, match_found, supported_found, chain, leafcert, cacert, is_match;
+		local match_found, supported_found;
 		for i = 1, #dane do
-			tlsa = dane[i].tlsa;
+			local tlsa = dane[i].tlsa;
 			module:log("debug", "TLSA #%d: %s", i, tostring(tlsa))
-			use = tlsa.use;
+			local use = tlsa.use;
 
 			if enabled_uses:contains(use) then
 				-- PKIX-EE or DANE-EE
 				if use == 1 or use == 3 then
 					-- Should we check if the cert subject matches?
-					is_match = one_dane_check(tlsa, cert);
+					local is_match = one_dane_check(tlsa, cert);
 					if is_match ~= nil then
 						supported_found = true;
 					end
@@ -260,20 +260,14 @@ module:hook("s2s-check-certificate", function(event)
 					end
 				elseif use == 0 or use == 2 then
 					supported_found = true;
-					if chain == nil then
-						chain = session.conn:socket():getpeerchain();
-					end
-					for i = 2, #chain do
-						cacert, leafcert = chain[i], chain[i-1];
-						is_match = one_dane_check(tlsa, cacert);
+					local chain = session.conn:socket():getpeerchain();
+					for i = 1, #chain do
+						local cacert = chain[i];
+						local is_match = one_dane_check(tlsa, cacert);
 						if is_match ~= nil then
 							supported_found = true;
 						end
-						if use == 2 and not cacert:issued(leafcert or cacert) then
-							module:log("debug", "Broken chain");
-							break;
-						end
-						if is_match then
+						if is_match and cacert:issued(cert, unpack(chain)) then
 							log("info", "DANE validated ok for %s using %s", host, tlsa:getUsage());
 							if use == 2 then -- DANE-TA
 								session.cert_identity_status = "valid";
