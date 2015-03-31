@@ -98,7 +98,11 @@ function sql.rollback(...)
 	return ...;
 end
 function sql.commit(...)
-	if not connection:commit() then return nil, "SQL commit failed"; end
+	local ok, err = connection:commit();
+	if not ok then
+		module:log("error", "SQL commit failed: %s", tostring(err));
+		return nil, "SQL commit failed: "..tostring(err);
+	end
 	return ...;
 end
 

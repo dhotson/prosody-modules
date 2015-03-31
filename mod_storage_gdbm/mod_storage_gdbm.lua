@@ -1,5 +1,5 @@
 -- mod_storage_gdbm
--- Copyright (C) 2014 Kim Alvefur
+-- Copyright (C) 2014-2015 Kim Alvefur
 --
 -- This file is MIT/X11 licensed.
 -- 
@@ -9,11 +9,19 @@
 local gdbm = require"gdbm";
 local path = require"util.paths";
 local lfs = require"lfs";
-local uuid = require"util.uuid".generate;
-local serialization = require"util.serialization";
 local st = require"util.stanza";
+local uuid = require"util.uuid".generate;
+
+local serialization = require"util.serialization";
 local serialize = serialization.serialize;
 local deserialize = serialization.deserialize;
+
+local g_set, g_get, g_del = gdbm.replace, gdbm.fetch, gdbm.delete;
+local g_first, g_next = gdbm.firstkey, gdbm.nextkey;
+
+local t_remove = table.remove;
+
+local empty = {};
 
 local function id(v) return v; end
 
@@ -21,8 +29,8 @@ local function is_stanza(s)
 	return getmetatable(s) == st.stanza_mt;
 end
 
-local function ifelse(cond, iftrue, iffalse)
-	if cond then return iftrue; end return iffalse;
+local function t(c, a, b)
+	if c then return a; end return b;
 end
 
 local base_path = path.resolve_relative_path(prosody.paths.data, module.host);
@@ -34,15 +42,29 @@ local keyval = {};
 local keyval_mt = { __index = keyval, suffix = ".db" };
 
 function keyval:set(user, value)
-	local ok, err = gdbm.replace(self._db, user or "@", serialize(value));
+	if type(value) == "table" and next(value) == nil then
+		value = nil;
+	end
+	if value ~= nil then
+		value = serialize(value);
+	end
+	local ok, err = (value and g_set or g_del)(self._db, user or "@", value);
 	if not ok then return nil, err; end
 	return true;
 end
 
 function keyval:get(user)
-	local data, err = gdbm.fetch(self._db, user or "@");
+	local data, err = g_get(self._db, user or "@");
 	if not data then return nil, err; end
 	return deserialize(data);
+end
+
+local function g_keys(db, key)
+	return (key == nil and g_first or g_next)(db, key);
+end
+
+function keyval:users()
+	return g_keys, self._db, nil;
 end
 
 local archive = {};
@@ -64,9 +86,10 @@ function archive:append(username, key, when, with, value)
 	end
 	meta[i] = { key = key, when = when, with = with, type = type };
 	meta[key] = i;
-	local ok, err = self:set(username, meta);
+	local prefix = (username or "@") .. "#";
+	local ok, err = self:set(prefix..key, value);
 	if not ok then return nil, err; end
-	ok, err = self:set(key, value);
+	ok, err = self:set(username, meta);
 	if not ok then return nil, err; end
 	return key;
 end
@@ -76,17 +99,19 @@ local deserialize = {
 };
 
 function archive:find(username, query)
-	local meta = self:get(username);
+	query = query or empty;
+	local meta = self:get(username) or empty;
+	local prefix = (username or "@") .. "#";
 	local r = query.reverse;
-	local d = r and -1 or 1;
-	local s = meta[ifelse(r, query.before, query.after)];
+	local d = t(r, -1, 1);
+	local s = meta[t(r, query.before, query.after)];
 	local limit = query.limit;
 	if s then
 		s = s + d;
 	else
-		s = ifelse(r, #meta, 1)
+		s = t(r, #meta, 1)
 	end
-	local e = ifelse(r, 1, #meta);
+	local e = t(r, 1, #meta);
 	local c = 0;
 	return function ()
 		if limit and c >= limit then return end
@@ -97,7 +122,7 @@ function archive:find(username, query)
 			and (not query.start or item.when >= query.start)
 			and (not query["end"] or item.when <= query["end"]) then
 				s = i + d; c = c + 1;
-				value = self:get(item.key);
+				value = self:get(prefix..item.key);
 				return item.key, (deserialize[item.type] or id)(value), item.when, item.with;
 			end
 		end
@@ -124,6 +149,18 @@ function open(_, store, typ)
 		cache[db_path] = db;
 	end
 	return setmetatable({ _db = db; _path = db_path; store = store, typ = type }, driver_mt);
+end
+
+function purge(_, user)
+	for dir in lfs.dir(base_path) do
+		local name, ext = dir:match("^(.-)%.a?db$");
+		if ext == ".db" then
+			open(_, name, "keyval"):set(user, nil);
+		elseif ext == ".adb" then
+			open(_, name, "archive"):delete(user);
+		end
+	end
+	return true;
 end
 
 function module.unload()

@@ -138,7 +138,7 @@ local query_form = dataform {
 };
 
 -- Serve form
-module:hook("iq-get/self/"..xmlns_mam..":query", function(event)
+module:hook("iq-get/bare/"..xmlns_mam..":query", function(event)
 	local origin, stanza = event.origin, event.stanza;
 	return origin.send(st.reply(stanza):add_child(query_form:form()));
 end);
