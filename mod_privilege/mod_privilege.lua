@@ -1,17 +1,29 @@
+-- XEP-0356 (Privileged Entity)
+-- Copyright (C) 2015 Jérôme Poisson
+--
+-- This module is MIT/X11 licensed. Please see the
+-- COPYING file in the source package for more information.
+
+
 local jid = require("util/jid")
 local set = require("util/set")
 local st = require("util/stanza")
+local roster_manager = require("core/rostermanager")
+
 local _ALLOWED_ROSTER = set.new({'none', 'get', 'set', 'both'})
+local _ROSTER_GET_PERM = set.new({'get', 'both'})
+local _ROSTER_SET_PERM = set.new({'set', 'both'})
 local _ALLOWED_MESSAGE = set.new({'none', 'outgoing'})
 local _ALLOWED_PRESENCE = set.new({'none', 'managed_entity', 'roster'})
 local _TO_CHECK = {roster=_ALLOWED_ROSTER, message=_ALLOWED_MESSAGE, presence=_ALLOWED_PRESENCE}
 local _PRIV_ENT_NS = 'urn:xmpp:privilege:1'
 
-module:log("info", "Loading privileged entity module ");
+
+module:log("debug", "Loading privileged entity module ");
+
+--> Permissions management <--
 
 privileges = module:get_option("privileged_entities", {})
-
-module:log("warn", "Connection, HOST="..tostring(module:get_host()).." ("..tostring(module:get_host_type())..")")
 
 function advertise_perm(to_jid, perms)
 	-- send <message/> stanza to advertise permissions
@@ -34,7 +46,6 @@ function on_auth(event)
 	
 	local session = event.session
 	local bare_jid = jid.join(session.username, session.host)
-	module:log("info", "======>>> on_auth, type="..tostring(event.session.type)..", jid="..tostring(bare_jid));
 
 	local ent_priv = privileges[bare_jid]
 	if ent_priv ~= nil then
@@ -64,3 +75,45 @@ end
 
 module:hook('authentication-success', on_auth)
 module:hook('component-authenticated', on_auth)
+
+
+--> roster permission <--
+
+module:hook("iq-get/bare/jabber:iq:roster:query", function(event)
+	local session, stanza = event.origin, event.stanza;
+	if not stanza.attr.to then
+		-- we don't want stanzas addressed to /self
+		return;
+	end
+	
+	if session.privileges and _ROSTER_GET_PERM:contains(session.privileges.roster) then
+		module:log("debug", "Roster get from allowed privileged entity received")
+		-- following code is adapted from mod_remote_roster
+		local node, host = jid.split(stanza.attr.to);
+		local roster = roster_manager.load_roster(node, host);
+		
+		local reply = st.reply(stanza):query("jabber:iq:roster");
+		for entity_jid, item in pairs(roster) do
+			if entity_jid and entity_jid ~= "pending" then
+				local node, host = jid.split(entity_jid);
+					reply:tag("item", {
+						jid = entity_jid,
+						subscription = item.subscription,
+						ask = item.ask,
+						name = item.name,
+					});
+					for group in pairs(item.groups) do
+						reply:tag("group"):text(group):up();
+					end
+					reply:up(); -- move out from item
+			end
+		end
+		session.send(reply);
+	else
+	    module:log("warn", "Entity "..tostring(session.full_jid).." try to get roster without permission")
+		session.send(st.error_reply(stanza, 'auth', 'forbidden'))
+	end
+	
+	return true
+
+end);
