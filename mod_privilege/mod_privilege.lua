@@ -73,8 +73,18 @@ function on_auth(event)
 	session.privileges = ent_priv
 end
 
+function on_presence(event)
+	-- Permission are already checked at this point,
+	-- we only advertise them to the entity
+	local session, stanza = event.origin, event.stanza;
+	if session.privileges then
+		advertise_perm(session.full_jid, session.privileges)
+	end
+end
+
 module:hook('authentication-success', on_auth)
 module:hook('component-authenticated', on_auth)
+module:hook('presence/initial', on_presence)
 
 
 --> roster permission <--
