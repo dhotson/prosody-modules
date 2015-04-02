@@ -3,12 +3,15 @@
 --
 -- This module is MIT/X11 licensed. Please see the
 -- COPYING file in the source package for more information.
+--
+-- Some parts come from mod_remote_roster (module by Waqas Hussain and Kim Alvefur, see https://code.google.com/p/prosody-modules/)
 
 
 local jid = require("util/jid")
 local set = require("util/set")
 local st = require("util/stanza")
 local roster_manager = require("core/rostermanager")
+local user_manager = require("core/usermanager")
 
 local _ALLOWED_ROSTER = set.new({'none', 'get', 'set', 'both'})
 local _ROSTER_GET_PERM = set.new({'get', 'both'})
@@ -30,20 +33,20 @@ function advertise_perm(to_jid, perms)
 	-- as expained in section 4.2
 	local message = st.message({to=to_jid})
 					  :tag("privilege", {xmlns=_PRIV_ENT_NS})
-	
+
 	for _, perm in pairs({'roster', 'message', 'presence'}) do
 		if perms[perm] then
 			message:tag("perm", {access=perm, type=perms[perm]}):up()
 		end
 	end
-	
+
 	module:send(message)
 end
 
 function on_auth(event)
 	-- Check if entity is privileged according to configuration,
 	-- and set session.privileges accordingly
-	
+
 	local session = event.session
 	local bare_jid = jid.join(session.username, session.host)
 
@@ -89,19 +92,20 @@ module:hook('presence/initial', on_presence)
 
 --> roster permission <--
 
+-- get
 module:hook("iq-get/bare/jabber:iq:roster:query", function(event)
 	local session, stanza = event.origin, event.stanza;
 	if not stanza.attr.to then
 		-- we don't want stanzas addressed to /self
 		return;
 	end
-	
+
 	if session.privileges and _ROSTER_GET_PERM:contains(session.privileges.roster) then
 		module:log("debug", "Roster get from allowed privileged entity received")
 		-- following code is adapted from mod_remote_roster
 		local node, host = jid.split(stanza.attr.to);
 		local roster = roster_manager.load_roster(node, host);
-		
+
 		local reply = st.reply(stanza):query("jabber:iq:roster");
 		for entity_jid, item in pairs(roster) do
 			if entity_jid and entity_jid ~= "pending" then
@@ -118,12 +122,104 @@ module:hook("iq-get/bare/jabber:iq:roster:query", function(event)
 					reply:up(); -- move out from item
 			end
 		end
+		-- end of code adapted from mod_remote_roster
 		session.send(reply);
 	else
 	    module:log("warn", "Entity "..tostring(session.full_jid).." try to get roster without permission")
 		session.send(st.error_reply(stanza, 'auth', 'forbidden'))
 	end
-	
-	return true
 
+	return true
+end);
+
+-- set
+module:hook("iq-set/bare/jabber:iq:roster:query", function(event)
+	local session, stanza = event.origin, event.stanza;
+	if not stanza.attr.to then
+		-- we don't want stanzas addressed to /self
+		return;
+	end
+
+	if session.privileges and _ROSTER_SET_PERM:contains(session.privileges.roster) then
+		module:log("debug", "Roster set from allowed privileged entity received")
+		-- following code is adapted from mod_remote_roster
+		local from_node, from_host = jid.split(stanza.attr.to);
+		if not(user_manager.user_exists(from_node, from_host)) then return; end
+		local roster = roster_manager.load_roster(from_node, from_host);
+		if not(roster) then return; end
+
+		local query = stanza.tags[1];
+		for i_, item in ipairs(query.tags) do
+			if item.name == "item"
+				and item.attr.xmlns == "jabber:iq:roster" and item.attr.jid
+					-- Protection against overwriting roster.pending, until we move it
+				and item.attr.jid ~= "pending" then
+
+				local item_jid = jid.prep(item.attr.jid);
+				local node, host, resource = jid.split(item_jid);
+				if not resource then
+					if item_jid ~= stanza.attr.to then -- not self-item_jid
+						if item.attr.subscription == "remove" then
+							local r_item = roster[item_jid];
+							if r_item then
+								local to_bare = node and (node.."@"..host) or host; -- bare jid
+								roster[item_jid] = nil;
+								if roster_manager.save_roster(from_node, from_host, roster) then
+									session.send(st.reply(stanza));
+									roster_manager.roster_push(from_node, from_host, item_jid);
+								else
+									roster[item_jid] = item;
+									session.send(st.error_reply(stanza, "wait", "internal-server-error", "Unable to save roster"));
+								end
+							else
+								session.send(st.error_reply(stanza, "modify", "item-not-found"));
+							end
+						else
+							local subscription = item.attr.subscription;
+							if subscription ~= "both" and subscription ~= "to" and subscription ~= "from" and subscription ~= "none" then -- TODO error on invalid
+								subscription = roster[item_jid] and roster[item_jid].subscription or "none";
+							end
+							local r_item = {name = item.attr.name, groups = {}};
+							if r_item.name == "" then r_item.name = nil; end
+							r_item.subscription = subscription;
+							if subscription ~= "both" and subscription ~= "to" then
+								r_item.ask = roster[item_jid] and roster[item_jid].ask;
+							end
+							for _, child in ipairs(item) do
+								if child.name == "group" then
+									local text = table.concat(child);
+									if text and text ~= "" then
+										r_item.groups[text] = true;
+									end
+								end
+							end
+							local olditem = roster[item_jid];
+							roster[item_jid] = r_item;
+							if roster_manager.save_roster(from_node, from_host, roster) then -- Ok, send success
+								session.send(st.reply(stanza));
+								-- and push change to all resources
+								roster_manager.roster_push(from_node, from_host, item_jid);
+							else -- Adding to roster failed
+								roster[item_jid] = olditem;
+								session.send(st.error_reply(stanza, "wait", "internal-server-error", "Unable to save roster"));
+							end
+						end
+					else -- Trying to add self to roster
+						session.send(st.error_reply(stanza, "cancel", "not-allowed"));
+					end
+				else -- Invalid JID added to roster
+					module:log("warn", "resource: %s , host: %s", tostring(resource), tostring(host))
+					session.send(st.error_reply(stanza, "modify", "bad-request")); -- FIXME what's the correct error?
+				end
+			else -- Roster set didn't include a single item, or its name wasn't  'item'
+				session.send(st.error_reply(stanza, "modify", "bad-request"));
+			end
+		end -- for loop end
+		-- end of code adapted from mod_remote_roster
+	else -- The permission is not granted
+	    module:log("warn", "Entity "..tostring(session.full_jid).." try to set roster without permission")
+		session.send(st.error_reply(stanza, 'auth', 'forbidden'))
+	end
+
+	return true
 end);
