@@ -1,4 +1,4 @@
--- XEP-0356 (Privileged Entity)
+ -- XEP-0356 (Privileged Entity)
 -- Copyright (C) 2015 Jérôme Poisson
 --
 -- This module is MIT/X11 licensed. Please see the
@@ -12,6 +12,7 @@ local set = require("util/set")
 local st = require("util/stanza")
 local roster_manager = require("core/rostermanager")
 local user_manager = require("core/usermanager")
+local hosts = prosody.hosts
 
 local _ALLOWED_ROSTER = set.new({'none', 'get', 'set', 'both'})
 local _ROSTER_GET_PERM = set.new({'get', 'both'})
@@ -20,6 +21,7 @@ local _ALLOWED_MESSAGE = set.new({'none', 'outgoing'})
 local _ALLOWED_PRESENCE = set.new({'none', 'managed_entity', 'roster'})
 local _TO_CHECK = {roster=_ALLOWED_ROSTER, message=_ALLOWED_MESSAGE, presence=_ALLOWED_PRESENCE}
 local _PRIV_ENT_NS = 'urn:xmpp:privilege:1'
+local _FORWARDED_NS = 'urn:xmpp:forward:0'
 
 
 module:log("debug", "Loading privileged entity module ");
@@ -218,6 +220,40 @@ module:hook("iq-set/bare/jabber:iq:roster:query", function(event)
 		-- end of code adapted from mod_remote_roster
 	else -- The permission is not granted
 	    module:log("warn", "Entity "..tostring(session.full_jid).." try to set roster without permission")
+		session.send(st.error_reply(stanza, 'auth', 'forbidden'))
+	end
+
+	return true
+end);
+
+
+--> message permission <--
+
+module:hook("message/host", function(event)
+	local session, stanza = event.origin, event.stanza;
+	local privilege_elt = stanza:get_child('privilege', _PRIV_ENT_NS)
+	if privilege_elt==nil then return; end
+	if session.privileges and session.privileges.message=="outgoing" then
+		if #privilege_elt.tags==1 and privilege_elt.tags[1].name == "forwarded"
+			and privilege_elt.tags[1].attr.xmlns==_FORWARDED_NS then
+			local message_elt = privilege_elt.tags[1]:get_child('message', 'jabber:client')
+			if message_elt ~= nil then
+				local from_node, from_host, from_resource = jid.split(message_elt.attr.from)
+				if from_resource == nil and hosts[from_host] then -- we only accept bare jids from one of the server hosts
+					-- at this point everything should be alright, we can send the message
+					prosody.core_route_stanza(nil, message_elt)
+				else -- trying to send a message from a forbidden entity
+	    			module:log("warn", "Entity "..tostring(session.full_jid).." try to send a message from "..tostring(message_elt.attr.from))
+					session.send(st.error_reply(stanza, 'auth', 'forbidden'))
+				end
+			else -- incorrect message child
+				session.send(st.error_reply(stanza, "modify", "bad-request", "invalid forwarded <message/> element"));
+			end
+		else -- incorrect forwarded child
+			session.send(st.error_reply(stanza, "modify", "bad-request", "invalid <forwarded/> element"));
+		end;
+	else -- The permission is not granted
+	    module:log("warn", "Entity "..tostring(session.full_jid).." try to send message without permission")
 		session.send(st.error_reply(stanza, 'auth', 'forbidden'))
 	end
 
