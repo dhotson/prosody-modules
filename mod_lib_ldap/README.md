@@ -6,11 +6,12 @@ for accessing an LDAP server to make writing other LDAP-based plugins easier in 
 
 # LDAP Authentication
 
-**NOTE**: LDAP authentication currently only works with plaintext auth!  If this isn't ok
-with you, don't use it! (Or better yet, fix it =) )
+**NOTE**: LDAP authentication currently only works with plaintext auth (as opposed to DIGEST-MD5 or SCRAM)
+If this isn't ok with you, don't use it!  (Or better yet, fix it =) )
 
-With that note in mind, you need to set 'allow\_unencrypted\_plain\_auth' to true in your configuration if
-you want to use LDAP authentication.
+With that note in mind, if you need to allow (XMPP) clients to connect to your server without TLS and
+want to use this module, you need to set 'allow\_unencrypted\_plain\_auth' to true in your
+configuration.  You probably don't actually want to do this, though.
 
 To enable LDAP authentication, set 'authentication' to 'ldap2' in your configuration file.
 See also http://prosody.im/doc/authentication.
