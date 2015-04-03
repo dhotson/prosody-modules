@@ -23,6 +23,9 @@ local is_admin = require "core.usermanager".is_admin;
 local pubsub = require "util.pubsub";
 local jid_bare = require "util.jid".bare;
 
+local hosts = prosody.hosts;
+local incoming_s2s = prosody.incoming_s2s;
+
 module:set_global();
 
 local service = {};
@@ -33,7 +36,7 @@ local xmlns_s2s_session = "http://prosody.im/streams/s2s";
 
 local idmap = {};
 
-function add_client(session, host)
+local function add_client(session, host)
 	local name = session.full_jid;
 	local id = idmap[name];
 	if not id then
@@ -56,7 +59,7 @@ function add_client(session, host)
 	module:log("debug", "Added client " .. name);
 end
 
-function del_client(session, host)
+local function del_client(session, host)
 	local name = session.full_jid;
 	local id = idmap[name];
 	if id then
@@ -65,7 +68,7 @@ function del_client(session, host)
 	end
 end
 
-function add_host(session, type, host)
+local function add_host(session, type, host)
 	local name = (type == "out" and session.to_host) or (type == "in" and session.from_host);
 	local id = idmap[name.."_"..type];
 	if not id then
@@ -96,12 +99,21 @@ function add_host(session, type, host)
 	module:log("debug", "Added host " .. name .. " s2s" .. type);
 end
 
-function del_host(session, type, host)
+local function del_host(session, type, host)
 	local name = (type == "out" and session.to_host) or (type == "in" and session.from_host);
 	local id = idmap[name.."_"..type];
 	if id then
 		local notifier = st.stanza("retract", { id = id });
 		service[host]:retract(xmlns_s2s_session, host, id, notifier);
+	end
+end
+
+local function get_affiliation(jid, host)
+	local bare_jid = jid_bare(jid);
+	if is_admin(bare_jid, host) then
+		return "member";
+	else
+		return "none";
 	end
 end
 
@@ -143,7 +155,6 @@ function module.add_host(module)
 		end
 	end
 
-	local ok, err;
 	service[module.host] = pubsub.new({
 		broadcaster = simple_broadcast;
 		normalize_jid = jid_bare;
@@ -198,7 +209,7 @@ function module.add_host(module)
 	});
 
 	-- Create node for s2s sessions
-	ok, err = service[module.host]:create(xmlns_s2s_session, true);
+	local ok, err = service[module.host]:create(xmlns_s2s_session, true);
 	if not ok then
 		module:log("warn", "Could not create node " .. xmlns_s2s_session .. ": " .. tostring(err));
 	else
@@ -206,7 +217,7 @@ function module.add_host(module)
 	end
 
 	-- Add outgoing s2s sessions
-	for remotehost, session in pairs(hosts[module.host].s2sout) do
+	for _, session in pairs(hosts[module.host].s2sout) do
 		if session.type ~= "s2sout_unauthed" then
 			add_host(session, "out", module.host);
 		end
@@ -228,8 +239,8 @@ function module.add_host(module)
 	end
 
 	-- Add c2s sessions
-	for username, user in pairs(hosts[module.host].sessions or {}) do
-		for resource, session in pairs(user.sessions or {}) do
+	for _, user in pairs(hosts[module.host].sessions or {}) do
+		for _, session in pairs(user.sessions or {}) do
 			add_client(session, module.host);
 		end
 	end
@@ -317,13 +328,4 @@ function module.add_host(module)
 	module:hook("s2sin-destroyed", function(event)
 		del_host(event.session, "in", module.host);
 	end);
-end
-
-function get_affiliation(jid, host)
-	local bare_jid = jid_bare(jid);
-	if is_admin(bare_jid, host) then
-		return "member";
-	else
-		return "none";
-	end
 end
