@@ -55,6 +55,6 @@ function check_for_ban(event)
 end
 
 function module.add_host(module)
-	module:hook("presence/full", check_for_incoming_ban);
-	module:hook("pre-presence/full", check_for_ban);
+	module:hook("presence/full", check_for_incoming_ban, 100);
+	module:hook("pre-presence/full", check_for_ban, 100);
 end
