@@ -30,7 +30,7 @@ module:log("debug", "Loading privileged entity module ");
 
 privileges = module:get_option("privileged_entities", {})
 
-function advertise_perm(to_jid, perms)
+function advertise_perm(session, to_jid, perms)
 	-- send <message/> stanza to advertise permissions
 	-- as expained in section 4.2
 	local message = st.message({to=to_jid})
@@ -41,8 +41,9 @@ function advertise_perm(to_jid, perms)
 			message:tag("perm", {access=perm, type=perms[perm]}):up()
 		end
 	end
+	session.send(message)
+end
 
-	module:send(message)
 end
 
 function on_auth(event)
@@ -71,7 +72,7 @@ function on_auth(event)
 		if session.type == "component" then
 			-- we send the message stanza only for component
 			-- it will be sent at first <presence/> for other entities
-			advertise_perm(bare_jid, ent_priv)
+			advertise_perm(session, bare_jid, ent_priv)
 		end
 	end
 
@@ -83,7 +84,7 @@ function on_presence(event)
 	-- we only advertise them to the entity
 	local session, stanza = event.origin, event.stanza;
 	if session.privileges then
-		advertise_perm(session.full_jid, session.privileges)
+		advertise_perm(session, session.full_jid, session.privileges)
 	end
 end
 
