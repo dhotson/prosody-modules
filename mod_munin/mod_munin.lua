@@ -4,7 +4,6 @@ local s_format = string.format;
 local array = require"util.array";
 local it = require"util.iterators";
 local mt = require"util.multitable";
-local set = require"util.set";
 
 local meta = mt.new(); meta.data = module:shared"meta";
 local data = mt.new(); data.data = module:shared"data";
@@ -47,7 +46,7 @@ function munin_commands.cap(conn)
 	conn:write("cap\n");
 end
 
-function munin_commands.list(conn, line)
+function munin_commands.list(conn)
 	conn:write(array(it.keys(data.data)):concat(" ") .. "\n");
 end
 
@@ -55,10 +54,10 @@ function munin_commands.config(conn, line)
 	-- TODO what exactly?
 	local stat = line:match("%s(%S+)");
 	if not stat then conn:write("# Unknown service\n.\n"); return end
-	for key, name, k, value in meta:iter(stat, "", nil) do
+	for _, _, k, value in meta:iter(stat, "", nil) do
 		conn:write(s_format("%s %s\n", k, value));
 	end
-	for key, name, k, value in meta:iter(stat, nil, nil) do
+	for _, name, k, value in meta:iter(stat, nil, nil) do
 		if name ~= "" then
 			conn:write(s_format("%s.%s %s\n", name, k, value));
 		end
@@ -69,7 +68,7 @@ end
 function munin_commands.fetch(conn, line)
 	local stat = line:match("%s(%S+)");
 	if not stat then conn:write("# Unknown service\n.\n"); return end
-	for key, name, value in data:iter(stat, nil) do
+	for _, name, value in data:iter(stat, nil) do
 		conn:write(s_format("%s.value %s\n", name, tostring(value)));
 	end
 	conn:write(".\n");
@@ -109,8 +108,6 @@ module:hook("stats-updated", function (event)
 			end
 
 			data:set(key, name, value);
-		else
-			-- module:log("debug", "Ignoring stat %q", stat);
 		end
 	end
 end);
