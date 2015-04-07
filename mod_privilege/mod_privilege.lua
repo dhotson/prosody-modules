@@ -13,6 +13,15 @@ local st = require("util/stanza")
 local roster_manager = require("core/rostermanager")
 local user_manager = require("core/usermanager")
 local hosts = prosody.hosts
+-- the folowing sets are used to forward presence stanza
+if not prosody._privilege_presence_man_ent then
+	prosody._privilege_presence_man_ent = set.new()
+end
+local presence_man_ent = prosody._privilege_presence_man_ent
+if not prosody._privilege_presence_roster then
+	prosody._privilege_presence_roster = set.new()
+end
+local presence_roster = prosody._privilege_presence_roster
 
 local _ALLOWED_ROSTER = set.new({'none', 'get', 'set', 'both'})
 local _ROSTER_GET_PERM = set.new({'get', 'both'})
@@ -25,6 +34,7 @@ local _FORWARDED_NS = 'urn:xmpp:forward:0'
 
 
 module:log("debug", "Loading privileged entity module ");
+
 
 --> Permissions management <--
 
@@ -44,6 +54,14 @@ function advertise_perm(session, to_jid, perms)
 	session.send(message)
 end
 
+function set_presence_perm_set(to_jid, perms)
+	-- fill the global presence sets according to perms
+	if perms.presence == 'managed_entity' then
+		presence_man_ent:add(to_jid)
+	elseif perms.presence == 'roster' then
+		presence_man_ent:add(to_jid) -- roster imply managed_entity
+		presence_roster:add(to_jid)
+	end
 end
 
 function on_auth(event)
@@ -69,10 +87,18 @@ function on_auth(event)
 				end
 			end
 		end
+		-- extra checks for presence permission
+		if ent_priv.permission == 'roster' and not _ROSTER_GET_PERM:contains(session.privileges.roster) then
+			module:log("warn", "Can't allow roster presence privilege without roster \"get\" privilege")
+			module:log("warn", "Setting presence permission to none")
+			end_priv.permission = nil
+		end
+
 		if session.type == "component" then
 			-- we send the message stanza only for component
 			-- it will be sent at first <presence/> for other entities
 			advertise_perm(session, bare_jid, ent_priv)
+			set_presence_perm_set(bare_jid, ent_priv)
 		end
 	end
 
@@ -85,6 +111,7 @@ function on_presence(event)
 	local session, stanza = event.origin, event.stanza;
 	if session.privileges then
 		advertise_perm(session, session.full_jid, session.privileges)
+		set_presence_perm_set(session.full_jid, session.privileges)
 	end
 end
 
