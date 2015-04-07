@@ -111,8 +111,8 @@ local function dane_lookup(host_session, cb)
 					if dane_answer.bogus then
 						dane.bogus = dane_answer.bogus;
 					elseif dane_answer.secure then
-						for _, record in ipairs(dane_answer) do
-							t_insert(dane, record);
+						for _, dane_record in ipairs(dane_answer) do
+							t_insert(dane, dane_record);
 						end
 					end
 					if n == 0 then
@@ -261,8 +261,8 @@ module:hook("s2s-check-certificate", function(event)
 				elseif use == 0 or use == 2 then
 					supported_found = true;
 					local chain = session.conn:socket():getpeerchain();
-					for i = 1, #chain do
-						local cacert = chain[i];
+					for c = 1, #chain do
+						local cacert = chain[c];
 						local is_match = one_dane_check(tlsa, cacert);
 						if is_match ~= nil then
 							supported_found = true;
