@@ -34,6 +34,8 @@ local _TO_CHECK = {roster=_ALLOWED_ROSTER, message=_ALLOWED_MESSAGE, presence=_A
 local _PRIV_ENT_NS = 'urn:xmpp:privilege:1'
 local _FORWARDED_NS = 'urn:xmpp:forward:0'
 
+local last_presence = nil -- cache used to avoid to send several times the same stanza (see § 7 #2)
+
 
 module:log("debug", "Loading privileged entity module ");
 
@@ -58,10 +60,10 @@ end
 
 function set_presence_perm_set(to_jid, perms)
 	-- fill the global presence sets according to perms
-	if perms.presence == 'managed_entity' then
+	if _PRESENCE_MANAGED:contains(perms.presence) then
 		presence_man_ent:add(to_jid)
-	elseif perms.presence == 'roster' then
-		presence_man_ent:add(to_jid) -- roster imply managed_entity
+	end
+	if perms.presence == 'roster' then
 		presence_roster:add(to_jid)
 	end
 end
@@ -310,18 +312,82 @@ end);
 
 --> presence permission <--
 
+function same_tags(tag1, tag2)
+	-- check if two tags are equivalent
+
+    if tag1.name ~= tag2.name then return false; end
+
+	if #tag1 ~= #tag2 then return false; end
+
+	for name, value in pairs(tag1.attr) do
+		if tag2.attr[name] ~= value then return false; end
+	end
+
+	for i=1,#tag1 do
+		if type(tag1[i]) == "string" then
+			if tag1[i] ~= tag2[i] then return false; end
+		else
+			if not same_tags(tag1[i], tag2[i]) then return false; end
+		end
+	end
+
+	return true
+end
+
+function same_presences(presence1, presence2)
+	-- check that 2 <presence/> stanzas are equivalent (except for "to" attribute)
+	-- /!\ if the id change but everything else is equivalent, this method return false
+	-- this behaviour may change in the future
+	if presence1.attr.from ~= presence2.attr.from or presence1.attr.id ~= presence2.attr.id
+		or presence1.attr.type ~= presence2.attr.type then
+		return false
+	end
+
+	if presence1.attr.id and presence1.attr.id == presence2.attr.id then return true; end
+
+	if #presence1 ~= #presence2 then return false; end
+
+	for i=1,#presence1 do
+		if type(presence1[i]) == "string" then
+			if presence1[i] ~= presence2[i] then return false; end
+		else
+			if not same_tags(presence1[i], presence2[i]) then return false; end
+		end
+	end
+
+	return true
+end
+
+function forward_presence(presence, to_jid)
+	presence_fwd = st.clone(presence)
+	presence_fwd.attr.to = to_jid
+	module:log("debug", "presence forwarded to "..to_jid..": "..tostring(presence_fwd))
+	module:send(presence_fwd)
+	last_presence = presence -- we keep the presence in cache
+end
+
 module:hook("presence/bare", function(event)
-	if presence_man_ent:empty() then return; end
+	if presence_man_ent:empty() and presence_roster:empty() then return; end
+
 	local session, stanza = event.origin, event.stanza;
-	if stanza.attr.to then return; end
 	if stanza.attr.type == nil or stanza.attr.type == "unavailable" then
-		for entity in presence_man_ent:items() do
-			if stanza.attr.from ~= entity then
-				presence_fwd = st.clone(stanza)
-				presence_fwd.attr.to = entity
-				module:log("debug", "presence forwarded to "..entity..": "..tostring(presence_fwd))
-				prosody.core_route_stanza(nil, presence_fwd)
+		if not stanza.attr.to then
+			for entity in presence_man_ent:items() do
+				if stanza.attr.from ~= entity then forward_presence(stanza, entity); end
+			end
+		else -- directed presence
+			-- we ignore directed presences from our own host, as we already have them
+			_, from_host = jid.split(stanza.attr.from)
+			if hosts[from_host] then return; end
+
+			-- we don't send several time the same presence, as recommended in §7 #2
+			if last_presence and same_presences(last_presence, stanza) then
+			   return
+		   end
+
+			for entity in presence_roster:items() do
+				if stanza.attr.from ~= entity then forward_presence(stanza, entity); end
 			end
 		end
 	end
-end, 150);
+end, 150)
