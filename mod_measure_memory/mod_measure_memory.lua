@@ -5,8 +5,8 @@ local have_pposix, pposix = pcall(require, "util.pposix");
 
 local measures = {};
 setmetatable(measures, {
-	__index = function (t, k, m)
-		m = measure("sizes", "memory."..k); t[k] = m; return m;
+	__index = function (t, k)
+		local m = measure("sizes", "memory."..k); t[k] = m; return m;
 	end
 });
 
@@ -23,9 +23,7 @@ if have_pposix and pposix.meminfo then
 	end);
 end
 
-local statm = io.open("/proc/self/statm");
-if statm then
-	statm:close();
+if require"lfs".attributes("/proc/self/statm", "mode") == "file" then
 	local pagesize = module:get_option_number("memory_pagesize", 4096); -- getconf PAGESIZE
 
 	module:hook("stats-update", function ()
