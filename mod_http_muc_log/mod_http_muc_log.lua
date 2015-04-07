@@ -72,7 +72,7 @@ local function render(template, values)
 	end));
 end
 
-local template = "Could not load template"
+local template;
 do
 	local template_file = module:get_option_string(module.name .. "_template", module.name .. ".html");
 	template_file = assert(module:load_resource(template_file));
@@ -80,7 +80,7 @@ do
 	template_file:close();
 end
 
-local base_url = module:http_url() .. '/';
+-- local base_url = module:http_url() .. '/'; -- TODO: Generate links in a smart way
 local get_link do
 	local link, path = { path = '/' }, { "", "", is_directory = true };
 	function get_link(room, date)
@@ -109,67 +109,63 @@ local function time(t)
 	return os_time(t) + t_diff;
 end
 
+local function find_once(room, query, retval)
+	if query then query.limit = 1; else query = { limit = 1 }; end
+	local iter, err = archive:find(room, query);
+	if not iter then return iter, err; end
+	if retval then
+		return select(retval, iter());
+	end
+	return iter();
+end
+
 local function years_page(event, path)
-	local request, response = event.request, event.response;
+	local response = event.response;
 
 	local room = nodeprep(path:match("^(.*)/$"));
 	if not room or not public_room(room) then return end
 
 	local dates = mt.new();
 	module:log("debug", "Find all dates with messages");
-	local next_day, t;
+	local next_day;
 	repeat
-		local iter = archive:find(room, {
-			start = next_day;
-			limit = 1;
-			with = "message<groupchat";
-		})
-		if not iter then break end
-		next_day = nil;
-		for key, message, when in iter do
-			t = os_date("!*t", when);
-			dates:set(t.year, t.month, t.day, when );
-			next_day = when + (86400 - (when % 86400));
-			break;
-		end
+		local when = find_once(room, { start = next_day; with = "message<groupchat"; }, 3);
+		if not when then break; end
+		local t = os_date("!*t", when);
+		dates:set(t.year, t.month, t.day, when );
+		next_day = when + (86400 - (when % 86400));
 	until not next_day;
 
-	local year, years;
-	local month, months;
-	local week, weeks;
-	local days;
-	local tmp, n;
+	local years = {};
 
-	years = {};
-
-	for Y, m in pairs(dates.data) do
-		t = { year = Y, month = 1, day = 1 };
-		months = { };
-		year = { year = Y, months = months };
+	for current_year, months_t in pairs(dates.data) do
+		local t = { year = current_year, month = 1, day = 1 };
+		local months = { };
+		local year = { year = current_year, months = months };
 		years[#years+1] = year;
-		for m, d in pairs(m) do
+		for current_month, days_t in pairs(months_t) do
 			t.day = 1;
-			t.month = m;
-			tmp = os_date("!*t", time(t));
-			days = {};
-			week = { days = days }
-			weeks = { week };
-			month = { year = year.year, month = os_date("!%B", time(t)), n = m, weeks = weeks };
+			t.month = current_month;
+			local tmp = os_date("!*t", time(t));
+			local days = {};
+			local week = { days = days }
+			local weeks = { week };
+			local month = { year = year.year, month = os_date("!%B", time(t)), n = current_month, weeks = weeks };
 			months[#months+1] = month;
-			n = 1;
-			for i=1, (tmp.wday+5)%7 do
-				days[n], n = {}, n+1;
+			local current_day = 1;
+			for _=1, (tmp.wday+5)%7 do
+				days[current_day], current_day = {}, current_day+1;
 			end
 			for i = 1, 31 do
 				t.day = i;
 				tmp = os_date("!*t", time(t));
-				if tmp.month ~= m then break end
+				if tmp.month ~= current_month then break end
 				if i > 1 and tmp.wday == 2 then
 					days = {};
 					weeks[#weeks+1] = { days = days };
-					n = 1;
+					current_day = 1;
 				end
-				days[n], n = { wday = tmp.wday, day = i, href = d[i] and datetime.date(d[i]) }, n+1;
+				days[current_day], current_day = { wday = tmp.wday, day = i, href = days_t[i] and datetime.date(days_t[i]) }, current_day+1;
 			end
 		end
 		table.sort(year, sort_m);
@@ -188,7 +184,7 @@ local function years_page(event, path)
 end
 
 local function logs_page(event, path)
-	local request, response = event.request, event.response;
+	local response = event.response;
 
 	local room, date = path:match("^(.-)/(%d%d%d%d%-%d%d%-%d%d)$");
 	room = nodeprep(room);
@@ -203,7 +199,10 @@ local function logs_page(event, path)
 		["end"]   = datetime.parse(date.."T23:59:59Z");
 		-- with = "message<groupchat";
 	});
-	if not iter then return 500; end
+	if not iter then
+		module:log("warn", "Could not search archive: %s", err or "no error");
+		return 500;
+	end
 
 	local first, last;
 	local verb, subject, body;
@@ -235,26 +234,22 @@ local function logs_page(event, path)
 	end
 	if i == 1 then return end -- No items
 
-	local next_when = "";
-	local prev_when = "";
-
 	module:log("debug", "Find next date with messages");
-	for key, message, when in archive:find(room, {
-		after = last;
-		limit = 1;
-	}) do
-		next_when = datetime.date(when);
-		module:log("debug", "Next message: %s", datetime.datetime(when));
+	local next_when = find_once(room, { after = last }, 3);
+	if next_when then
+		next_when = datetime.date(next_when);
+		module:log("debug", "Next message: %s", datetime.datetime(next_when));
+	else
+		next_when = "";
 	end
 
 	module:log("debug", "Find prev date with messages");
-	for key, message, when in archive:find(room, {
-		before = first;
-		limit = 1;
-		reverse = true;
-	}) do
-		prev_when = datetime.date(when);
-		module:log("debug", "Previous message: %s", datetime.datetime(when));
+	local prev_when = find_once(room, { before = first, reverse = true }, 3);
+	if prev_when then
+		prev_when = datetime.date(prev_when);
+		module:log("debug", "Previous message: %s", datetime.datetime(prev_when));
+	else
+		prev_when = "";
 	end
 
 	response.headers.content_type = "text/html; charset=utf-8";
@@ -271,7 +266,7 @@ local function logs_page(event, path)
 end
 
 local function list_rooms(event)
-	local request, response = event.request, event.response;
+	local response = event.response;
 	local room_list, i = {}, 1;
 	for room in each_room() do
 		if public_room(room) then
@@ -313,18 +308,18 @@ local function with_cache(f)
 		end
 
 		local start = gettime();
-		local render = f(event, path);
+		local rendered = f(event, path);
 		module:log("debug", "Rendering took %dms", math.floor( (gettime() - start) * 1000 + 0.5));
 
-		if type(render) == "string" then
+		if type(rendered) == "string" then
 			local etag = uuid();
-			cached = { render, etag = etag, date = datetime.date() };
+			cached = { rendered, etag = etag, date = datetime.date() };
 			response.headers.etag = etag;
 			cache[ckey] = cached;
 		end
 
 		response.headers.content_type = "text/html; charset=utf-8";
-		return render;
+		return rendered;
 	end
 end
 
