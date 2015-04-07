@@ -13,6 +13,7 @@ local st = require("util/stanza")
 local roster_manager = require("core/rostermanager")
 local user_manager = require("core/usermanager")
 local hosts = prosody.hosts
+local full_sessions = prosody.full_sessions;
 -- the folowing sets are used to forward presence stanza
 if not prosody._privilege_presence_man_ent then
 	prosody._privilege_presence_man_ent = set.new()
@@ -28,6 +29,7 @@ local _ROSTER_GET_PERM = set.new({'get', 'both'})
 local _ROSTER_SET_PERM = set.new({'set', 'both'})
 local _ALLOWED_MESSAGE = set.new({'none', 'outgoing'})
 local _ALLOWED_PRESENCE = set.new({'none', 'managed_entity', 'roster'})
+local _PRESENCE_MANAGED = set.new({'managed_entity', 'roster'})
 local _TO_CHECK = {roster=_ALLOWED_ROSTER, message=_ALLOWED_MESSAGE, presence=_ALLOWED_PRESENCE}
 local _PRIV_ENT_NS = 'urn:xmpp:privilege:1'
 local _FORWARDED_NS = 'urn:xmpp:forward:0'
@@ -42,7 +44,7 @@ privileges = module:get_option("privileged_entities", {})
 
 function advertise_perm(session, to_jid, perms)
 	-- send <message/> stanza to advertise permissions
-	-- as expained in section 4.2
+	-- as expained in § 4.2
 	local message = st.message({to=to_jid})
 					  :tag("privilege", {xmlns=_PRIV_ENT_NS})
 
@@ -61,6 +63,21 @@ function set_presence_perm_set(to_jid, perms)
 	elseif perms.presence == 'roster' then
 		presence_man_ent:add(to_jid) -- roster imply managed_entity
 		presence_roster:add(to_jid)
+	end
+end
+
+function advertise_presences(session, to_jid, perms)
+	-- send presence status for already conencted entities
+	-- as explained in § 7.1
+	for _, user_session in pairs(full_sessions) do
+		if user_session.presence then
+			if _PRESENCE_MANAGED:contains(perms.presence) then
+				local presence = st.clone(user_session.presence)
+				presence.attr.to = to_jid
+				module:log("debug", "sending current presence for "..tostring(user_session.full_jid))
+				session.send(presence)
+			end
+		end
 	end
 end
 
@@ -99,6 +116,7 @@ function on_auth(event)
 			-- it will be sent at first <presence/> for other entities
 			advertise_perm(session, bare_jid, ent_priv)
 			set_presence_perm_set(bare_jid, ent_priv)
+			advertise_presences(session, bare_jid, ent_priv)
 		end
 	end
 
@@ -112,6 +130,7 @@ function on_presence(event)
 	if session.privileges then
 		advertise_perm(session, session.full_jid, session.privileges)
 		set_presence_perm_set(session.full_jid, session.privileges)
+		advertise_presences(session, session.full_jid, session.privileges)
 	end
 end
 
