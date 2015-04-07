@@ -287,3 +287,22 @@ module:hook("message/host", function(event)
 
 	return true
 end);
+
+
+--> presence permission <--
+
+module:hook("presence/bare", function(event)
+	if presence_man_ent:empty() then return; end
+	local session, stanza = event.origin, event.stanza;
+	if stanza.attr.to then return; end
+	if stanza.attr.type == nil or stanza.attr.type == "unavailable" then
+		for entity in presence_man_ent:items() do
+			if stanza.attr.from ~= entity then
+				presence_fwd = st.clone(stanza)
+				presence_fwd.attr.to = entity
+				module:log("debug", "presence forwarded to "..entity..": "..tostring(presence_fwd))
+				prosody.core_route_stanza(nil, presence_fwd)
+			end
+		end
+	end
+end, 150);
