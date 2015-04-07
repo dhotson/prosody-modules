@@ -5,6 +5,8 @@
 -- 
 -- Depends on lgdbm:
 -- http://webserver2.tecgraf.puc-rio.br/~lhf/ftp/lua/#lgdbm
+--
+-- luacheck: globals open purge
 
 local gdbm = require"gdbm";
 local path = require"util.paths";
@@ -18,8 +20,6 @@ local deserialize = serialization.deserialize;
 
 local g_set, g_get, g_del = gdbm.replace, gdbm.fetch, gdbm.delete;
 local g_first, g_next = gdbm.firstkey, gdbm.nextkey;
-
-local t_remove = table.remove;
 
 local empty = {};
 
@@ -94,7 +94,7 @@ function archive:append(username, key, when, with, value)
 	return key;
 end
 
-local deserialize = {
+local deserialize_map = {
 	stanza = st.deserialize;
 };
 
@@ -123,7 +123,7 @@ function archive:find(username, query)
 			and (not query["end"] or item.when <= query["end"]) then
 				s = i + d; c = c + 1;
 				value = self:get(prefix..item.key);
-				return item.key, (deserialize[item.type] or id)(value), item.when, item.with;
+				return item.key, (deserialize_map[item.type] or id)(value), item.when, item.with;
 			end
 		end
 	end
@@ -164,7 +164,8 @@ function purge(_, user)
 end
 
 function module.unload()
-	for path, db in pairs(cache) do
+	for db_path, db in pairs(cache) do
+		module:log("debug", "Closing db at %q", db_path);
 		gdbm.sync(db);
 		gdbm.close(db);
 	end
