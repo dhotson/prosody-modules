@@ -266,18 +266,17 @@ module:hook("muc-get-history", function (event)
 		return
 	end
 
-	local chars = 0;
 	local history, i = {}, 1;
 
 	for id, item, when in data do
 		item.attr.to = to;
 		item:tag("delay", { xmlns = "urn:xmpp:delay", from = room_jid, stamp = timestamp(when) }):up(); -- XEP-0203
 		if maxchars then
-			chars = #tostring(item);
+			local chars = #tostring(item);
 			if maxchars - chars < 0 then
 				break
 			end
-			charcount = maxchars - chars;
+			maxchars = maxchars - chars;
 		end
 		history[i], i = item, i+1;
 		-- module:log("debug", tostring(item));
