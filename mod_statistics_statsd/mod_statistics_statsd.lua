@@ -9,7 +9,7 @@ function push_stats(stats, meta)
 	local metric_strings, remaining_bytes = {}, max_datagram_size;
 	for name, value in pairs(stats) do
 		local value_meta = meta[name];
-		log("warn", "%s %s", name, tostring(value_meta));
+		module:log("warn", "%s %s", name, tostring(value_meta));
 		--if not value_meta then
 			-- Simple value (gauge)
 			local metric_string = ("%s|%d|g"):format(name, value);
