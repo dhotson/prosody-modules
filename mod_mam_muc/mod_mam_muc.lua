@@ -17,7 +17,6 @@ local it = require"util.iterators";
 
 -- Support both old and new MUC code
 local mod_muc = module:depends"muc";
-local room_mt = mod_muc.room_mt;
 local rooms = rawget(mod_muc, "rooms");
 local each_room = rawget(mod_muc, "each_room") or function() return it.values(rooms); end;
 local new_muc = not rooms;
@@ -268,7 +267,7 @@ module:hook("muc-get-history", function (event)
 
 	local history, i = {}, 1;
 
-	for id, item, when in data do
+	for _, item, when in data do
 		item.attr.to = to;
 		item:tag("delay", { xmlns = "urn:xmpp:delay", from = room_jid, stamp = timestamp(when) }):up(); -- XEP-0203
 		if maxchars then
@@ -281,7 +280,7 @@ module:hook("muc-get-history", function (event)
 		history[i], i = item, i+1;
 		-- module:log("debug", tostring(item));
 	end
-	function event:next_stanza()
+	function event.next_stanza()
 		i = i - 1;
 		return history[i];
 	end
@@ -322,7 +321,6 @@ end
 
 -- Handle messages
 function save_to_history(self, stanza)
-	local orig_to = stanza.attr.to;
 	local room = jid_split(self.jid);
 
 	-- Policy check
