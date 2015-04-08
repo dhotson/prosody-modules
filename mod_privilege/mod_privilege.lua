@@ -1,4 +1,4 @@
- -- XEP-0356 (Privileged Entity)
+-- XEP-0356 (Privileged Entity)
 -- Copyright (C) 2015 Jérôme Poisson
 --
 -- This module is MIT/X11 licensed. Please see the
@@ -6,6 +6,7 @@
 --
 -- Some parts come from mod_remote_roster (module by Waqas Hussain and Kim Alvefur, see https://code.google.com/p/prosody-modules/)
 
+-- TODO: manage external <presence/> (for "roster" presence permission) when the account with the roster is offline
 
 local jid = require("util/jid")
 local set = require("util/set")
@@ -14,15 +15,18 @@ local roster_manager = require("core/rostermanager")
 local user_manager = require("core/usermanager")
 local hosts = prosody.hosts
 local full_sessions = prosody.full_sessions;
+
+local priv_session = module:shared("/*/privilege/session")
+
 -- the folowing sets are used to forward presence stanza
-if not prosody._privilege_presence_man_ent then
-	prosody._privilege_presence_man_ent = set.new()
+if not priv_session.presence_man_ent  then
+	priv_session.presence_man_ent = set.new()
 end
-local presence_man_ent = prosody._privilege_presence_man_ent
-if not prosody._privilege_presence_roster then
-	prosody._privilege_presence_roster = set.new()
+local presence_man_ent = priv_session.presence_man_ent
+if not priv_session.presence_roster then
+	priv_session.presence_roster = set.new()
 end
-local presence_roster = prosody._privilege_presence_roster
+local presence_roster = priv_session.presence_roster
 
 local _ALLOWED_ROSTER = set.new({'none', 'get', 'set', 'both'})
 local _ROSTER_GET_PERM = set.new({'get', 'both'})
@@ -33,8 +37,6 @@ local _PRESENCE_MANAGED = set.new({'managed_entity', 'roster'})
 local _TO_CHECK = {roster=_ALLOWED_ROSTER, message=_ALLOWED_MESSAGE, presence=_ALLOWED_PRESENCE}
 local _PRIV_ENT_NS = 'urn:xmpp:privilege:1'
 local _FORWARDED_NS = 'urn:xmpp:forward:0'
-
-local last_presence = nil -- cache used to avoid to send several times the same stanza (see § 7 #2)
 
 
 module:log("debug", "Loading privileged entity module ");
@@ -71,15 +73,41 @@ end
 function advertise_presences(session, to_jid, perms)
 	-- send presence status for already conencted entities
 	-- as explained in § 7.1
+	-- people in roster are probed only for active sessions
+	-- TODO: manage roster load for inactive sessions
+	if not perms.presence then return; end
+	local to_probe = {}
 	for _, user_session in pairs(full_sessions) do
-		if user_session.presence then
-			if _PRESENCE_MANAGED:contains(perms.presence) then
-				local presence = st.clone(user_session.presence)
-				presence.attr.to = to_jid
-				module:log("debug", "sending current presence for "..tostring(user_session.full_jid))
-				session.send(presence)
+		if user_session.presence and _PRESENCE_MANAGED:contains(perms.presence) then
+			local presence = st.clone(user_session.presence)
+			presence.attr.to = to_jid
+			module:log("debug", "sending current presence for "..tostring(user_session.full_jid))
+			session.send(presence)
+		end
+		if perms.presence == "roster" then
+			-- we reset the cache to avoid to miss a presence that just changed
+			priv_session.last_presence = nil
+
+			if user_session.roster then
+				local bare_jid = jid.bare(user_session.full_jid)
+				for entity, item in pairs(user_session.roster) do
+					if entity~=false and entity~="pending" and (item.subscription=="both" or item.subscription=="to") then
+						_, host = jid.split(entity)
+						if not hosts[host] then -- we don't probe jid from hosts we manage
+							-- using a table with entity as key avoid probing several time the same one
+							to_probe[entity] = bare_jid
+						end
+					end
+				end
 			end
 		end
+	end
+
+	-- now we probe peoples for "roster" presence permission
+	for to_jid, from_jid in pairs(to_probe) do
+		module:log("debug", "probing presence for %s (on behalf of %s)", tostring(to_jid), tostring(from_jid))
+		local probe = st.presence({from=from_jid, to=to_jid, type="probe"})
+		prosody.core_route_stanza(nil, probe)
 	end
 end
 
@@ -363,7 +391,8 @@ function forward_presence(presence, to_jid)
 	presence_fwd.attr.to = to_jid
 	module:log("debug", "presence forwarded to "..to_jid..": "..tostring(presence_fwd))
 	module:send(presence_fwd)
-	last_presence = presence -- we keep the presence in cache
+	-- cache used to avoid to send several times the same stanza
+	priv_session.last_presence = presence
 end
 
 module:hook("presence/bare", function(event)
@@ -381,9 +410,9 @@ module:hook("presence/bare", function(event)
 			if hosts[from_host] then return; end
 
 			-- we don't send several time the same presence, as recommended in §7 #2
-			if last_presence and same_presences(last_presence, stanza) then
+			if priv_session.last_presence and same_presences(priv_session.last_presence, stanza) then
 			   return
-		   end
+			end
 
 			for entity in presence_roster:items() do
 				if stanza.attr.from ~= entity then forward_presence(stanza, entity); end
