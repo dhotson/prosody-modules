@@ -1,6 +1,6 @@
 local ssl = require"ssl";
 local datetime_parse = require"util.datetime".parse;
-local load_cert = ssl.x509 and ssl.x509.load;
+local load_cert = ssl.loadcertificate;
 local st = require"util.stanza"
 
 -- These are in days.
