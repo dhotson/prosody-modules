@@ -68,6 +68,10 @@ local function dane_lookup(host_session, cb)
 	if host_session.dane ~= nil then return end -- Has already done a lookup
 
 	if host_session.direction == "incoming" then
+		if not host_session.from_host then
+			module:log("debug", "Session doesn't have a 'from' host set");
+			return;
+		end
 		-- We don't know what hostname or port to use for Incoming connections
 		-- so we do a SRV lookup and then request TLSA records for each SRV
 		-- Most servers will probably use the same certificate on outgoing
