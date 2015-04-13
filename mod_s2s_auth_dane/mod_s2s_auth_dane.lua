@@ -74,9 +74,9 @@ local function dane_lookup(host_session, cb)
 		-- and incoming connections, so this should work well
 		local name = host_session.from_host and idna_to_ascii(host_session.from_host);
 		if not name then
-			module:log("error", "Could not convert '%s' to ASCII for DNS lookup", tostring(host_session.from_host));
-				return;
-			end
+			module:log("warn", "Could not convert '%s' to ASCII for DNS lookup", tostring(host_session.from_host));
+			return;
+		end
 		host_session.dane = dns_lookup(function (answer, err)
 			host_session.dane = false; -- Mark that we already did the lookup
 
