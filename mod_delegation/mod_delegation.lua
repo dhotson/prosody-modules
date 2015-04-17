@@ -25,7 +25,13 @@ local connected_cb = delegation_session.connected_cb
 
 local _DELEGATION_NS = 'urn:xmpp:delegation:1'
 local _FORWARDED_NS = 'urn:xmpp:forward:0'
+local _DISCO_NS = 'http://jabber.org/protocol/disco#info'
 local _ORI_ID_PREFIX = "IQ_RESULT_"
+
+local _MAIN_SEP = '::'
+--local _BARE_SEP = ':bare:'
+
+local disco_nest
 
 module:log("debug", "Loading namespace delegation module ");
 
@@ -84,9 +90,10 @@ local function set_connected(entity_jid)
 	-- set the "connected" key for all namespace managed by entity_jid
 	-- if the namespace has already a connected entity, ignore the new one
 	local function set_config(jid_)
-		for _, ns_data in pairs(jid2ns[jid_]) do
+		for namespace, ns_data in pairs(jid2ns[jid_]) do
 			if ns_data.connected == nil then
 				ns_data.connected = entity_jid
+				disco_nest(namespace, entity_jid)
 			end
 		end
 	end
@@ -244,6 +251,8 @@ module:hook("iq/host", iq_hook, 2^32)
 
 --> discovery nesting <--
 
+-- disabling internal features/identities
+
 -- modules whose features/identities are managed by delegation
 local disabled_modules = set.new()
 
@@ -283,3 +292,62 @@ end
 -- and catch the ones which can come later
 module:handle_items("feature", feature_added, function(_) end)
 module:handle_items("identity", identity_added, function(_) end, false)
+
+
+-- managing entity features/identities collection
+
+local disco_main_error
+
+local function disco_main_result(event)
+	local session, stanza = event.origin, event.stanza
+	if stanza.attr.to ~= module.host then
+		module:log("warn", 'Stanza result has "to" attribute not addressed to current host, id conflict ?')
+		return
+	end
+	module:unhook("iq-result/host/"..stanza.attr.id, disco_main_result)
+	module:unhook("iq-error/host/"..stanza.attr.id, disco_main_error)
+	local query = stanza:get_child("query", _DISCO_NS)
+	if not query or not query.attr.node then
+		session.send(st.error_reply(stanza, 'modify', 'not-acceptable'))
+		return true
+	end
+	-- local node = query.attr.node
+	for feature in query:childtags("feature") do
+		local namespace = feature.attr.var
+		if not module:has_feature(namespace) then -- we avoid doubling features in case of disconnection/reconnexion
+			module:add_feature(namespace)
+		end
+	end
+	for identity in query:childtags("identity") do
+		local category, type_, name = identity.attr.category, identity.attr.type, identity.attr.name
+		if not module:has_identity(category, type_, name) then
+			module:add_identity(category, type_, name)
+		end
+	end
+end
+
+function disco_main_error(event)
+	local stanza = event.stanza
+	if stanza.attr.to ~= module.host then
+		module:log("warn", 'Stanza result has "to" attribute not addressed to current host, id conflict ?')
+		return
+	end
+	module:unhook("iq-result/host/"..stanza.attr.id, disco_main_result)
+	module:unhook("iq-error/host/"..stanza.attr.id, disco_main_error)
+	module:log("warn", "Got an error while requesting disco for nesting to "..stanza.attr.from)
+	module:log("warn", "Ignoring disco nesting")
+end
+
+function disco_nest(namespace, entity_jid)
+	local main_node = _DELEGATION_NS.._MAIN_SEP..namespace
+	-- local bare_node = _DELEGATION_NS.._BARE_SEP..namespace
+
+	local iq = st.iq({from=module.host, to=entity_jid, type='get'})
+		:tag('query', {xmlns=_DISCO_NS, node=main_node})
+
+	local iq_id = iq.attr.id
+
+	module:hook("iq-result/host/"..iq_id, disco_main_result)
+	module:hook("iq-error/host/"..iq_id, disco_main_error)
+	module:send(iq)
+end
