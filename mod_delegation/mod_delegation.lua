@@ -370,9 +370,7 @@ local function disco_result(event)
 	for feature in query:childtags("feature") do
 		local namespace = feature.attr.var
 		if main then
-			if not module:has_feature(namespace) then -- we avoid doubling features in case of disconnection/reconnexion
-				module:add_feature(namespace)
-			end
+			module:add_feature(namespace)
 		else
 			bare_features:add(namespace)
 		end
@@ -380,20 +378,9 @@ local function disco_result(event)
 	for identity in query:childtags("identity") do
 		local category, type_, name = identity.attr.category, identity.attr.type, identity.attr.name
 		if main then
-			if not module:has_identity(category, type_, name) then
-				module:add_identity(category, type_, name)
-			end
+			module:add_identity(category, type_, name)
 		else
-			local found=false
-			for _, item in ipairs(bare_identities) do
-				if item.category == category and item.type == type_ and item.name == name then
-					found=true
-					break
-				end
-			end
-			if not found then
-				table.insert(bare_identities, {category=category, type=type_, name=name})
-			end
+			table.insert(bare_identities, {category=category, type=type_, name=name})
 		end
 	end
 	for extension in query:childtags("x", _DATA_NS) do
@@ -418,6 +405,18 @@ function disco_error(event)
 end
 
 function disco_nest(namespace, entity_jid)
+	-- manage discovery nesting (see § 7.2)
+
+	-- first we reset the current values
+	if module.items then
+		module.items['feature'] = nil
+		module.items['identity'] = nil
+		module.items['extension'] = nil
+		bare_features = set.new()
+		bare_identities = {}
+		bare_extensions = {}
+	end
+
 	for _, prefix in ipairs(_PREFIXES) do
 		local node = prefix..namespace
 
