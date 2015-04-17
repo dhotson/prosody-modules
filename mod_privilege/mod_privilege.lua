@@ -18,15 +18,18 @@ local full_sessions = prosody.full_sessions;
 
 local priv_session = module:shared("/*/privilege/session")
 
+if priv_session.connected_cb == nil then
+	-- set used to have connected event listeners
+	-- which allows a host to react on events from
+	-- other hosts
+	priv_session.connected_cb = set.new()
+end
+local connected_cb = priv_session.connected_cb
+
 -- the folowing sets are used to forward presence stanza
-if not priv_session.presence_man_ent  then
-	priv_session.presence_man_ent = set.new()
-end
-local presence_man_ent = priv_session.presence_man_ent
-if not priv_session.presence_roster then
-	priv_session.presence_roster = set.new()
-end
-local presence_roster = priv_session.presence_roster
+-- the folowing sets are used to forward presence stanza
+local presence_man_ent = set.new()
+local presence_roster = set.new()
 
 local _ALLOWED_ROSTER = set.new({'none', 'get', 'set', 'both'})
 local _ROSTER_GET_PERM = set.new({'get', 'both'})
@@ -49,7 +52,7 @@ local privileges = module:get_option("privileged_entities", {})
 local function advertise_perm(session, to_jid, perms)
 	-- send <message/> stanza to advertise permissions
 	-- as expained in § 4.2
-	local message = st.message({to=to_jid})
+	local message = st.message({from=module.host, to=to_jid})
 					  :tag("privilege", {xmlns=_PRIV_ENT_NS})
 
 	for _, perm in pairs({'roster', 'message', 'presence'}) do
@@ -61,7 +64,7 @@ local function advertise_perm(session, to_jid, perms)
 end
 
 local function set_presence_perm_set(to_jid, perms)
-	-- fill the global presence sets according to perms
+	-- fill the presence sets according to perms
 	if _PRESENCE_MANAGED:contains(perms.presence) then
 		presence_man_ent:add(to_jid)
 	end
@@ -164,8 +167,18 @@ local function on_presence(event)
 	end
 end
 
+local function on_component_auth(event)
+	-- react to component-authenticated event from this host
+	-- and call the on_auth methods from all other hosts
+	-- needed for the component to get delegations advertising
+	for callback in connected_cb:items() do
+		callback(event)
+	end
+end
+
+connected_cb:add(on_auth)
 module:hook('authentication-success', on_auth)
-module:hook('component-authenticated', on_auth)
+module:hook('component-authenticated', on_component_auth)
 module:hook('presence/initial', on_presence)
 
 
