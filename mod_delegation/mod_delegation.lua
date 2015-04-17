@@ -26,6 +26,7 @@ local connected_cb = delegation_session.connected_cb
 local _DELEGATION_NS = 'urn:xmpp:delegation:1'
 local _FORWARDED_NS = 'urn:xmpp:forward:0'
 local _DISCO_NS = 'http://jabber.org/protocol/disco#info'
+local _DATA_NS = 'jabber:x:data'
 local _ORI_ID_PREFIX = "IQ_RESULT_"
 
 local _MAIN_SEP = '::'
@@ -259,6 +260,21 @@ module:hook("iq/host", iq_hook, 2^32)
 
 -- disabling internal features/identities
 
+local function find_form_type(stanza)
+	local form_type = nil
+	for field in stanza.childtags('field', 'jabber:x:data') do
+		if field.attr.var=='FORM_TYPE' and field.attr.type=='hidden' then
+			local value = field:get_child('value')
+			if not value then
+				module:log("warn", "No value found in FORM_TYPE field: "..tostring(stanza))
+			else
+				form_type=value.get_text()
+			end
+		end
+	end
+	return form_type
+end
+
 -- modules whose features/identities are managed by delegation
 local disabled_modules = set.new()
 local disabled_identities = set.new()
@@ -294,11 +310,25 @@ local function feature_added(event)
 	end
 end
 
+local function extension_added(event)
+	local source, stanza = event.source, event.item
+	local form_type = find_form_type(stanza)
+	if not form_type then return; end
+
+	for namespace, _ in pairs(ns_delegations) do
+		if source ~= module and string.sub(form_type, 1, #namespace) == namespace then
+			module:log("debug", "Removing extension which is delegated: %s", tostring(stanza))
+			source:remove_item("extension", stanza)
+		end
+	end
+end
+
 -- for disco nesting (see § 7.2) we need to remove internal features
 -- we use handle_items as it allow to remove already added features
 -- and catch the ones which can come later
 module:handle_items("feature", feature_added, function(_) end)
 module:handle_items("identity", identity_added, function(_) end, false)
+module:handle_items("extension", extension_added, function(_) end)
 
 
 -- managing entity features/identities collection
@@ -306,6 +336,7 @@ module:handle_items("identity", identity_added, function(_) end, false)
 local disco_error
 local bare_features = set.new()
 local bare_identities = {}
+local bare_extensions = {}
 
 local function disco_result(event)
 	-- parse result from disco nesting request
@@ -365,6 +396,13 @@ local function disco_result(event)
 			end
 		end
 	end
+	for extension in query:childtags("x", _DATA_NS) do
+		if main then
+			module:add_extension(extension)
+		else
+			table.insert(bare_extensions, extension)
+		end
+	end
 end
 
 function disco_error(event)
@@ -398,7 +436,7 @@ end
 
 module:hook("account-disco-info", function(event)
 	-- this event is called when a disco info request is done on a bare jid
-	-- we get the final reply and filter delegated features/identities
+	-- we get the final reply and filter delegated features/identities/extensions
 	local reply = event.reply;
 	reply.tags[1]:maptags(function(child)
 		if child.name == 'feature' then
@@ -420,14 +458,28 @@ module:hook("account-disco-info", function(event)
 					return nil
 				end
 			end
+		elseif child.name == 'x' and child.attr.xmlns == _DATA_NS then
+			local form_type = find_form_type(child)
+			if form_type then
+				for namespace, _ in pairs(ns_delegations) do
+					if string.sub(form_type, 1, #namespace) == namespace then
+						module:log("debug", "Removing extension which is delegated: %s", tostring(child))
+						return nil
+					end
+				end
+			end
+
 		end
 		return child
 	end)
 	for feature in bare_features:items() do
-		reply:tag('feature', {var=feature}):up();
+		reply:tag('feature', {var=feature}):up()
 	end
 	for _, item in ipairs(bare_identities) do
-		reply:tag('identity', {category=item.category, type=item.type, name=item.name}):up();
+		reply:tag('identity', {category=item.category, type=item.type, name=item.name}):up()
+	end
+	for _, stanza in ipairs(bare_extensions) do
+		reply:add_child(stanza)
 	end
 
 end, -2^32);
