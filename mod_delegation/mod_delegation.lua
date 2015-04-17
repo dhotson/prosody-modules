@@ -7,7 +7,7 @@
 -- This module manage namespace delegation, a way to delegate server features
 -- to an external entity/component. Only the admin mode is implemented so far
 
--- TODO: client mode, managing entity error handling
+-- TODO: client mode, managing entity error handling, disco extensions (XEP-0128)
 
 local jid = require("util/jid")
 local st = require("util/stanza")
@@ -29,12 +29,14 @@ local _DISCO_NS = 'http://jabber.org/protocol/disco#info'
 local _ORI_ID_PREFIX = "IQ_RESULT_"
 
 local _MAIN_SEP = '::'
---local _BARE_SEP = ':bare:'
+local _BARE_SEP = ':bare:'
+local _MAIN_PREFIX = _DELEGATION_NS.._MAIN_SEP
+local _BARE_PREFIX = _DELEGATION_NS.._BARE_SEP
+local _PREFIXES = {_MAIN_PREFIX, _BARE_PREFIX}
 
 local disco_nest
 
 module:log("debug", "Loading namespace delegation module ");
-
 
 --> Configuration management <--
 
@@ -297,60 +299,95 @@ module:handle_items("identity", identity_added, function(_) end, false)
 
 -- managing entity features/identities collection
 
-local disco_main_error
+local disco_error
+local bare_features = set.new()
+local bare_identities = {}
 
-local function disco_main_result(event)
+local function disco_result(event)
+	-- parse result from disco nesting request
+	-- and fill module features/identities and bare_features/bare_identities accordingly
 	local session, stanza = event.origin, event.stanza
 	if stanza.attr.to ~= module.host then
 		module:log("warn", 'Stanza result has "to" attribute not addressed to current host, id conflict ?')
 		return
 	end
-	module:unhook("iq-result/host/"..stanza.attr.id, disco_main_result)
-	module:unhook("iq-error/host/"..stanza.attr.id, disco_main_error)
+	module:unhook("iq-result/host/"..stanza.attr.id, disco_result)
+	module:unhook("iq-error/host/"..stanza.attr.id, disco_error)
 	local query = stanza:get_child("query", _DISCO_NS)
 	if not query or not query.attr.node then
 		session.send(st.error_reply(stanza, 'modify', 'not-acceptable'))
 		return true
 	end
-	-- local node = query.attr.node
+
+	local node = query.attr.node
+	local main
+
+	if string.sub(node, 1, #_MAIN_PREFIX) == _MAIN_PREFIX then
+		main=true
+	elseif string.sub(node, 1, #_BARE_PREFIX) == _BARE_PREFIX then
+		main=false
+	else
+		module:log("warn", "Unexpected node: "..node)
+		session.send(st.error_reply(stanza, 'modify', 'not-acceptable'))
+		return true
+	end
+
 	for feature in query:childtags("feature") do
 		local namespace = feature.attr.var
-		if not module:has_feature(namespace) then -- we avoid doubling features in case of disconnection/reconnexion
-			module:add_feature(namespace)
+		if main then
+			if not module:has_feature(namespace) then -- we avoid doubling features in case of disconnection/reconnexion
+				module:add_feature(namespace)
+			end
+		else
+			bare_features:add(namespace)
 		end
 	end
 	for identity in query:childtags("identity") do
 		local category, type_, name = identity.attr.category, identity.attr.type, identity.attr.name
-		if not module:has_identity(category, type_, name) then
-			module:add_identity(category, type_, name)
+		if main then
+			if not module:has_identity(category, type_, name) then
+				module:add_identity(category, type_, name)
+			end
+		else
+			local found=false
+			for _, item in ipairs(bare_identities) do
+				if item.category == category and item.type == type_ and item.name == name then
+					found=true
+					break
+				end
+			end
+			if not found then
+				table.insert(bare_identities, {category=category, type=type_, name=name})
+			end
 		end
 	end
 end
 
-function disco_main_error(event)
+function disco_error(event)
 	local stanza = event.stanza
 	if stanza.attr.to ~= module.host then
 		module:log("warn", 'Stanza result has "to" attribute not addressed to current host, id conflict ?')
 		return
 	end
-	module:unhook("iq-result/host/"..stanza.attr.id, disco_main_result)
-	module:unhook("iq-error/host/"..stanza.attr.id, disco_main_error)
+	module:unhook("iq-result/host/"..stanza.attr.id, disco_result)
+	module:unhook("iq-error/host/"..stanza.attr.id, disco_error)
 	module:log("warn", "Got an error while requesting disco for nesting to "..stanza.attr.from)
 	module:log("warn", "Ignoring disco nesting")
 end
 
 function disco_nest(namespace, entity_jid)
-	local main_node = _DELEGATION_NS.._MAIN_SEP..namespace
-	-- local bare_node = _DELEGATION_NS.._BARE_SEP..namespace
+	for _, prefix in ipairs(_PREFIXES) do
+		local node = prefix..namespace
 
-	local iq = st.iq({from=module.host, to=entity_jid, type='get'})
-		:tag('query', {xmlns=_DISCO_NS, node=main_node})
+		local iq = st.iq({from=module.host, to=entity_jid, type='get'})
+			:tag('query', {xmlns=_DISCO_NS, node=node})
 
-	local iq_id = iq.attr.id
+		local iq_id = iq.attr.id
 
-	module:hook("iq-result/host/"..iq_id, disco_main_result)
-	module:hook("iq-error/host/"..iq_id, disco_main_error)
-	module:send(iq)
+		module:hook("iq-result/host/"..iq_id, disco_result)
+		module:hook("iq-error/host/"..iq_id, disco_error)
+		module:send(iq)
+	end
 end
 
 -- disco to bare jids special case
@@ -382,4 +419,11 @@ module:hook("account-disco-info", function(event)
 		end
 		return child
 	end)
+	for feature in bare_features:items() do
+		reply:tag('feature', {var=feature}):up();
+	end
+	for _, item in ipairs(bare_identities) do
+		reply:tag('identity', {category=item.category, type=item.type, name=item.name}):up();
+	end
+
 end, -2^32);
