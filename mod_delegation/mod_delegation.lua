@@ -255,6 +255,7 @@ module:hook("iq/host", iq_hook, 2^32)
 
 -- modules whose features/identities are managed by delegation
 local disabled_modules = set.new()
+local disabled_identities = set.new()
 
 local function identity_added(event)
 	local source = event.source
@@ -262,9 +263,9 @@ local function identity_added(event)
 		local item = event.item
 		local category, type_, name = item.category, item.type, item.name
 		module:log("debug", "Removing (%s/%s%s) identity because of delegation", category, type_, name and "/"..name or "")
+		disabled_identities:add(item)
 		source:remove_item("identity", item)
 	end
-
 end
 
 local function feature_added(event)
@@ -351,3 +352,34 @@ function disco_nest(namespace, entity_jid)
 	module:hook("iq-error/host/"..iq_id, disco_main_error)
 	module:send(iq)
 end
+
+-- disco to bare jids special case
+
+module:hook("account-disco-info", function(event)
+	-- this event is called when a disco info request is done on a bare jid
+	-- we get the final reply and filter delegated features/identities
+	local reply = event.reply;
+	reply.tags[1]:maptags(function(child)
+		if child.name == 'feature' then
+			local feature_ns = child.attr.var
+			for namespace, _ in pairs(ns_delegations) do
+				if string.sub(feature_ns, 1, #namespace) == namespace then
+					module:log("debug", "Removing feature namespace %s which is delegated", feature_ns)
+					return nil
+				end
+			end
+		elseif child.name == 'identity' then
+			for item in disabled_identities:items() do
+				if item.category == child.attr.category
+					and item.type == child.attr.type
+					-- we don't check name, because mod_pep use a name for main disco, but not in account-disco-info hook
+					-- and item.name == child.attr.name
+				then
+					module:log("debug", "Removing (%s/%s%s) identity because of delegation", item.category, item.type, item.name and "/"..item.name or "")
+					return nil
+				end
+			end
+		end
+		return child
+	end)
+end, -2^32);
