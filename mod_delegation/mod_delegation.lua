@@ -198,7 +198,6 @@ local function forward_iq(stanza, ns_data)
 	local iq_id = iq_stanza.attr.id
 	-- we save the original stanza to check the managing entity result
 	ns_data[_ORI_ID_PREFIX..iq_id] = stanza
-	module:log("debug", "stanza forwarded to "..to_jid..": "..tostring(iq_stanza))
 	module:hook("iq-result/host/"..iq_id, managing_ent_result)
 	module:send(iq_stanza)
 end
@@ -214,14 +213,13 @@ local function iq_hook(event)
 		local ns_data = ns_delegations[namespace]
 
 		if ns_data then
-			module:log("debug", "Namespace %s is delegated", namespace)
 			if ns_data.filtering then
 				local first_child = stanza.tags[1]
 				for _, attribute in ns_data.filtering do
 					-- if any filtered attribute if not present,
 					-- we must continue the normal bahaviour
 					if not first_child.attr[attribute] then
-						module:log("debug", "Filtered attribute %s not present, doing normal workflow", attribute)
+						-- Filtered attribute is not present, we do normal workflow
 						return;
 					end
 				end
@@ -230,8 +228,6 @@ local function iq_hook(event)
 				module:log("warn", "No connected entity to manage "..namespace)
 				session.send(st.error_reply(stanza, 'cancel', 'service-unavailable'))
 			else
-				local managing_entity = ns_data.connected
-				module:log("debug", "Entity %s is managing %s", managing_entity, namespace)
 				forward_iq(stanza, ns_data)
 			end
 			return true
@@ -244,3 +240,46 @@ end
 
 module:hook("iq/self", iq_hook, 2^32)
 module:hook("iq/host", iq_hook, 2^32)
+
+
+--> discovery nesting <--
+
+-- modules whose features/identities are managed by delegation
+local disabled_modules = set.new()
+
+local function identity_added(event)
+	local source = event.source
+	if disabled_modules:contains(source) then
+		local item = event.item
+		local category, type_, name = item.category, item.type, item.name
+		module:log("debug", "Removing (%s/%s%s) identity because of delegation", category, type_, name and "/"..name or "")
+		source:remove_item("identity", item)
+	end
+
+end
+
+local function feature_added(event)
+	local source, item = event.source, event.item
+	for namespace, _ in pairs(ns_delegations) do
+		if source ~= module and string.sub(item, 1, #namespace) == namespace then
+			module:log("debug", "Removing %s feature which is delegated", item)
+			source:remove_item("feature", item)
+			disabled_modules:add(source)
+			if source.items and source.items.identity then
+				-- we remove all identities added by the source module
+				-- that can cause issues if the module manages several features/identities
+				-- but this case is probably rare (or doesn't happen at all)
+				-- FIXME: any better way ?
+				for _, identity in pairs(source.items.identity) do
+					identity_added({source=source, item=identity})
+				end
+			end
+		end
+	end
+end
+
+-- for disco nesting (see § 7.2) we need to remove internal features
+-- we use handle_items as it allow to remove already added features
+-- and catch the ones which can come later
+module:handle_items("feature", feature_added, function(_) end)
+module:handle_items("identity", identity_added, function(_) end, false)
