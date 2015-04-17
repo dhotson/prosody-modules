@@ -222,6 +222,10 @@ local function iq_hook(event)
 		local ns_data = ns_delegations[namespace]
 
 		if ns_data then
+			if stanza.attr.from == ns_data.connected then
+				-- we don't forward stanzas from managing entity itself
+				return
+			end
 			if ns_data.filtering then
 				local first_child = stanza.tags[1]
 				for _, attribute in ns_data.filtering do
