@@ -9,6 +9,8 @@ local untrusted_fail_notification = module:get_option("untrusted_fail_notificati
 
 local st = require "util.stanza";
 
+local notified_about_already = { };
+
 module:hook_global("s2s-check-certificate", function (event)
     local session, host = event.session, event.host;
     local conn = session.conn:socket();
@@ -25,7 +27,8 @@ module:hook_global("s2s-check-certificate", function (event)
             must_secure = false;
     end
 
-    if must_secure and (session.cert_chain_status ~= "valid" or session.cert_identity_status ~= "valid") then
+    if must_secure and (session.cert_chain_status ~= "valid" or session.cert_identity_status ~= "valid") and not notified_about_already[host] then
+		notified_about_already[host] = os.time();
 		local _, errors = conn:getpeerverification();
 		local error_message = "";
 
@@ -54,3 +57,10 @@ module:hook_global("s2s-check-certificate", function (event)
 	end
 end, -0.5);
 
+module:add_timer(14400, function (now)
+	for host, time in pairs(notified_about_already) do
+		if time + 86400 > now then
+			notified_about_already[host] = nil;
+		end
+	end
+end)
