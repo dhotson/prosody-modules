@@ -58,7 +58,7 @@ function munin_commands.config(conn, line)
 		conn:write(s_format("%s %s\n", k, value));
 	end
 	for _, name, k, value in meta:iter(stat, nil, nil) do
-		if name ~= "" then
+		if name ~= "" and not ignore_stats:contains(name) then
 			conn:write(s_format("%s.%s %s\n", name, k, value));
 		end
 	end
@@ -69,7 +69,9 @@ function munin_commands.fetch(conn, line)
 	local stat = line:match("%s(%S+)");
 	if not stat then conn:write("# Unknown service\n.\n"); return end
 	for _, name, value in data:iter(stat, nil) do
-		conn:write(s_format("%s.value %s\n", name, tostring(value)));
+		if not ignore_stats:contains(name) then
+			conn:write(s_format("%s.value %s\n", name, tostring(value)));
+		end
 	end
 	conn:write(".\n");
 end
