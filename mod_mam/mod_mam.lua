@@ -238,5 +238,9 @@ module:hook("pre-message/full", c2s_message_handler, 2);
 module:hook("message/bare", message_handler, 2);
 module:hook("message/full", message_handler, 2);
 
-module:add_feature(xmlns_mam);
+module:add_feature(xmlns_mam); -- COMPAT with XEP-0313 v 0.1
+
+module:hook("account-disco-info", function(event)
+	event.reply:tag("feature", {var=xmlns_mam}):up();
+end);
 
