@@ -360,3 +360,7 @@ end);
 -- And role/affiliation changes?
 
 module:add_feature(xmlns_mam);
+
+module:hook("muc-disco#info", function(event)
+	event.reply:tag("feature", {var=xmlns_mam}):up();
+end);
