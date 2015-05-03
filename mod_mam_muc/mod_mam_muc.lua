@@ -139,7 +139,8 @@ local query_form = dataform {
 -- Serve form
 module:hook("iq-get/bare/"..xmlns_mam..":query", function(event)
 	local origin, stanza = event.origin, event.stanza;
-	return origin.send(st.reply(stanza):add_child(query_form:form()));
+	origin.send(st.reply(stanza):add_child(query_form:form()));
+	return true;
 end);
 
 -- Handle archive queries
@@ -172,7 +173,8 @@ module:hook("iq-set/bare/"..xmlns_mam..":query", function(event)
 		local err;
 		form, err = query_form:data(form);
 		if err then
-			return origin.send(st.error_reply(stanza, "modify", "bad-request", select(2, next(err))))
+			origin.send(st.error_reply(stanza, "modify", "bad-request", select(2, next(err))));
+			return true;
 		end
 		qstart, qend = form["start"], form["end"];
 	end
@@ -197,7 +199,7 @@ module:hook("iq-set/bare/"..xmlns_mam..":query", function(event)
 	-- Load all the data!
 	local data, err = archive:find(room_node, {
 		start = qstart; ["end"] = qend; -- Time range
-		limit = qmax;
+		limit = qmax + 1;
 		before = before; after = after;
 		reverse = reverse;
 		total = true;
@@ -207,15 +209,24 @@ module:hook("iq-set/bare/"..xmlns_mam..":query", function(event)
 	if not data then
 		return origin.send(st.error_reply(stanza, "cancel", "internal-server-error"));
 	end
-	local count = err;
+	local total = err;
 
 	origin.send(st.reply(stanza))
 	local msg_reply_attr = { to = stanza.attr.from, from = stanza.attr.to };
 
+	local results = {};
+
 	-- Wrap it in stuff and deliver
-	local fwd_st, first, last;
+	local first, last;
+	local count = 0;
+	local complete = "true";
 	for id, item, when in data do
-		fwd_st = st.message(msg_reply_attr)
+		count = count + 1;
+		if count > qmax then
+			complete = nil;
+			break;
+		end
+		local fwd_st = st.message(msg_reply_attr)
 			:tag("result", { xmlns = xmlns_mam, queryid = qid, id = id })
 				:tag("forwarded", { xmlns = xmlns_forward })
 					:tag("delay", { xmlns = xmlns_delay, stamp = timestamp(when) }):up();
@@ -229,16 +240,27 @@ module:hook("iq-set/bare/"..xmlns_mam..":query", function(event)
 		if not first then first = id; end
 		last = id;
 
-		origin.send(fwd_st);
+		if reverse then
+			results[count] = fwd_st;
+		else
+			origin.send(fwd_st);
+		end
 	end
+	if reverse then
+		for i = #results, 1, -1 do
+			origin.send(results[i]);
+		end
+	end
+
 	-- That's all folks!
 	module:log("debug", "Archive query %s completed", tostring(qid));
 
 	if reverse then first, last = last, first; end
-	return origin.send(st.message(msg_reply_attr)
-		:tag("fin", { xmlns = xmlns_mam, queryid = qid })
+	origin.send(st.message(msg_reply_attr)
+		:tag("fin", { xmlns = xmlns_mam, queryid = qid, complete = complete })
 			:add_child(rsm.generate {
-				first = first, last = last, count = count }));
+				first = first, last = last, count = total }));
+	return true;
 end);
 
 module:hook("muc-get-history", function (event)
