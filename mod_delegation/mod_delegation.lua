@@ -27,7 +27,6 @@ local _DELEGATION_NS = 'urn:xmpp:delegation:1'
 local _FORWARDED_NS = 'urn:xmpp:forward:0'
 local _DISCO_NS = 'http://jabber.org/protocol/disco#info'
 local _DATA_NS = 'jabber:x:data'
-local _ORI_ID_PREFIX = "IQ_RESULT_"
 
 local _MAIN_SEP = '::'
 local _BARE_SEP = ':bare:'
@@ -151,6 +150,7 @@ module:hook('presence/initial', on_presence)
 
 --> delegated namespaces hook <--
 
+local stanza_cache = {} -- we cache original stanza to build reply
 local function managing_ent_result(event)
 	-- this function manage iq results from the managing entity
 	-- it do a couple of security check before sending the
@@ -167,6 +167,7 @@ local function managing_ent_result(event)
 	if #stanza ~= 1 or delegation.name ~= "delegation" or
 		delegation.attr.xmlns ~= _DELEGATION_NS then
 		module:log("warn", "ignoring invalid iq result from managing entity %s", stanza.attr.from)
+		stanza_cache[stanza.attr.from][stanza.attr.id] = nil
 		return true
 	end
 
@@ -174,18 +175,21 @@ local function managing_ent_result(event)
 	if #delegation ~= 1 or forwarded.name ~= "forwarded" or
 		forwarded.attr.xmlns ~= _FORWARDED_NS then
 		module:log("warn", "ignoring invalid iq result from managing entity %s", stanza.attr.from)
+		stanza_cache[stanza.attr.from][stanza.attr.id] = nil
 		return true
 	end
 
 	local iq = forwarded.tags[1]
 	if #forwarded ~= 1 or iq.name ~= "iq" or #iq ~= 1 then
 		module:log("warn", "ignoring invalid iq result from managing entity %s", stanza.attr.from)
+		stanza_cache[stanza.attr.from][stanza.attr.id] = nil
 		return true
 	end
 
 	local namespace = iq.tags[1].xmlns
 	local ns_data = ns_delegations[namespace]
-	local original = ns_data[_ORI_ID_PREFIX..stanza.attr.id]
+	local original = stanza_cache[stanza.attr.from][stanza.attr.id]
+	stanza_cache[stanza.attr.from][stanza.attr.id] = nil
 
 	if stanza.attr.from ~= ns_data.connected or iq.attr.type ~= "result" or
 		iq.attr.id ~= original.attr.id or iq.attr.to ~= original.attr.from then
@@ -207,7 +211,8 @@ local function forward_iq(stanza, ns_data)
 		:add_child(stanza)
 	local iq_id = iq_stanza.attr.id
 	-- we save the original stanza to check the managing entity result
-	ns_data[_ORI_ID_PREFIX..iq_id] = stanza
+	if not stanza_cache[to_jid] then stanza_cache[to_jid] = {} end
+	stanza_cache[to_jid][iq_id] = stanza
 	module:hook("iq-result/host/"..iq_id, managing_ent_result)
 	module:send(iq_stanza)
 end
