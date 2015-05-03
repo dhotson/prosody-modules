@@ -155,7 +155,7 @@ local function managing_ent_result(event)
 	-- this function manage iq results from the managing entity
 	-- it do a couple of security check before sending the
 	-- result to the managed entity
-	local session, stanza = event.origin, event.stanza
+	local stanza = event.stanza
 	if stanza.attr.to ~= module.host then
 		module:log("warn", 'forwarded stanza result has "to" attribute not addressed to current host, id conflict ?')
 		return
@@ -166,20 +166,20 @@ local function managing_ent_result(event)
 	local delegation = stanza.tags[1]
 	if #stanza ~= 1 or delegation.name ~= "delegation" or
 		delegation.attr.xmlns ~= _DELEGATION_NS then
-		session.send(st.error_reply(stanza, 'modify', 'not-acceptable'))
+		module:log("warn", "ignoring invalid iq result from managing entity %s", stanza.attr.from)
 		return true
 	end
 
 	local forwarded = delegation.tags[1]
 	if #delegation ~= 1 or forwarded.name ~= "forwarded" or
 		forwarded.attr.xmlns ~= _FORWARDED_NS then
-		session.send(st.error_reply(stanza, 'modify', 'not-acceptable'))
+		module:log("warn", "ignoring invalid iq result from managing entity %s", stanza.attr.from)
 		return true
 	end
 
 	local iq = forwarded.tags[1]
 	if #forwarded ~= 1 or iq.name ~= "iq" or #iq ~= 1 then
-		session.send(st.error_reply(stanza, 'modify', 'not-acceptable'))
+		module:log("warn", "ignoring invalid iq result from managing entity %s", stanza.attr.from)
 		return true
 	end
 
@@ -189,7 +189,7 @@ local function managing_ent_result(event)
 
 	if stanza.attr.from ~= ns_data.connected or iq.attr.type ~= "result" or
 		iq.attr.id ~= original.attr.id or iq.attr.to ~= original.attr.from then
-		session.send(st.error_reply(stanza, 'auth', 'forbidden'))
+		module:log("warn", "ignoring forbidden iq result from managing entity %s, please check that the component is no trying to do something bad (stanza: %s)", stanza.attr.from, tostring(stanza))
 		module:send(st.error_reply(original, 'cancel', 'service-unavailable'))
 		return true
 	end
