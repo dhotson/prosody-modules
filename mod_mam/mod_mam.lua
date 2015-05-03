@@ -124,7 +124,7 @@ module:hook("iq-set/self/"..xmlns_mam..":query", function(event)
 	local data, err = archive:find(origin.username, {
 		start = qstart; ["end"] = qend; -- Time range
 		with = qwith;
-		limit = qmax;
+		limit = qmax + 1;
 		before = before; after = after;
 		reverse = reverse;
 		total = true;
@@ -141,7 +141,14 @@ module:hook("iq-set/self/"..xmlns_mam..":query", function(event)
 
 	-- Wrap it in stuff and deliver
 	local fwd_st, first, last;
+	local count = 0;
+	local complete = "true";
 	for id, item, when in data do
+		count = count + 1;
+		if count > qmax then
+			complete = nil;
+			break;
+		end
 		fwd_st = st.message(msg_reply_attr)
 			:tag("result", { xmlns = xmlns_mam, queryid = qid, id = id })
 				:tag("forwarded", { xmlns = xmlns_forward })
@@ -163,7 +170,7 @@ module:hook("iq-set/self/"..xmlns_mam..":query", function(event)
 
 	if reverse then first, last = last, first; end
 	origin.send(st.message(msg_reply_attr)
-		:tag("fin", { xmlns = xmlns_mam, queryid = qid })
+		:tag("fin", { xmlns = xmlns_mam, queryid = qid, complete = complete })
 			:add_child(rsm.generate {
 				first = first, last = last, count = count }));
 	return true;
