@@ -253,6 +253,7 @@ local function iq_hook(event)
 end
 
 module:hook("iq/self", iq_hook, 2^32)
+module:hook("iq/bare", iq_hook, 2^32)
 module:hook("iq/host", iq_hook, 2^32)
 
 
