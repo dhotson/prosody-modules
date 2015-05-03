@@ -134,7 +134,7 @@ module:hook("iq-set/self/"..xmlns_mam..":query", function(event)
 		origin.send(st.error_reply(stanza, "cancel", "internal-server-error", err));
 		return true;
 	end
-	local count = err;
+	local total = err;
 
 	origin.send(st.reply(stanza))
 	local msg_reply_attr = { to = stanza.attr.from, from = stanza.attr.to };
@@ -172,7 +172,7 @@ module:hook("iq-set/self/"..xmlns_mam..":query", function(event)
 	origin.send(st.message(msg_reply_attr)
 		:tag("fin", { xmlns = xmlns_mam, queryid = qid, complete = complete })
 			:add_child(rsm.generate {
-				first = first, last = last, count = count }));
+				first = first, last = last, count = total }));
 	return true;
 end);
 
