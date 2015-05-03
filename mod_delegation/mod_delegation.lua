@@ -7,7 +7,7 @@
 -- This module manage namespace delegation, a way to delegate server features
 -- to an external entity/component. Only the admin mode is implemented so far
 
--- TODO: client mode, managing entity error handling, disco extensions (XEP-0128)
+-- TODO: client mode
 
 local jid = require("util/jid")
 local st = require("util/stanza")
@@ -150,7 +150,9 @@ module:hook('presence/initial', on_presence)
 
 --> delegated namespaces hook <--
 
+local managing_ent_error
 local stanza_cache = {} -- we cache original stanza to build reply
+
 local function managing_ent_result(event)
 	-- this function manage iq results from the managing entity
 	-- it do a couple of security check before sending the
@@ -161,6 +163,7 @@ local function managing_ent_result(event)
 		return
 	end
 	module:unhook("iq-result/host/"..stanza.attr.id, managing_ent_result)
+	module:unhook("iq-error/host/"..stanza.attr.id, managing_ent_error)
 
 	-- lot of checks to do...
 	local delegation = stanza.tags[1]
@@ -203,6 +206,20 @@ local function managing_ent_result(event)
 	module:send(iq)
 end
 
+function managing_ent_error(event)
+	local stanza = event.stanza
+	if stanza.attr.to ~= module.host then
+		module:log("warn", 'Stanza result has "to" attribute not addressed to current host, id conflict ?')
+		return
+	end
+	module:unhook("iq-result/host/"..stanza.attr.id, managing_ent_result)
+	module:unhook("iq-error/host/"..stanza.attr.id, managing_ent_error)
+	local original = stanza_cache[stanza.attr.from][stanza.attr.id]
+	stanza_cache[stanza.attr.from][stanza.attr.id] = nil
+	module:log("warn", "Got an error after forwarding stanza to "..stanza.attr.from)
+	module:send(st.error_reply(original, 'cancel', 'service-unavailable'))
+end
+
 local function forward_iq(stanza, ns_data)
 	local to_jid = ns_data.connected
 	local iq_stanza  = st.iq({ from=module.host, to=to_jid, type="set" })
@@ -214,6 +231,8 @@ local function forward_iq(stanza, ns_data)
 	if not stanza_cache[to_jid] then stanza_cache[to_jid] = {} end
 	stanza_cache[to_jid][iq_id] = stanza
 	module:hook("iq-result/host/"..iq_id, managing_ent_result)
+	module:hook("iq-error/host/"..iq_id, managing_ent_error)
+	module:log("debug", "stanza forwarded")
 	module:send(iq_stanza)
 end
 
