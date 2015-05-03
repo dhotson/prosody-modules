@@ -140,7 +140,7 @@ module:hook("iq-set/self/"..xmlns_mam..":query", function(event)
 	local msg_reply_attr = { to = stanza.attr.from, from = stanza.attr.to };
 
 	-- Wrap it in stuff and deliver
-	local fwd_st, first, last;
+	local first, last;
 	local count = 0;
 	local complete = "true";
 	for id, item, when in data do
@@ -149,7 +149,7 @@ module:hook("iq-set/self/"..xmlns_mam..":query", function(event)
 			complete = nil;
 			break;
 		end
-		fwd_st = st.message(msg_reply_attr)
+		local fwd_st = st.message(msg_reply_attr)
 			:tag("result", { xmlns = xmlns_mam, queryid = qid, id = id })
 				:tag("forwarded", { xmlns = xmlns_forward })
 					:tag("delay", { xmlns = xmlns_delay, stamp = timestamp(when) }):up();
