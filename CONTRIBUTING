@@ -1,0 +1,19 @@
+Contributing
+============
+
+Guidelines for developers
+-------------------------
+
+* Each module should be contained in a folder of its name (e.g. 
+  `mod_ping/mod_ping.lua`)
+* Each module should have a wiki page with a description, 
+  usage, configuration and todo sections (feel free to copy an 
+  existing one as a template)
+* Commit messages should begin with the name of the plugin they 
+  are for (e.g. `mod_ping: Set correct namespace on pongs`) 
+
+Instructions on cloning the repository are at 
+http://code.google.com/p/prosody-modules/source/checkout - if you have 
+commit access you will also see a link on that page to view your Google 
+Code password (not the same as your Google account password) to push your 
+changes. 
