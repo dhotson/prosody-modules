@@ -139,6 +139,8 @@ module:hook("iq-set/self/"..xmlns_mam..":query", function(event)
 	origin.send(st.reply(stanza))
 	local msg_reply_attr = { to = stanza.attr.from, from = stanza.attr.to };
 
+	local results = {};
+
 	-- Wrap it in stuff and deliver
 	local first, last;
 	local count = 0;
@@ -163,8 +165,18 @@ module:hook("iq-set/self/"..xmlns_mam..":query", function(event)
 		if not first then first = id; end
 		last = id;
 
-		origin.send(fwd_st);
+		if reverse then
+			results[count] = fwd_st;
+		else
+			origin.send(fwd_st);
+		end
 	end
+	if reverse then
+		for i = #results, 1, -1 do
+			origin.send(results[i]);
+		end
+	end
+
 	-- That's all folks!
 	module:log("debug", "Archive query %s completed", tostring(qid));
 
