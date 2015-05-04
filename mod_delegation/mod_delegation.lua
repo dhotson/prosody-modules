@@ -222,6 +222,7 @@ end
 
 local function forward_iq(stanza, ns_data)
 	local to_jid = ns_data.connected
+	stanza.attr.xmlns = 'jabber:client'
 	local iq_stanza  = st.iq({ from=module.host, to=to_jid, type="set" })
 		:tag("delegation", { xmlns=_DELEGATION_NS })
 		:tag("forwarded", { xmlns=_FORWARDED_NS })
