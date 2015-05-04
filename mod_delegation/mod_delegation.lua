@@ -183,18 +183,22 @@ local function managing_ent_result(event)
 	end
 
 	local iq = forwarded.tags[1]
-	if #forwarded ~= 1 or iq.name ~= "iq" or #iq ~= 1 then
+	if #forwarded ~= 1 or iq.name ~= "iq" or
+		(iq.attr.type =='result' and #iq ~= 1) or
+		(iq.attr.type == 'error' and #iq > 2) then
 		module:log("warn", "ignoring invalid iq result from managing entity %s", stanza.attr.from)
 		stanza_cache[stanza.attr.from][stanza.attr.id] = nil
 		return true
 	end
 
-	local namespace = iq.tags[1].xmlns
-	local ns_data = ns_delegations[namespace]
 	local original = stanza_cache[stanza.attr.from][stanza.attr.id]
 	stanza_cache[stanza.attr.from][stanza.attr.id] = nil
+	-- we get namespace from original and not iq
+	-- because the namespace can be lacking in case of error
+	local namespace = original.tags[1].attr.xmlns
+	local ns_data = ns_delegations[namespace]
 
-	if stanza.attr.from ~= ns_data.connected or iq.attr.type ~= "result" or
+	if stanza.attr.from ~= ns_data.connected or (iq.attr.type ~= "result" and iq.attr.type ~= "error") or
 		iq.attr.id ~= original.attr.id or iq.attr.to ~= original.attr.from then
 		module:log("warn", "ignoring forbidden iq result from managing entity %s, please check that the component is no trying to do something bad (stanza: %s)", stanza.attr.from, tostring(stanza))
 		module:send(st.error_reply(original, 'cancel', 'service-unavailable'))
