@@ -70,7 +70,7 @@ function munin_commands.fetch(conn, line)
 	if not stat then conn:write("# Unknown service\n.\n"); return end
 	for _, name, value in data:iter(stat, nil) do
 		if not ignore_stats:contains(name) then
-			conn:write(s_format("%s.value %s\n", name, tostring(value)));
+			conn:write(s_format("%s.value %.12f\n", name, value));
 		end
 	end
 	conn:write(".\n");
