@@ -10,7 +10,7 @@ function is_blocked(username)
         if block_users:contains(username) then return true; end
 
         for pattern in block_patterns do
-                if username:match(pattern) then
+                if username:find(pattern) then
                         return true;
                 end
         end
