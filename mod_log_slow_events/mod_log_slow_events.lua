@@ -29,7 +29,7 @@ module:wrap_event(false, function (handlers, event_name, event_data)
 				log_data("stanza", tostring(stanza));
 			end
 		end
-		module:log("warn", "Slow event '%s' took %0.2f: %s", event_name, duration, next(data) and table.concat(data, ", ") or "no recognised data");
+		module:log("warn", "Slow event '%s' took %0.2fs: %s", event_name, duration, next(data) and table.concat(data, ", ") or "no recognised data");
 	end
 	return ret;
 end);
