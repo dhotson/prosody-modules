@@ -105,14 +105,30 @@ local function dane_lookup(host_session, cb)
 				return cb(host_session); -- No service ... This shouldn't happen?
 			end
 			local srv_hosts = { answer = answer };
-			local dane = {};
-			host_session.dane = dane;
 			host_session.srv_hosts = srv_hosts;
+			local dane;
 			for _, record in ipairs(answer) do
 				t_insert(srv_hosts, record.srv);
 				dns_lookup(function(dane_answer)
 					n = n - 1;
-					if dane_answer.bogus then
+					-- There are three kinds of answers
+					-- Insecure, Secure and Bogus
+					--
+					-- We collect Secure answers for later use
+					--
+					-- Insecure (legacy) answers are simply ignored
+					--
+					-- If we get a Bogus (dnssec error) reply, keep the
+					-- status around.  If there were only bogus replies, the
+					-- connection will be aborted.  If there were at least
+					-- one non-Bogus reply, we proceed.  If none of the
+					-- replies matched, we consider the connection insecure.
+
+					if (dane_answer.bogus or dane_answer.secure) and not dane then
+						-- The first answer we care about
+						-- For services with only one SRV record, this will be the only one
+						dane = dane_answer;
+					elseif dane_answer.bogus then
 						dane.bogus = dane_answer.bogus;
 					elseif dane_answer.secure then
 						for _, dane_record in ipairs(dane_answer) do
@@ -120,15 +136,18 @@ local function dane_lookup(host_session, cb)
 						end
 					end
 					if n == 0 then
-						if #dane > 0 and dane.bogus then
-							-- Got at least one non-bogus reply,
-							-- This should trigger a failure if one of them did not match
-							host_session.log("warn", "Ignoring bogus replies");
-							dane.bogus = nil;
-						end
-						if #dane == 0 and dane.bogus == nil then
-							-- Got no usable data
-							host_session.dane = false;
+						if dane then
+							host_session.dane = dane;
+							if #dane > 0 and dane.bogus then
+								-- Got at least one non-bogus reply,
+								-- This should trigger a failure if one of them did not match
+								host_session.log("warn", "Ignoring bogus replies");
+								dane.bogus = nil;
+							end
+							if #dane == 0 and dane.bogus == nil then
+								-- Got no usable data
+								host_session.dane = false;
+							end
 						end
 						return cb(host_session);
 					end
