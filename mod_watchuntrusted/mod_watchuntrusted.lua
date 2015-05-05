@@ -13,6 +13,7 @@ local notified_about_already = { };
 
 module:hook_global("s2s-check-certificate", function (event)
     local session, host = event.session, event.host;
+    if not host then return end
     local conn = session.conn:socket();
     local local_host = session.direction == "outgoing" and session.from_host or session.to_host;
 
