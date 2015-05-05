@@ -328,6 +328,7 @@ function handle_resume(session, stanza, xmlns_sm)
 		original_session.conn = session.conn;
 		original_session.send = session.send;
 		original_session.filter = session.filter;
+		original_session.filter.session = original_session;
 		original_session.filters = session.filters;
 		original_session.stream = session.stream;
 		original_session.secure = session.secure;
