@@ -124,8 +124,8 @@ end
 local function wrap_session_in(session, resume)
 	if not resume then
 		session.handled_stanza_count = 0;
-		add_filter(session, "stanzas/in", count_incoming_stanzas, 1000);
 	end
+	add_filter(session, "stanzas/in", count_incoming_stanzas, 1000);
 
 	return session;
 end
