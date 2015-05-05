@@ -39,10 +39,10 @@ local archive_store = "archive2";
 local archive = module:open_store(archive_store, "archive");
 if not archive or archive.name == "null" then
 	module:log("error", "Could not open archive storage");
-	return
+	return;
 elseif not archive.find then
 	module:log("error", "mod_%s does not support archiving, switch to mod_storage_sql2", archive._provided_by);
-	return
+	return;
 end
 
 -- Handle prefs.
@@ -93,7 +93,7 @@ module:hook("iq-set/self/"..xmlns_mam..":query", function(event)
 		local err;
 		form, err = query_form:data(form);
 		if err then
-			origin.send(st.error_reply(stanza, "modify", "bad-request", select(2, next(err))))
+			origin.send(st.error_reply(stanza, "modify", "bad-request", select(2, next(err))));
 			return true;
 		end
 		qwith, qstart, qend = form["with"], form["start"], form["end"];
@@ -101,10 +101,10 @@ module:hook("iq-set/self/"..xmlns_mam..":query", function(event)
 	end
 
 	if qstart or qend then -- Validate timestamps
-		local vstart, vend = (qstart and timestamp_parse(qstart)), (qend and timestamp_parse(qend))
+		local vstart, vend = (qstart and timestamp_parse(qstart)), (qend and timestamp_parse(qend));
 		if (qstart and not vstart) or (qend and not vend) then
 			origin.send(st.error_reply(stanza, "modify", "bad-request", "Invalid timestamp"))
-			return true
+			return true;
 		end
 		qstart, qend = vstart, vend;
 	end
@@ -136,7 +136,7 @@ module:hook("iq-set/self/"..xmlns_mam..":query", function(event)
 	end
 	local total = err;
 
-	origin.send(st.reply(stanza))
+	origin.send(st.reply(stanza));
 	local msg_reply_attr = { to = stanza.attr.from, from = stanza.attr.to };
 
 	local results = {};
@@ -198,15 +198,15 @@ local function shall_store(user, who)
 	-- TODO Cache this?
 	local prefs = get_prefs(user);
 	local rule = prefs[who];
-	module:log("debug", "%s's rule for %s is %s", user, who, tostring(rule))
+	module:log("debug", "%s's rule for %s is %s", user, who, tostring(rule));
 	if rule ~= nil then
 		return rule;
 	else -- Below could be done by a metatable
 		local default = prefs[false];
-		module:log("debug", "%s's default rule is %s", user, tostring(default))
+		module:log("debug", "%s's default rule is %s", user, tostring(default));
 		if default == nil then
 			default = global_default_policy;
-			module:log("debug", "Using global default rule, %s", tostring(default))
+			module:log("debug", "Using global default rule, %s", tostring(default));
 		end
 		if default == "roster" then
 			return has_in_roster(user, who);
