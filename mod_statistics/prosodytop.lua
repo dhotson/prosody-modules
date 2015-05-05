@@ -104,7 +104,7 @@ function main()
 
 	local conn = require "socket".tcp();
 	assert(conn:connect("localhost", 5782));
-	handler = server.wrapclient(conn, "localhost", 5279, stats_listener, "*a");
+	handler = server.wrapclient(conn, "localhost", 5782, stats_listener, "*a");
 end
 
 return {
