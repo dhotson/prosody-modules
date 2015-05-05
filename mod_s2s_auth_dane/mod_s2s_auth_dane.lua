@@ -94,7 +94,7 @@ local function dane_lookup(host_session, cb)
 				return cb(host_session);
 			end
 
-			local n = #answer
+			local n = answer.n or #answer;
 			if n == 0 then
 				-- No SRV records, we could proceed with the domainname and
 				-- default port but that will currently not work properly since
