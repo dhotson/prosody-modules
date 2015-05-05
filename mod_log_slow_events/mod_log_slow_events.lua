@@ -1,8 +1,9 @@
 local time = require "socket".gettime;
+local base64_decode = require "util.encodings".base64.decode;
 
 local max_seconds = module:get_option_number("log_slow_events_threshold", 0.5);
 
-module:wrap_event(false, function (handlers, event_name, event_data)
+function event_wrapper(handlers, event_name, event_data)
 	local start = time();
 	local ret = handlers(event_name, event_data);
 	local duration = time()-start;
@@ -27,9 +28,28 @@ module:wrap_event(false, function (handlers, event_name, event_data)
 			local stanza = event_data.stanza;
 			if stanza then
 				log_data("stanza", tostring(stanza));
+			else
+				local request = event_data.request;
+				if request then
+					log_data("http_method", request.method);
+					log_data("http_path", request.path);
+					local auth = request.headers.authorization;
+					if auth then
+						local creds = auth:match("^Basic +(.+)$");
+						if creds then
+							local user = string.match(base64_decode(creds) or "", "^([^:]+):");
+							log_data("http_user", user);
+						end
+					end
+				end
 			end
 		end
 		module:log("warn", "Slow event '%s' took %0.2fs: %s", event_name, duration, next(data) and table.concat(data, ", ") or "no recognised data");
 	end
 	return ret;
-end);
+end
+
+module:wrap_event(false, event_wrapper);
+local http_events = require "net.http.server"._events;
+module:wrap_object_event(http_events, false, event_wrapper);
+
