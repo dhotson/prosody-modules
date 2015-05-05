@@ -7,7 +7,7 @@ local function handle_inbound_subscription_request(origin, stanza)
 	local to_bare, from_bare = jid.bare(stanza.attr.to), jid.bare(stanza.attr.from);
 	local node, host = jid.split(to_bare);
 	stanza.attr.from, stanza.attr.to = from_bare, to_bare;
-	module:log("info", "Auto-accepting inbound subscription request from %s to %s", from_bare, to_bare);
+	module:log("info", "Auto-accepting inbound subscription request from %s to %s", tostring(from_bare), tostring(to_bare));
 
 	if not rostermanager.is_contact_subscribed(node, host, from_bare) then
 		core_post_stanza(hosts[host], st.presence({from=to_bare, to=from_bare, type="unavailable"}), true); -- acknowledging receipt
@@ -35,7 +35,7 @@ local function handle_inbound_subscription_request(origin, stanza)
 			end
 		end
 	end
-	module:log("warn", "Failed to auto-accept subscription request from %s to %s", from_bare, to_bare);
+	module:log("warn", "Failed to auto-accept subscription request from %s to %s", tostring(from_bare), tostring(to_bare));
 end
 
 module:hook("presence/bare", function (event)
