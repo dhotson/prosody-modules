@@ -184,12 +184,15 @@ local function managing_ent_result(event)
 
 	local iq = forwarded.tags[1]
 	if #forwarded ~= 1 or iq.name ~= "iq" or
+        iq.attr.xmlns ~= 'jabber:client' or
 		(iq.attr.type =='result' and #iq ~= 1) or
 		(iq.attr.type == 'error' and #iq > 2) then
 		module:log("warn", "ignoring invalid iq result from managing entity %s", stanza.attr.from)
 		stanza_cache[stanza.attr.from][stanza.attr.id] = nil
 		return true
 	end
+
+    iq.attr.xmlns = nil
 
 	local original = stanza_cache[stanza.attr.from][stanza.attr.id]
 	stanza_cache[stanza.attr.from][stanza.attr.id] = nil
@@ -208,6 +211,7 @@ local function managing_ent_result(event)
 	-- at this point eveything is checked,
 	-- and we (hopefully) can send the the result safely
 	module:send(iq)
+    return true
 end
 
 function managing_ent_error(event)
@@ -222,6 +226,7 @@ function managing_ent_error(event)
 	stanza_cache[stanza.attr.from][stanza.attr.id] = nil
 	module:log("warn", "Got an error after forwarding stanza to "..stanza.attr.from)
 	module:send(st.error_reply(original, 'cancel', 'service-unavailable'))
+    return true
 end
 
 local function forward_iq(stanza, ns_data)
