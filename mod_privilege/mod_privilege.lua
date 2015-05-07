@@ -18,15 +18,18 @@ local full_sessions = prosody.full_sessions;
 
 local priv_session = module:shared("/*/privilege/session")
 
+if priv_session.connected_cb == nil then
+	-- set used to have connected event listeners
+	-- which allows a host to react on events from
+	-- other hosts
+	priv_session.connected_cb = set.new()
+end
+local connected_cb = priv_session.connected_cb
+
 -- the folowing sets are used to forward presence stanza
-if not priv_session.presence_man_ent  then
-	priv_session.presence_man_ent = set.new()
-end
-local presence_man_ent = priv_session.presence_man_ent
-if not priv_session.presence_roster then
-	priv_session.presence_roster = set.new()
-end
-local presence_roster = priv_session.presence_roster
+-- the folowing sets are used to forward presence stanza
+local presence_man_ent = set.new()
+local presence_roster = set.new()
 
 local _ALLOWED_ROSTER = set.new({'none', 'get', 'set', 'both'})
 local _ROSTER_GET_PERM = set.new({'get', 'both'})
@@ -44,12 +47,12 @@ module:log("debug", "Loading privileged entity module ");
 
 --> Permissions management <--
 
-privileges = module:get_option("privileged_entities", {})
+local privileges = module:get_option("privileged_entities", {})
 
-function advertise_perm(session, to_jid, perms)
+local function advertise_perm(session, to_jid, perms)
 	-- send <message/> stanza to advertise permissions
 	-- as expained in § 4.2
-	local message = st.message({to=to_jid})
+	local message = st.message({from=module.host, to=to_jid})
 					  :tag("privilege", {xmlns=_PRIV_ENT_NS})
 
 	for _, perm in pairs({'roster', 'message', 'presence'}) do
@@ -60,8 +63,8 @@ function advertise_perm(session, to_jid, perms)
 	session.send(message)
 end
 
-function set_presence_perm_set(to_jid, perms)
-	-- fill the global presence sets according to perms
+local function set_presence_perm_set(to_jid, perms)
+	-- fill the presence sets according to perms
 	if _PRESENCE_MANAGED:contains(perms.presence) then
 		presence_man_ent:add(to_jid)
 	end
@@ -70,7 +73,7 @@ function set_presence_perm_set(to_jid, perms)
 	end
 end
 
-function advertise_presences(session, to_jid, perms)
+local function advertise_presences(session, to_jid, perms)
 	-- send presence status for already conencted entities
 	-- as explained in § 7.1
 	-- people in roster are probed only for active sessions
@@ -92,7 +95,7 @@ function advertise_presences(session, to_jid, perms)
 				local bare_jid = jid.bare(user_session.full_jid)
 				for entity, item in pairs(user_session.roster) do
 					if entity~=false and entity~="pending" and (item.subscription=="both" or item.subscription=="to") then
-						_, host = jid.split(entity)
+						local _, host = jid.split(entity)
 						if not hosts[host] then -- we don't probe jid from hosts we manage
 							-- using a table with entity as key avoid probing several time the same one
 							to_probe[entity] = bare_jid
@@ -104,14 +107,14 @@ function advertise_presences(session, to_jid, perms)
 	end
 
 	-- now we probe peoples for "roster" presence permission
-	for to_jid, from_jid in pairs(to_probe) do
-		module:log("debug", "probing presence for %s (on behalf of %s)", tostring(to_jid), tostring(from_jid))
-		local probe = st.presence({from=from_jid, to=to_jid, type="probe"})
+	for probe_to, probe_from in pairs(to_probe) do
+		module:log("debug", "probing presence for %s (on behalf of %s)", tostring(probe_to), tostring(probe_from))
+		local probe = st.presence({from=probe_from, to=probe_to, type="probe"})
 		prosody.core_route_stanza(nil, probe)
 	end
 end
 
-function on_auth(event)
+local function on_auth(event)
 	-- Check if entity is privileged according to configuration,
 	-- and set session.privileges accordingly
 
@@ -138,7 +141,7 @@ function on_auth(event)
 		if ent_priv.permission == 'roster' and not _ROSTER_GET_PERM:contains(session.privileges.roster) then
 			module:log("warn", "Can't allow roster presence privilege without roster \"get\" privilege")
 			module:log("warn", "Setting presence permission to none")
-			end_priv.permission = nil
+			ent_priv.permission = nil
 		end
 
 		if session.type == "component" then
@@ -153,10 +156,10 @@ function on_auth(event)
 	session.privileges = ent_priv
 end
 
-function on_presence(event)
+local function on_presence(event)
 	-- Permission are already checked at this point,
 	-- we only advertise them to the entity
-	local session, stanza = event.origin, event.stanza;
+	local session = event.origin
 	if session.privileges then
 		advertise_perm(session, session.full_jid, session.privileges)
 		set_presence_perm_set(session.full_jid, session.privileges)
@@ -164,8 +167,18 @@ function on_presence(event)
 	end
 end
 
+local function on_component_auth(event)
+	-- react to component-authenticated event from this host
+	-- and call the on_auth methods from all other hosts
+	-- needed for the component to get delegations advertising
+	for callback in connected_cb:items() do
+		callback(event)
+	end
+end
+
+connected_cb:add(on_auth)
 module:hook('authentication-success', on_auth)
-module:hook('component-authenticated', on_auth)
+module:hook('component-authenticated', on_component_auth)
 module:hook('presence/initial', on_presence)
 
 
@@ -188,17 +201,16 @@ module:hook("iq-get/bare/jabber:iq:roster:query", function(event)
 		local reply = st.reply(stanza):query("jabber:iq:roster");
 		for entity_jid, item in pairs(roster) do
 			if entity_jid and entity_jid ~= "pending" then
-				local node, host = jid.split(entity_jid);
-					reply:tag("item", {
-						jid = entity_jid,
-						subscription = item.subscription,
-						ask = item.ask,
-						name = item.name,
-					});
-					for group in pairs(item.groups) do
-						reply:tag("group"):text(group):up();
-					end
-					reply:up(); -- move out from item
+				reply:tag("item", {
+					jid = entity_jid,
+					subscription = item.subscription,
+					ask = item.ask,
+					name = item.name,
+				});
+				for group in pairs(item.groups) do
+					reply:tag("group"):text(group):up();
+				end
+				reply:up(); -- move out from item
 			end
 		end
 		-- end of code adapted from mod_remote_roster
@@ -228,20 +240,19 @@ module:hook("iq-set/bare/jabber:iq:roster:query", function(event)
 		if not(roster) then return; end
 
 		local query = stanza.tags[1];
-		for i_, item in ipairs(query.tags) do
+		for _, item in ipairs(query.tags) do
 			if item.name == "item"
 				and item.attr.xmlns == "jabber:iq:roster" and item.attr.jid
 					-- Protection against overwriting roster.pending, until we move it
 				and item.attr.jid ~= "pending" then
 
 				local item_jid = jid.prep(item.attr.jid);
-				local node, host, resource = jid.split(item_jid);
+				local _, host, resource = jid.split(item_jid);
 				if not resource then
 					if item_jid ~= stanza.attr.to then -- not self-item_jid
 						if item.attr.subscription == "remove" then
 							local r_item = roster[item_jid];
 							if r_item then
-								local to_bare = node and (node.."@"..host) or host; -- bare jid
 								roster[item_jid] = nil;
 								if roster_manager.save_roster(from_node, from_host, roster) then
 									session.send(st.reply(stanza));
@@ -315,7 +326,7 @@ module:hook("message/host", function(event)
 			and privilege_elt.tags[1].attr.xmlns==_FORWARDED_NS then
 			local message_elt = privilege_elt.tags[1]:get_child('message', 'jabber:client')
 			if message_elt ~= nil then
-				local from_node, from_host, from_resource = jid.split(message_elt.attr.from)
+				local _, from_host, from_resource = jid.split(message_elt.attr.from)
 				if from_resource == nil and hosts[from_host] then -- we only accept bare jids from one of the server hosts
 					-- at this point everything should be alright, we can send the message
 					prosody.core_route_stanza(nil, message_elt)
@@ -340,7 +351,7 @@ end);
 
 --> presence permission <--
 
-function same_tags(tag1, tag2)
+local function same_tags(tag1, tag2)
 	-- check if two tags are equivalent
 
     if tag1.name ~= tag2.name then return false; end
@@ -362,7 +373,7 @@ function same_tags(tag1, tag2)
 	return true
 end
 
-function same_presences(presence1, presence2)
+local function same_presences(presence1, presence2)
 	-- check that 2 <presence/> stanzas are equivalent (except for "to" attribute)
 	-- /!\ if the id change but everything else is equivalent, this method return false
 	-- this behaviour may change in the future
@@ -386,8 +397,8 @@ function same_presences(presence1, presence2)
 	return true
 end
 
-function forward_presence(presence, to_jid)
-	presence_fwd = st.clone(presence)
+local function forward_presence(presence, to_jid)
+	local presence_fwd = st.clone(presence)
 	presence_fwd.attr.to = to_jid
 	module:log("debug", "presence forwarded to "..to_jid..": "..tostring(presence_fwd))
 	module:send(presence_fwd)
@@ -398,7 +409,7 @@ end
 module:hook("presence/bare", function(event)
 	if presence_man_ent:empty() and presence_roster:empty() then return; end
 
-	local session, stanza = event.origin, event.stanza;
+	local stanza = event.stanza
 	if stanza.attr.type == nil or stanza.attr.type == "unavailable" then
 		if not stanza.attr.to then
 			for entity in presence_man_ent:items() do
@@ -406,7 +417,7 @@ module:hook("presence/bare", function(event)
 			end
 		else -- directed presence
 			-- we ignore directed presences from our own host, as we already have them
-			_, from_host = jid.split(stanza.attr.from)
+			local _, from_host = jid.split(stanza.attr.from)
 			if hosts[from_host] then return; end
 
 			-- we don't send several time the same presence, as recommended in §7 #2
