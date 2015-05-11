@@ -377,3 +377,18 @@ function handle_resume(session, stanza, xmlns_sm)
 end
 module:hook_stanza(xmlns_sm2, "resume", function (session, stanza) return handle_resume(session, stanza, xmlns_sm2); end);
 module:hook_stanza(xmlns_sm3, "resume", function (session, stanza) return handle_resume(session, stanza, xmlns_sm3); end);
+
+local function handle_read_timeout(event)
+	local session = event.session;
+	if session.smacks then
+		if session.awaiting_ack then
+			return false; -- Kick the session
+		end
+		(session.sends2s or session.send)(st.stanza("r", { xmlns = session.smacks }));
+		session.awaiting_ack = true;
+		return true;
+	end
+end
+
+module:hook("s2s-read-timeout", handle_read_timeout);
+module:hook("c2s-read-timeout", handle_read_timeout);
