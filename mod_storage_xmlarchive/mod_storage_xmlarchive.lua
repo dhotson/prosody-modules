@@ -130,7 +130,7 @@ function archive:find(username, query)
 			for i = first_item, last_item, step do
 				local item = items[i];
 				if not item then
-					module:log("debug", "data[%q][%d] is nil", dates[d], i);
+					module:log("warn", "data[%q][%d] is nil", dates[d], i);
 					break;
 				end
 				if xmlfile and in_range
