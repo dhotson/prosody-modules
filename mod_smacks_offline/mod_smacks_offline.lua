@@ -21,9 +21,11 @@ local handle_unacked_stanzas = mod_smacks.handle_unacked_stanzas;
 
 local host_sessions = prosody.hosts[module.host].sessions;
 mod_smacks.handle_unacked_stanzas = function (session)
-	local sessions = host_sessions[session.username].sessions;
-	if next(sessions) == session.resource and next(sessions, session.resource) == nil then
-		store_unacked_stanzas(session)
+	if session.username then
+		local sessions = host_sessions[session.username].sessions;
+		if next(sessions) == session.resource and next(sessions, session.resource) == nil then
+			store_unacked_stanzas(session)
+		end
 	end
 	return handle_unacked_stanzas(session);
 end
