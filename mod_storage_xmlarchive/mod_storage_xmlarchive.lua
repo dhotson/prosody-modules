@@ -69,7 +69,13 @@ function archive:find(username, query)
 	local stream = new_stream(stream_sess, { handlestanza = cb, stream_ns = "jabber:client"});
 	local dates = dm.list_load(username, module.host, self.store) or empty;
 	stream:feed(st.stanza("stream", { xmlns = "jabber:client" }):top_tag());
-	stream_sess.notopen = nil;
+	local function reset_stream()
+		stream:reset();
+		stream_sess.notopen = true;
+		stream:feed(st.stanza("stream", { xmlns = "jabber:client" }):top_tag());
+		stream_sess.notopen = nil;
+	end
+	reset_stream();
 
 	local limit = query.limit;
 	local start_day, step, last_day = 1, 1, #dates;
@@ -140,6 +146,7 @@ function archive:find(username, query)
 					local ok, err = stream:feed(data);
 					if not ok then
 						module:log("warn", "Parse error in %s at %d+%d: %s", filename, item.offset, item.length, err);
+						reset_stream();
 					end
 					if result then
 						local stanza = result;
