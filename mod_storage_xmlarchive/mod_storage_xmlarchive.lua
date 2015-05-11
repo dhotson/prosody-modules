@@ -110,7 +110,7 @@ function archive:find(username, query)
 
 		for d = start_day, last_day, step do
 			if d ~= start_day or not items then
-				module:log("debug", "Load items for %s", dates[d]);
+				module:log("debug", "Loading items from %s", dates[d]);
 				start_day = d;
 				items = dm.list_load(username .. "@" .. dates[d], module.host, self.store) or empty;
 				if not rev then
