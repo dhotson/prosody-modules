@@ -298,6 +298,18 @@ module:hook("pre-resource-unbind", function (event)
 	end
 end);
 
+local function handle_s2s_destroyed(event)
+	local session = event.session;
+	local queue = session.outgoing_stanza_queue;
+	if queue and #queue > 0 then
+		session.log("warn", "Destroying session with %d unacked stanzas", #queue);
+		handle_unacked_stanzas(session);
+	end
+end
+
+module:hook("s2sout-destroyed", handle_s2s_destroyed);
+module:hook("s2sin-destroyed", handle_s2s_destroyed);
+
 function handle_resume(session, stanza, xmlns_sm)
 	if session.full_jid then
 		session.log("warn", "Tried to resume after resource binding");
