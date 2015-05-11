@@ -128,7 +128,6 @@ function archive:find(username, query)
 			end
 
 			for i = first_item, last_item, step do
-				module:log("debug", "data[%q][%d]", dates[d], i);
 				local item = items[i];
 				if not item then
 					module:log("debug", "data[%q][%d] is nil", dates[d], i);
