@@ -100,6 +100,7 @@ function archive:find(username, query)
 
 	return function ()
 		if limit and count >= limit then xmlfile:close() return; end
+		local filename;
 
 		for d = start_day, last_day, step do
 			if d ~= start_day or not items then
@@ -112,7 +113,8 @@ function archive:find(username, query)
 					first_item, last_item = #items, 1;
 				end
 				local ferr;
-				xmlfile, ferr = io.open(dm.getpath(username .. "@" .. dates[d], module.host, self.store, "xml"));
+				filename = dm.getpath(username .. "@" .. dates[d], module.host, self.store, "xml");
+				xmlfile, ferr = io.open(filename);
 				if not xmlfile then
 					module:log("error", "Error: %s", ferr);
 					return;
@@ -137,7 +139,7 @@ function archive:find(username, query)
 					local data = xmlfile:read(item.length);
 					local ok, err = stream:feed(data);
 					if not ok then
-						module:log("warn", "Parse error: %s", err);
+						module:log("warn", "Parse error in %s at %d+%d: %s", filename, item.offset, item.length, err);
 					end
 					if result then
 						local stanza = result;
