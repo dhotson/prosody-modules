@@ -34,8 +34,10 @@ local blocklists = module:open_store("blocklist");
 local blocklist_handler = adhoc_inital_data(blocklist_form, function ()
 	local blacklistjids = {};
 	local blacklist = blocklists:get();
-	for jid in pairs(blacklist) do
-		table.insert(blacklistjids, jid);
+	if blacklist then
+		for jid in pairs(blacklist) do
+			table.insert(blacklistjids, jid);
+		end
 	end
 	return { blacklistjids = blacklistjids };
 end, function(fields, form_err)
